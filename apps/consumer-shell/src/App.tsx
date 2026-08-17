@@ -40,7 +40,8 @@ function AppRoutes() {
       <Route path="/" element={isDomainScopedConsumerSite() ? <HomePage /> : <ConsumerSiteMissingPage />} />
       <Route path="/login" element={isDomainScopedConsumerSite() ? (isAuthenticated ? <Navigate to="/account" replace /> : <LoginPage />) : <ConsumerSiteMissingPage />} />
       <Route path="/bookings" element={isDomainScopedConsumerSite() ? <BookingsPage /> : <ConsumerSiteMissingPage />} />
-      <Route path="/book-appointment" element={isDomainScopedConsumerSite() ? <ProtectedRoute><BookAppointmentPage /></ProtectedRoute> : <ConsumerSiteMissingPage />} />
+      <Route path="/booking" element={isDomainScopedConsumerSite() ? <BookAppointmentPage /> : <ConsumerSiteMissingPage />} />
+      <Route path="/book-appointment" element={isDomainScopedConsumerSite() ? <Navigate to="/booking" replace /> : <ConsumerSiteMissingPage />} />
       <Route path="/terms" element={isDomainScopedConsumerSite() ? <PolicyPage /> : <ConsumerSiteMissingPage />} />
       <Route path="/privacy" element={isDomainScopedConsumerSite() ? <PolicyPage /> : <ConsumerSiteMissingPage />} />
       <Route path="/refund" element={isDomainScopedConsumerSite() ? <PolicyPage /> : <ConsumerSiteMissingPage />} />
@@ -67,7 +68,8 @@ function AppRoutes() {
       <Route path="/:accountSlug" element={<AccountRouteBoundary><HomePage /></AccountRouteBoundary>} />
       <Route path="/:accountSlug/login" element={isAuthenticated ? <AccountRedirect to="/account" /> : <LoginPage />} />
       <Route path="/:accountSlug/bookings" element={<BookingsPage />} />
-      <Route path="/:accountSlug/book-appointment" element={<ProtectedRoute><BookAppointmentPage /></ProtectedRoute>} />
+      <Route path="/:accountSlug/booking" element={<BookAppointmentPage />} />
+      <Route path="/:accountSlug/book-appointment" element={<AccountRedirect to="/booking" />} />
       <Route path="/:accountSlug/terms" element={<PolicyPage />} />
       <Route path="/:accountSlug/privacy" element={<PolicyPage />} />
       <Route path="/:accountSlug/refund" element={<PolicyPage />} />

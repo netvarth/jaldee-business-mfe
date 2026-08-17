@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Avatar, Badge, Button, Calendar, Container, Icon, Input, SectionCard, StatCard, Switch, Textarea, buttonVariants } from "@jaldee/design-system";
 import { useAuth } from "../auth/AuthProvider";
 import { useAppStore } from "../store/appStore";
@@ -23,6 +23,7 @@ const pageCopy: Record<ConsumerSection, { eyebrow: string; title: string; descri
 
 export default function ConsumerSectionPage({ section }: { section: ConsumerSection }) {
   const { logout } = useAuth();
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
   const user = useAppStore((state) => state.user);
   const { accountSlug } = useParams();
   const location = useLocation();
@@ -36,22 +37,34 @@ export default function ConsumerSectionPage({ section }: { section: ConsumerSect
 
   return (
     <div className="consumer-dashboard text-[var(--color-text-primary)]">
-      <aside className="dashboard-sidebar fixed inset-y-0 left-0 z-30 hidden border-r border-[var(--color-border)] bg-white md:flex md:flex-col">
-        <Link to={route("/account")} className="flex items-center gap-3 px-1 text-2xl font-bold"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-primary)] text-white">J</span>Jaldee</Link>
-        <nav className="mt-9 space-y-1" aria-label="Account navigation">
-          {nav.map(([label, path]) => { const active = location.pathname.endsWith(path); return <Link key={path} to={route(path)} className={`flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-medium transition ${active ? "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" : "text-slate-700 hover:bg-[var(--color-surface-alt)]"}`}><span className="h-2 w-2 rounded-full border border-current" />{label}</Link>; })}
-        </nav>
-      </aside>
+      {isAuthenticated && (
+        <aside className="dashboard-sidebar fixed inset-y-0 left-0 z-30 hidden border-r border-[var(--color-border)] bg-white md:flex md:flex-col">
+          <Link to={route("/account")} className="flex items-center gap-3 px-1 text-2xl font-bold"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-primary)] text-white">J</span>Jaldee</Link>
+          <nav className="mt-9 space-y-1" aria-label="Account navigation">
+            {nav.map(([label, path]) => { const active = location.pathname.endsWith(path); return <Link key={path} to={route(path)} className={`flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-medium transition ${active ? "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" : "text-slate-700 hover:bg-[var(--color-surface-alt)]"}`}><span className="h-2 w-2 rounded-full border border-current" />{label}</Link>; })}
+          </nav>
+        </aside>
+      )}
 
-      <div className="dashboard-shell md:pl-[250px]">
+      <div className={`dashboard-shell ${isAuthenticated ? "md:pl-[250px]" : ""}`}>
         <header className="dashboard-header sticky top-0 z-20 flex items-center justify-between border-b border-[var(--color-border)] bg-white/95 backdrop-blur">
-          <Link to={route("/account")} className="text-xl font-bold md:hidden">Jaldee</Link><span className="hidden md:block" />
-          <div className="flex items-center gap-3"><Link to={route("/profile")} className="flex items-center gap-3"><Avatar name={user?.name || "Consumer"} size="sm" /><span className="hidden text-sm font-semibold sm:block">{user?.name || "Consumer"}</span></Link><Button variant="ghost" size="sm" onClick={() => void logout()}>Sign out</Button></div>
+          {isAuthenticated ? (
+            <>
+              <Link to={route("/account")} className="text-xl font-bold md:hidden">Jaldee</Link><span className="hidden md:block" />
+            </>
+          ) : (
+            <Link to={route("/")} className="flex items-center gap-2.5 text-xl font-bold"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--color-primary)] text-white text-base font-bold">J</span>Jaldee</Link>
+          )}
+          {isAuthenticated ? (
+            <div className="flex items-center gap-3"><Link to={route("/profile")} className="flex items-center gap-3"><Avatar name={user?.name || "Consumer"} size="sm" /><span className="hidden text-sm font-semibold sm:block">{user?.name || "Consumer"}</span></Link><Button variant="ghost" size="sm" onClick={() => void logout()}>Sign out</Button></div>
+          ) : (
+            <div className="flex items-center gap-3"><Link to={route("/login")} state={{ from: `${location.pathname}${location.search}` }} className={buttonVariants({ variant: "outline", size: "sm" })}>Sign in</Link></div>
+          )}
         </header>
 
         <main className="py-8">
           <Container size="2xl">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold tracking-[0.14em] text-[var(--color-primary)]">{copy.eyebrow}</p><h1 className="mt-2 text-3xl font-bold">{copy.title}</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{copy.description}</p></div>{section === "bookings" ? <Link to={route("/book-appointment")} className={buttonVariants({ size: "lg" })}>Book appointment</Link> : section !== "book" && section !== "profile" && <Button size="lg">{copy.action}</Button>}</div>
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold tracking-[0.14em] text-[var(--color-primary)]">{copy.eyebrow}</p><h1 className="mt-2 text-3xl font-bold">{copy.title}</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{copy.description}</p></div>{section === "bookings" ? <Link to={route("/booking")} className={buttonVariants({ size: "lg" })}>Book appointment</Link> : section !== "book" && section !== "profile" && <Button size="lg">{copy.action}</Button>}</div>
             <div className="mt-7">{renderSection(section)}</div>
           </Container>
         </main>
@@ -112,6 +125,13 @@ const bookingServices: BookingService[] = [
 const bookingSlots = ["09:00 AM", "09:30 AM", "10:30 AM", "11:00 AM", "01:30 PM", "02:00 PM", "03:30 PM", "04:00 PM", "05:30 PM"];
 
 function BookingExperience() {
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const user = useAppStore((state) => state.user);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { accountSlug } = useParams();
+  const route = (path: string) => accountPath(accountSlug, path);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialService = bookingServices.find((item) => item.id === searchParams.get("service")) || null;
   const initialDoctor = initialService?.doctors.includes(searchParams.get("doctor") || "") ? searchParams.get("doctor") || "" : "";
@@ -120,27 +140,56 @@ function BookingExperience() {
   const initialStep = initialService && initialDoctor ? initialDate && initialTime ? 2 : 1 : 0;
   const [step, setStep] = useState(initialStep);
   const [query, setQuery] = useState("");
-  const [location, setLocation] = useState(searchParams.get("location") || "Jaldee Health Centre, Kochi");
+  const [locationName, setLocationName] = useState(searchParams.get("location") || "Jaldee Health Centre, Kochi");
   const [service, setService] = useState<BookingService | null>(initialService);
   const [doctor, setDoctor] = useState(initialDoctor);
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
   const [calendarMonth, setCalendarMonth] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? new Date(`${initialDate}T12:00:00`) : new Date());
-  const [details, setDetails] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [details, setDetails] = useState({ name: user?.name || "", phone: "", email: user?.email || "", notes: "" });
   const [confirmed, setConfirmed] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const filtered = bookingServices.filter((item) => `${item.name} ${item.description} ${item.doctors.join(" ")}`.toLowerCase().includes(query.toLowerCase()));
   const progress = confirmed ? 100 : [20, 45, 70, 90][step];
 
   useEffect(() => {
+    if (user) {
+      setDetails((prev) => ({
+        name: prev.name || user.name || "",
+        phone: prev.phone || "",
+        email: prev.email || user.email || "",
+        notes: prev.notes || "",
+      }));
+    }
+  }, [user]);
+
+  useEffect(() => {
+    const pendingStr = sessionStorage.getItem("pending_booking_details");
+    if (pendingStr) {
+      try {
+        const parsed = JSON.parse(pendingStr);
+        if (parsed && typeof parsed === "object") {
+          setDetails((prev) => ({ ...prev, ...parsed }));
+          setStep(3);
+          if (isAuthenticated) {
+            sessionStorage.removeItem("pending_booking_details");
+          }
+        }
+      } catch {
+        sessionStorage.removeItem("pending_booking_details");
+      }
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     const next = new URLSearchParams();
     if (service) next.set("service", service.id);
     if (doctor) next.set("doctor", doctor);
-    if (location !== "Jaldee Health Centre, Kochi") next.set("location", location);
+    if (locationName !== "Jaldee Health Centre, Kochi") next.set("location", locationName);
     if (date) next.set("date", date);
     if (time) next.set("time", time);
     if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
-  }, [date, doctor, location, searchParams, service, setSearchParams, time]);
+  }, [date, doctor, locationName, searchParams, service, setSearchParams, time]);
 
   const chooseService = (item: BookingService, selectedDoctor: string) => { setService(item); setDoctor(selectedDoctor); setDate(""); setTime(""); setStep(1); };
   const validateDetails = () => {
@@ -151,9 +200,21 @@ function BookingExperience() {
     setErrors(next);
     if (!Object.keys(next).length) setStep(3);
   };
-  const reset = () => { setStep(0); setService(null); setDoctor(""); setDate(""); setTime(""); setDetails({ name: "", phone: "", email: "", notes: "" }); setConfirmed(false); };
 
-  if (confirmed) return <SectionCard className="mx-auto max-w-2xl"><div className="py-5 text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700"><span className="text-3xl">✓</span></span><Badge variant="success" className="mt-5">Booking confirmed</Badge><h2 className="mt-3 text-2xl font-bold">Your appointment is secured</h2><p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-text-secondary)]">We’ve notified {doctor}. Appointment details have been sent to {details.phone}.</p><div className="mx-auto mt-5 max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-semibold text-emerald-700">BOOKING REFERENCE</p><p className="mt-1 font-mono text-xl font-bold text-emerald-800">APT-2026-48321</p></div></div><BookingSummary service={service} doctor={doctor} location={location} date={date} time={time} /><div className="mt-5 grid gap-2 sm:grid-cols-3"><Button variant="outline">Download receipt</Button><Button variant="outline">Add to calendar</Button><Button onClick={reset}>Book another</Button></div></SectionCard>;
+  const handleConfirmAppointment = () => {
+    if (!isAuthenticated) {
+      sessionStorage.setItem("pending_booking_details", JSON.stringify(details));
+      const currentPath = `${location.pathname}${location.search}`;
+      navigate(route("/login"), { state: { from: currentPath } });
+      return;
+    }
+    setConfirmed(true);
+    sessionStorage.removeItem("pending_booking_details");
+  };
+
+  const reset = () => { setStep(0); setService(null); setDoctor(""); setDate(""); setTime(""); setDetails({ name: user?.name || "", phone: "", email: user?.email || "", notes: "" }); setConfirmed(false); };
+
+  if (confirmed) return <SectionCard className="mx-auto max-w-2xl"><div className="py-5 text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700"><span className="text-3xl">✓</span></span><Badge variant="success" className="mt-5">Booking confirmed</Badge><h2 className="mt-3 text-2xl font-bold">Your appointment is secured</h2><p className="mx-auto mt-2 max-w-md text-sm text-[var(--color-text-secondary)]">We’ve notified {doctor}. Appointment details have been sent to {details.phone}.</p><div className="mx-auto mt-5 max-w-sm rounded-lg border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-semibold text-emerald-700">BOOKING REFERENCE</p><p className="mt-1 font-mono text-xl font-bold text-emerald-800">APT-2026-48321</p></div></div><BookingSummary service={service} doctor={doctor} location={locationName} date={date} time={time} /><div className="mt-5 grid gap-2 sm:grid-cols-3"><Button variant="outline">Download receipt</Button><Button variant="outline">Add to calendar</Button><Button onClick={reset}>Book another</Button></div></SectionCard>;
 
   return <div>
     <div className="mb-6 overflow-hidden rounded-full bg-[var(--color-surface-alt)]"><div className="h-1.5 bg-[var(--color-primary)] transition-all" style={{ width: `${progress}%` }} /></div>
@@ -162,12 +223,12 @@ function BookingExperience() {
         <div className="mb-5 grid grid-cols-4 gap-2">{["Service", "Date & time", "Your details", "Review"].map((label, index) => <button key={label} type="button" disabled={index > step} onClick={() => index <= step && setStep(index)} className={`rounded-lg border px-2 py-3 text-xs font-semibold ${index === step ? "border-[var(--color-primary)] bg-[var(--color-primary-subtle)] text-[var(--color-primary)]" : index < step ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[var(--color-border)] bg-white text-[var(--color-text-disabled)]"}`}><span className="mr-1">{index < step ? "✓" : index + 1}.</span>{label}</button>)}</div>
 
         {step === 0 && <SectionCard title="Choose a service and doctor">
-          <div className="grid gap-3 sm:grid-cols-[1fr_280px]"><Input label="Search services or doctors" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="General consultation, dermatologist…" /><label className="flex flex-col gap-1.5 text-sm font-semibold">Location<select value={location} onChange={(e) => setLocation(e.target.value)} className="h-[38px] rounded-md border border-[var(--color-border)] bg-white px-3 font-normal"><option>Jaldee Health Centre, Kochi</option><option>Jaldee Medical Centre, Trivandrum</option><option>Jaldee Clinic, Bengaluru</option></select></label></div>
+          <div className="grid gap-3 sm:grid-cols-[1fr_280px]"><Input label="Search services or doctors" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="General consultation, dermatologist…" /><label className="flex flex-col gap-1.5 text-sm font-semibold">Location<select value={locationName} onChange={(e) => setLocationName(e.target.value)} className="h-[38px] rounded-md border border-[var(--color-border)] bg-white px-3 font-normal"><option>Jaldee Health Centre, Kochi</option><option>Jaldee Medical Centre, Trivandrum</option><option>Jaldee Clinic, Bengaluru</option></select></label></div>
           <div className="mt-5 space-y-3">{filtered.map((item) => <article key={item.id} className="rounded-lg border border-[var(--color-border)] p-4"><div className="flex flex-col justify-between gap-3 sm:flex-row"><div><h3 className="text-base font-semibold">{item.name}</h3><p className="mt-1 text-sm text-[var(--color-text-secondary)]">{item.description}</p><div className="mt-2 flex gap-2"><Badge>{item.duration}</Badge><Badge variant="info">{item.fee}</Badge></div></div></div><div className="mt-4 grid gap-2 sm:grid-cols-2">{item.doctors.map((name) => <button key={name} type="button" onClick={() => chooseService(item, name)} className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] p-3 text-left transition hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"><Avatar name={name} size="sm" /><span className="flex-1"><span className="block text-sm font-semibold">{name}</span><span className="text-xs text-[var(--color-text-secondary)]">Available {name.includes("Anitha") ? "today" : "tomorrow"} · ★ 4.9</span></span><span>→</span></button>)}</div></article>)}</div>
         </SectionCard>}
 
         {step === 1 && <SectionCard title="Select date and time">
-          <div className="rounded-lg bg-[var(--color-surface-alt)] p-4"><div className="flex items-center gap-3"><Avatar name={doctor} size="sm" /><div><p className="text-sm font-semibold">{service?.name} with {doctor}</p><p className="text-xs text-[var(--color-text-secondary)]">{service?.duration} · {location}</p></div></div></div>
+          <div className="rounded-lg bg-[var(--color-surface-alt)] p-4"><div className="flex items-center gap-3"><Avatar name={doctor} size="sm" /><div><p className="text-sm font-semibold">{service?.name} with {doctor}</p><p className="text-xs text-[var(--color-text-secondary)]">{service?.duration} · {locationName}</p></div></div></div>
           <div className="mt-5 grid overflow-hidden rounded-lg border border-[var(--color-border)] lg:grid-cols-[minmax(0,1.25fr)_minmax(260px,.75fr)]">
             <div className="border-b border-[var(--color-border)] p-3 lg:border-b-0 lg:border-r"><Calendar className="booking-calendar" events={date ? [{ id: "selected-date", title: "Selected", date: `${date}T12:00:00`, color: "var(--color-primary)" }] : []} view="month" currentDate={calendarMonth} onCurrentDateChange={setCalendarMonth} onDateClick={(selected) => { const today = new Date(); today.setHours(0, 0, 0, 0); if (selected <= today) return; const value = `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`; setCalendarMonth(selected); setDate(value); setTime(""); }} /></div>
             <div className="bg-[var(--color-surface-alt)] p-5">
@@ -182,9 +243,9 @@ function BookingExperience() {
 
         {step === 2 && <SectionCard title="Patient details"><div className="grid gap-4 sm:grid-cols-2"><Input label="Full name" value={details.name} error={errors.name} onChange={(e) => setDetails({ ...details, name: e.target.value })} /><Input label="Phone number" value={details.phone} error={errors.phone} onChange={(e) => setDetails({ ...details, phone: e.target.value })} /><Input label="Email address (optional)" type="email" value={details.email} error={errors.email} onChange={(e) => setDetails({ ...details, email: e.target.value })} /><div className="sm:col-span-2"><Textarea label="Symptoms or notes (optional)" rows={4} value={details.notes} onChange={(e) => setDetails({ ...details, notes: e.target.value })} /></div></div><div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep(1)}>Back</Button><Button onClick={validateDetails}>Review booking</Button></div></SectionCard>}
 
-        {step === 3 && <SectionCard title="Review your booking"><BookingSummary service={service} doctor={doctor} location={location} date={date} time={time} /><div className="mt-5 rounded-lg bg-[var(--color-surface-alt)] p-4"><p className="text-xs font-bold text-[var(--color-text-secondary)]">PATIENT</p><p className="mt-1 text-sm font-semibold">{details.name}</p><p className="text-xs text-[var(--color-text-secondary)]">{details.phone}{details.email ? ` · ${details.email}` : ""}</p>{details.notes && <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">“{details.notes}”</p>}</div><div className="mt-6 flex justify-between"><Button variant="ghost" onClick={() => setStep(2)}>Back</Button><Button onClick={() => setConfirmed(true)}>Confirm appointment</Button></div></SectionCard>}
+        {step === 3 && <SectionCard title="Review your booking"><BookingSummary service={service} doctor={doctor} location={locationName} date={date} time={time} /><div className="mt-5 rounded-lg bg-[var(--color-surface-alt)] p-4"><p className="text-xs font-bold text-[var(--color-text-secondary)]">PATIENT</p><p className="mt-1 text-sm font-semibold">{details.name}</p><p className="text-xs text-[var(--color-text-secondary)]">{details.phone}{details.email ? ` · ${details.email}` : ""}</p>{details.notes && <p className="mt-2 text-xs italic text-[var(--color-text-secondary)]">“{details.notes}”</p>}</div><div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button variant="ghost" onClick={() => setStep(2)}>Back</Button><div className="flex flex-col gap-1 items-end"><Button onClick={handleConfirmAppointment}>{isAuthenticated ? "Confirm appointment" : "Sign in & Confirm appointment"}</Button>{!isAuthenticated && <span className="text-xs text-[var(--color-text-secondary)]">Sign in required to complete booking</span>}</div></div></SectionCard>}
       </div>
-      <aside className="lg:sticky lg:top-24 lg:self-start"><SectionCard title="Booking summary"><BookingSummary service={service} doctor={doctor} location={location} date={date} time={time} compact />{!service && <p className="text-sm text-[var(--color-text-secondary)]">Your selections will appear here as you book.</p>}<div className="mt-4 border-t border-[var(--color-border)] pt-4 text-xs text-[var(--color-text-secondary)]">🔒 Secure booking · Verified appointment slots</div></SectionCard></aside>
+      <aside className="lg:sticky lg:top-24 lg:self-start"><SectionCard title="Booking summary"><BookingSummary service={service} doctor={doctor} location={locationName} date={date} time={time} compact />{!service && <p className="text-sm text-[var(--color-text-secondary)]">Your selections will appear here as you book.</p>}<div className="mt-4 border-t border-[var(--color-border)] pt-4 text-xs text-[var(--color-text-secondary)]">🔒 Secure booking · Verified appointment slots</div></SectionCard></aside>
     </div>
   </div>;
 }

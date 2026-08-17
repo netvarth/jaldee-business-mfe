@@ -43,7 +43,7 @@ export default function DashboardPage() {
   const { accountSlug } = useParams();
   const firstName = user?.name?.split(" ")[0] || "there";
   const bookings = accountPath(accountSlug, "/bookings");
-  const bookAppointment = accountPath(accountSlug, "/book-appointment");
+  const bookAppointment = accountPath(accountSlug, "/booking");
   const profile = accountPath(accountSlug, "/profile");
   const home = accountPath(accountSlug, "/account");
   const sectionPath = (section: string) => accountPath(accountSlug, `/${section}`);

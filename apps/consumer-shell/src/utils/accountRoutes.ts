@@ -35,5 +35,5 @@ export function isDomainScopedConsumerSite() {
 }
 
 export function isReservedRoute(value: string | undefined) {
-  return ["login", "account", "profile", "bookings", "terms", "privacy", "refund", "shipping"].includes(value ?? "");
+  return ["login", "account", "profile", "bookings", "booking", "book-appointment", "terms", "privacy", "refund", "shipping"].includes(value ?? "");
 }
