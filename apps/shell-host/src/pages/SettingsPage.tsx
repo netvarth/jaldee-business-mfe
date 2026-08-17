@@ -418,15 +418,18 @@ function deriveLocationName(place: any) {
     "premise",
     "establishment",
     "point_of_interest",
-    "route",
+    "sublocality_level_1",
     "sublocality",
+    "neighborhood",
+    "route",
     "locality",
+    "administrative_area_level_2",
   );
   if (componentName) {
     return componentName;
   }
 
-  if (typeof place?.formatted_address === "string") {
+  if (typeof place?.formatted_address === "string" && place.formatted_address.trim()) {
     return place.formatted_address.split(",")[0]?.trim() ?? "";
   }
 
@@ -886,15 +889,29 @@ export default function SettingsPage() {
     setMapLocation(latValue, lngValue);
 
     const geocoder = geocoderRef.current;
-    if (!geocoder) {
-      return;
+    if (geocoder) {
+      geocoder.geocode({ location: { lat: latValue, lng: lngValue } }, (results: any[] | null, status: string) => {
+        if (status === "OK" && results?.[0]) {
+          applyGooglePlace(results[0]);
+        }
+      });
+    } else {
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latValue}&lon=${lngValue}&format=json`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.display_name) {
+            const nextLocationName = data.address?.amenity || data.address?.building || data.address?.road || data.display_name.split(",")[0];
+            setLocationForm((current) => ({
+              ...current,
+              locationName: nextLocationName || current.locationName,
+              address: data.display_name || current.address,
+              pincode: data.address?.postcode || current.pincode,
+            }));
+            setSearchLocation(data.display_name);
+          }
+        })
+        .catch(() => {});
     }
-
-    geocoder.geocode({ location: { lat: latValue, lng: lngValue } }, (results: any[] | null, status: string) => {
-      if (status === "OK" && results?.[0]) {
-        applyGooglePlace(results[0]);
-      }
-    });
   }, [applyGooglePlace, setMapLocation]);
 
   useEffect(() => {
@@ -1088,7 +1105,7 @@ export default function SettingsPage() {
     setLocationsError(null);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setMapLocation(position.coords.latitude, position.coords.longitude);
+        selectMapPosition(position.coords.latitude, position.coords.longitude);
         setLocationDetecting(false);
       },
       () => {

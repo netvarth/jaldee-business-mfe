@@ -247,6 +247,41 @@ export default function OnboardingPage() {
     mapRef.current?.panTo(position);
   }, []);
 
+function readGoogleAddressComponent(place: any, ...types: string[]) {
+  const component = place?.address_components?.find((item: any) =>
+    types.some((type) => item.types?.includes(type)),
+  );
+  return typeof component?.long_name === "string" ? component.long_name : "";
+}
+
+function deriveLocationName(place: any) {
+  if (typeof place?.name === "string" && place.name.trim()) {
+    return place.name.trim();
+  }
+
+  const componentName = readGoogleAddressComponent(
+    place,
+    "premise",
+    "establishment",
+    "point_of_interest",
+    "sublocality_level_1",
+    "sublocality",
+    "neighborhood",
+    "route",
+    "locality",
+    "administrative_area_level_2",
+  );
+  if (componentName) {
+    return componentName;
+  }
+
+  if (typeof place?.formatted_address === "string" && place.formatted_address.trim()) {
+    return place.formatted_address.split(",")[0]?.trim() ?? "";
+  }
+
+  return "";
+}
+
   const applyGooglePlace = useCallback((place: any) => {
     const position = place?.geometry?.location;
     if (!position) {
@@ -254,11 +289,18 @@ export default function OnboardingPage() {
       return;
     }
 
-    setMapLocation(position.lat(), position.lng());
+    const latValue = typeof position.lat === "function" ? position.lat() : Number(position.lat);
+    const lngValue = typeof position.lng === "function" ? position.lng() : Number(position.lng);
+    setMapLocation(latValue, lngValue);
 
     if (place.formatted_address) {
       setFullAddress(place.formatted_address);
       setSearchLocation(place.formatted_address);
+    }
+
+    const derivedName = deriveLocationName(place);
+    if (derivedName) {
+      setLocationName(derivedName);
     }
 
     const postalCode = place.address_components?.find((component: any) =>
@@ -274,6 +316,36 @@ export default function OnboardingPage() {
 
     setError(null);
   }, [setMapLocation]);
+
+  const selectMapPosition = useCallback((latValue: number, lngValue: number) => {
+    setMapLocation(latValue, lngValue);
+
+    const geocoder = geocoderRef.current;
+    if (geocoder) {
+      geocoder.geocode({ location: { lat: latValue, lng: lngValue } }, (results: any[] | null, status: string) => {
+        if (status === "OK" && results?.[0]) {
+          applyGooglePlace(results[0]);
+        }
+      });
+    } else {
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latValue}&lon=${lngValue}&format=json`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.display_name) {
+            setFullAddress(data.display_name);
+            setSearchLocation(data.display_name);
+            const derivedName = data.address?.amenity || data.address?.building || data.address?.suburb || data.address?.neighbourhood || data.address?.road || data.address?.city || data.display_name.split(",")[0];
+            if (derivedName) {
+              setLocationName(derivedName.trim());
+            }
+          }
+          if (data?.address?.postcode) {
+            setPincode(data.address.postcode);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [applyGooglePlace, setMapLocation]);
 
   useEffect(() => {
     if (step !== 2) return;
@@ -316,12 +388,12 @@ export default function OnboardingPage() {
 
         map.addListener("click", (event: any) => {
           if (!event.latLng) return;
-          setMapLocation(event.latLng.lat(), event.latLng.lng());
+          selectMapPosition(event.latLng.lat(), event.latLng.lng());
         });
 
         marker.addListener("dragend", (event: any) => {
           if (!event.latLng) return;
-          setMapLocation(event.latLng.lat(), event.latLng.lng());
+          selectMapPosition(event.latLng.lat(), event.latLng.lng());
         });
 
         mapRef.current = map;
@@ -346,7 +418,7 @@ export default function OnboardingPage() {
     return () => {
       active = false;
     };
-  }, [applyGooglePlace, googleMapsApiKey, setMapLocation, step]);
+  }, [applyGooglePlace, googleMapsApiKey, selectMapPosition, step]);
 
   async function handleLocationSearch() {
     if (!searchLocation.trim() || !geocoderRef.current) return;
@@ -376,7 +448,7 @@ export default function OnboardingPage() {
     setError(null);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setMapLocation(position.coords.latitude, position.coords.longitude);
+        selectMapPosition(position.coords.latitude, position.coords.longitude);
         setLoading(false);
       },
       () => {
