@@ -743,6 +743,12 @@ export default function SettingsPage() {
         }
 
         const profile = toRecord(data.tenantProfile);
+        const rawAtt = toRecord(data.attachment ?? (Array.isArray(data.attachments) ? data.attachments[0] : null));
+        const fetchedLogo = readString(rawAtt.filePath, rawAtt.fileUrl, rawAtt.url, data.logoUrl, data.logo);
+        if (fetchedLogo && !logoUrl) {
+          setLogoUrl(fetchedLogo);
+        }
+
         setTenantSettings(data);
         setCustomId(readString(data.customId) || "");
         setCompanyName(readString(data.tenantName, data.businessName, profile.businessName, account?.name) || "Jaldee Business");

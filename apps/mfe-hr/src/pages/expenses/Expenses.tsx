@@ -89,30 +89,21 @@ function ExpensesViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: 3, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
       <button
         type="button"
         id="hr-expenses-view-table"
         data-testid="hr-expenses-view-table"
         data-active={value === "table"}
         onClick={() => onChange("table")}
-        style={{
-          display: "inline-flex",
-          width: 32,
-          height: 32,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 6,
-          border: "none",
-          cursor: "pointer",
-          background: value === "table" ? SUCCESS : "transparent",
-          color: value === "table" ? TEXT_INVERSE : TEXT_SECONDARY,
-          transition: "background-color 0.15s, color 0.15s",
-        }}
+        className={[
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+          value === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+        ].join(" ")}
         aria-label="Table view"
         title="Table view"
       >
-        <Rows3 size={15} />
+        <Rows3 size={16} />
       </button>
       <button
         type="button"
@@ -120,23 +111,14 @@ function ExpensesViewToggle({
         data-testid="hr-expenses-view-cards"
         data-active={value === "cards"}
         onClick={() => onChange("cards")}
-        style={{
-          display: "inline-flex",
-          width: 32,
-          height: 32,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 6,
-          border: "none",
-          cursor: "pointer",
-          background: value === "cards" ? SUCCESS : "transparent",
-          color: value === "cards" ? TEXT_INVERSE : TEXT_SECONDARY,
-          transition: "background-color 0.15s, color 0.15s",
-        }}
+        className={[
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+          value === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+        ].join(" ")}
         aria-label="Card view"
         title="Card view"
       >
-        <LayoutGrid size={15} />
+        <LayoutGrid size={16} />
       </button>
     </div>
   );
@@ -176,9 +158,7 @@ export default function Expenses() {
         if (label === "employee" || name === "employee" || name === "employeeuid") return false;
         return true;
       }),
-      defaultSort: rawExpenseSchema.defaultSort?.field === "createdAt"
-        ? { ...rawExpenseSchema.defaultSort, field: "date" }
-        : rawExpenseSchema.defaultSort,
+      defaultSort: rawExpenseSchema.defaultSort,
     };
   }, [rawExpenseSchema]);
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
@@ -534,7 +514,7 @@ export default function Expenses() {
             getRowId={(e) => e.id}
             loading={expenses.loading}
             className="rounded-none border-0 bg-transparent shadow-none"
-            tableClassName="min-w-[920px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+            tableClassName="min-w-[920px] [&_thead_tr]:bg-slate-50/80 [&_thead_tr]:border-b [&_thead_tr]:border-slate-200 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:sm:text-xs [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em] [&_thead_th]:text-slate-500 [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:sm:text-[15px] [&_tbody_td]:font-semibold [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/60"
             emptyState={
               <EmptyState
                 icon={<Receipt size={36} strokeWidth={1.5} />}

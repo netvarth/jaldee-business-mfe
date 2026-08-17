@@ -18,6 +18,8 @@ export function CompanySettingsPage() {
       });
       payload.logoUrl = uploadedLogo.url;
       payload.attachment = uploadedLogo.attachment;
+    } else if (!payload.attachment && company.data?.attachment) {
+      payload.attachment = company.data.attachment;
     }
     await company.save(payload);
   }

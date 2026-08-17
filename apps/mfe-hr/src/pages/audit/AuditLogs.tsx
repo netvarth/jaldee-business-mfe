@@ -147,24 +147,25 @@ export default function AuditLogs() {
   }, [rows, search]);
 
   const columns = useMemo<ColumnDef<AuditRecord>[]>(() => [
-    { key: "timestamp", header: "Date & Time", width: "17%", render: (record) => <span className="text-xs text-slate-500">{dateLabel(record)}</span> },
+    { key: "timestamp", header: "Date & Time", width: "160px", render: (record) => <span className="text-xs text-slate-500 whitespace-nowrap">{dateLabel(record)}</span> },
     {
       key: "activity",
       header: "Activity",
-      width: "31%",
+      width: "240px",
       render: (record) => (
         <div className="min-w-0">
-          <div className="font-bold text-slate-900">{value(record, ["message"], humanize(value(record, ["entityName", "event", "type"], "Activity")))}</div>
-          <div className="mt-1 truncate text-xs text-slate-500">{value(record, ["subject"], humanize(value(record, ["entityName"], "HR record")))}</div>
+          <div className="font-bold text-slate-900 leading-snug truncate">{value(record, ["message"], humanize(value(record, ["entityName", "event", "type"], "Activity")))}</div>
+          <div className="mt-0.5 truncate text-xs text-slate-500">{value(record, ["subject"], humanize(value(record, ["entityName"], "HR record")))}</div>
         </div>
       ),
     },
-    { key: "area", header: "Area", width: "14%", render: (record) => <span className="text-xs font-semibold text-slate-600">{humanize(value(record, ["auditLogContext", "featureModule", "feature"], "HR"))}</span> },
-    { key: "actor", header: "Performed By", width: "18%", render: (record) => <div><div className="font-semibold text-slate-700">{value(record, ["actorUserName", "actorName", "actorEmail", "createdBy"], "System")}</div><div className="mt-1 text-xs text-slate-400">{humanize(value(record, ["actorUserType"], "System"))}</div></div> },
-    { key: "action", header: "Change", width: "10%", render: (record) => { const action = value(record, ["action"], "UNKNOWN"); return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${actionStyle(action)}`}>{humanize(action)}</span>; } },
+    { key: "area", header: "Area", width: "130px", render: (record) => <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">{humanize(value(record, ["auditLogContext", "featureModule", "feature"], "HR"))}</span> },
+    { key: "actor", header: "Performed By", width: "170px", render: (record) => <div className="whitespace-nowrap"><div className="font-semibold text-slate-700">{value(record, ["actorUserName", "actorName", "actorEmail", "createdBy"], "System")}</div><div className="mt-0.5 text-xs text-slate-400">{humanize(value(record, ["actorUserType"], "System"))}</div></div> },
+    { key: "action", header: "Change", width: "100px", render: (record) => { const action = value(record, ["action"], "UNKNOWN"); return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold whitespace-nowrap ${actionStyle(action)}`}>{humanize(action)}</span>; } },
     {
       key: "inspect",
       header: "",
+      width: "90px",
       align: "right",
       render: (record) => (
         <Button
@@ -190,21 +191,21 @@ export default function AuditLogs() {
   };
 
   return (
-    <section data-testid="hr-audit-logs-page" data-state={loading ? "loading" : error ? "error" : visibleRows.length ? "ready" : "empty"} className="space-y-6 p-4 md:p-6">
+    <section data-testid="hr-audit-logs-page" data-state={loading ? "loading" : error ? "error" : visibleRows.length ? "ready" : "empty"} className="space-y-4 p-2 sm:p-4 md:p-6 max-w-full overflow-hidden">
       <PageHeader
         title="HR Audit Log"
         subtitle="Review administrative changes and employee lifecycle activity."
         actions={<Button data-testid="hr-audit-logs-export" variant="primary" icon={<Download size={16} />} onClick={exportLogs}>Export JSON</Button>}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <SectionCard><div className="text-xs font-bold uppercase text-slate-500">Records on page</div><div className="mt-2 text-2xl font-black">{visibleRows.length}</div></SectionCard>
-        <SectionCard><div className="text-xs font-bold uppercase text-slate-500">Total records</div><div className="mt-2 text-2xl font-black">{total}</div></SectionCard>
-        <SectionCard><div className="flex items-center gap-3"><ShieldCheck className="text-emerald-600" /><div><div className="text-xs font-bold uppercase text-slate-500">Audit status</div><div className="mt-1 font-black text-emerald-700">Protected</div></div></div></SectionCard>
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-3">
+        <SectionCard className="p-3 sm:p-5"><div className="text-xs font-bold uppercase text-slate-500">Records on page</div><div className="mt-1 sm:mt-2 text-xl sm:text-2xl font-black">{visibleRows.length}</div></SectionCard>
+        <SectionCard className="p-3 sm:p-5"><div className="text-xs font-bold uppercase text-slate-500">Total records</div><div className="mt-1 sm:mt-2 text-xl sm:text-2xl font-black">{total}</div></SectionCard>
+        <SectionCard className="p-3 sm:p-5"><div className="flex items-center gap-3"><ShieldCheck className="text-emerald-600 shrink-0" /><div><div className="text-xs font-bold uppercase text-slate-500">Audit status</div><div className="mt-0.5 font-black text-emerald-700">Protected</div></div></div></SectionCard>
       </div>
 
       <SectionCard className="p-0 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 md:flex-row md:items-center">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-3 sm:p-4 md:flex-row md:items-center">
           <div className="hidden flex-1 flex-wrap gap-2 xl:flex">
             {CONTEXT_OPTIONS.map((option) => (
               <Button
@@ -230,9 +231,21 @@ export default function AuditLogs() {
           <Input data-testid="hr-audit-logs-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search current page..." icon={<Search size={16} />} containerClassName="w-full md:max-w-xs" />
           <Button data-testid="hr-audit-logs-filter" variant={appliedCount ? "primary" : "outline"} icon={<Filter size={16} />} onClick={() => { setDraftFilters(filters.length ? filters : buildDefaultSearchClauses(auditSchema)); setFiltersOpen(true); }}>Filter{appliedCount ? ` (${appliedCount})` : ""}</Button>
         </div>
-        {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
-        <div data-testid="hr-audit-logs-table" className="p-4">
-          <DataTable data={visibleRows} columns={columns} loading={loading} getRowId={(record, index) => value(record, ["id", "uid", "eventUuid"], String(index))} pagination={{ page, pageSize, total, mode: "server", onChange: setPage, onPageSizeChange: setPageSize }} emptyState={<EmptyState title="No audit records" description="No HR audit activity matches the selected filters." />} />
+        {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-3 sm:m-5 rounded-lg border border-rose-200 bg-rose-50 p-3 sm:p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
+        
+        {/* Table View with Horizontal Scroll Container */}
+        <div data-testid="hr-audit-logs-table" className="w-full overflow-x-auto p-2 sm:p-4">
+          <div className="min-w-[890px]">
+            <DataTable
+              data={visibleRows}
+              columns={columns}
+              loading={loading}
+              tableClassName="w-full min-w-[890px]"
+              getRowId={(record, index) => value(record, ["id", "uid", "eventUuid"], String(index))}
+              pagination={{ page, pageSize, total, mode: "server", onChange: setPage, onPageSizeChange: setPageSize }}
+              emptyState={<EmptyState title="No audit records" description="No HR audit activity matches the selected filters." />}
+            />
+          </div>
         </div>
       </SectionCard>
 

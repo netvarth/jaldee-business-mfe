@@ -25,7 +25,7 @@ export interface PunchOutPayload {
 export interface AttendanceRecord {
   id: string; uid?: string; employeeUid?: string; locationUid?: string; dateStr?: string;
   clockIn?: string; clockOut?: string; clockInType?: string; status?: string;
-  wfhStatus?: string; workedHours?: number;
+  wfhStatus?: string; workedHours?: number; workedMinutes?: number; workedHoursFormatted?: string;
   verifiedByUid?: string; verifiedAt?: string;
   totalBreakMinutes?: number; breaks?: import("../types").AttendanceBreak[];
   overtimeMinutes?: number; overtimeStatus?: "Pending" | "Approved" | "Rejected" | string;
@@ -50,9 +50,44 @@ export interface LocationLog {
   latitude?: number; longitude?: number; accuracy?: number; activity?: string;
 }
 
+function normalizeAttendanceBreak(item: unknown) {
+  if (!item || typeof item !== "object") return {};
+  const b = item as Record<string, unknown>;
+  const id = String(b.id ?? b.uid ?? b.breakUid ?? "");
+  const uid = (b.uid ?? b.id ?? b.breakUid) as string | undefined;
+  const breakIn = (b.breakIn ?? b.breakInTime ?? b.startTime ?? b.startedAt) as string | undefined;
+  const breakOut = (b.breakOut ?? b.breakOutTime ?? b.endTime ?? b.endedAt) as string | undefined;
+  const breakType = (b.breakType ?? b.type ?? "LUNCH") as string | undefined;
+  const durationMinutes = (b.durationMinutes ?? b.duration ?? b.breakMinutes) as number | undefined;
+
+  return {
+    ...b,
+    id,
+    uid,
+    breakIn,
+    breakOut,
+    breakType,
+    durationMinutes,
+  };
+}
+
 function withId<T extends { uid?: string; id?: string }>(r: Record<string, unknown>): T {
   const uid = (r.uid ?? r.id) as string | undefined;
-  return { ...(r as object), id: String(uid ?? ""), uid } as T;
+  const rawBreaks = r.breaks ?? r.attendanceBreaks ?? r.breakList ?? r.breakRecords ?? r.activeBreak;
+  let breaks: unknown[] = [];
+  if (Array.isArray(rawBreaks)) {
+    breaks = rawBreaks.map(normalizeAttendanceBreak);
+  } else if (rawBreaks && typeof rawBreaks === "object") {
+    breaks = [normalizeAttendanceBreak(rawBreaks)];
+  }
+
+  return {
+    ...(r as object),
+    id: String(uid ?? ""),
+    uid,
+    breaks,
+    attendanceBreaks: breaks,
+  } as T;
 }
 
 function useList<T extends { uid?: string; id?: string }>(endpoint: string) {
@@ -99,7 +134,16 @@ export function useAttendance(
         res = await api.get<Record<string, unknown>[]>("/attendance");
       }
       const page_result = unwrapAttendancePage(res);
-      setData(page_result.content.map((r) => withId<AttendanceRecord>(r)));
+      const rawList = page_result.content.map((r) => withId<AttendanceRecord>(r));
+      const sortedList = [...rawList].sort((a, b) => {
+        const timeA = a.clockIn ? new Date(a.clockIn).getTime() : (a.dateStr ? new Date(a.dateStr).getTime() : 0);
+        const timeB = b.clockIn ? new Date(b.clockIn).getTime() : (b.dateStr ? new Date(b.dateStr).getTime() : 0);
+        if (timeA !== timeB) return timeB - timeA;
+        const clockInA = a.clockIn ? new Date(a.clockIn).getTime() : 0;
+        const clockInB = b.clockIn ? new Date(b.clockIn).getTime() : 0;
+        return clockInB - clockInA;
+      });
+      setData(sortedList);
       setTotalElements(page_result.totalElements);
       setTotalPages(page_result.totalPages);
     } catch (e) {
@@ -136,13 +180,43 @@ export function useAttendance(
   const verify = useCallback(async (uid: string, wfhStatus: string, verifiedByUid?: string | null) => {
     await api.put(`/attendance/${uid}/verify`, { wfhStatus, verifiedByUid: verifiedByUid || null }); await load();
   }, [api, load]);
-  const startBreak = useCallback(async (uid: string, breakType: string) => {
-    await api.post(`/attendance/${uid}/breaks`, { breakType });
+  const startBreak = useCallback(async (
+    uid: string,
+    breakType: string,
+    employeeUid?: string | null,
+    breakInIso?: string
+  ) => {
+    const attendanceUid = uid;
+    const body: Record<string, unknown> = {
+      attendanceUid,
+      breakType,
+      breakIn: breakInIso || new Date().toISOString(),
+    };
+    if (employeeUid) body.employeeUid = employeeUid;
+    const res = await api.post(`/attendance/${uid}/breaks`, body);
     await load();
+    return res;
   }, [api, load]);
-  const endBreak = useCallback(async (uid: string, breakUid: string) => {
-    await api.put(`/attendance/${uid}/breaks/${breakUid}`);
+
+  const endBreak = useCallback(async (
+    uid: string,
+    breakUid: string,
+    breakOutIso?: string,
+    employeeUid?: string | null,
+    breakType?: string | null
+  ) => {
+    const attendanceUid = uid;
+    const targetBreakUid = breakUid || "active";
+    const body: Record<string, unknown> = {
+      attendanceUid,
+      breakUid: targetBreakUid,
+      breakType: breakType || "LUNCH",
+      breakOut: breakOutIso || new Date().toISOString(),
+    };
+    if (employeeUid) body.employeeUid = employeeUid;
+    const res = await api.put(`/attendance/${uid}/breaks/${targetBreakUid}`, body);
     await load();
+    return res;
   }, [api, load]);
   const approveOvertime = useCallback(async (uid: string, approvedMinutes: number) => {
     await api.put(`/attendance/${uid}/overtime?approvedMinutes=${encodeURIComponent(String(Math.max(0, approvedMinutes)))}`);

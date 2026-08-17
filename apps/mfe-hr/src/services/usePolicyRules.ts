@@ -81,7 +81,9 @@ export const CATALOG: DomainDef[] = [
       { type: "SPANS_HOLIDAY", label: "Spans a holiday", valueType: "none" },
     ],
     actions: [
+      { type: "BLOCK_REQUEST", label: "Block request" },
       { type: "BLOCK", label: "Block request" },
+      { type: "BLOCK_LEAVE", label: "Block leave" },
       { type: "CONVERT_TO_LOP", label: "Convert to LOP" },
       { type: "EXCLUDE_HOLIDAYS", label: "Exclude holidays from count" },
     ],

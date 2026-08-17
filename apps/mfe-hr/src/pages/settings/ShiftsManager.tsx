@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Clock, LayoutGrid, Table as Rows3 } from "lucide-react";
 import { Dialog, DialogFooter, Button, Input, Select, Badge, TimePicker } from "@jaldee/design-system";
 import { useShifts, useShiftRotations, type Shift, type ShiftRotation } from "../../services/useSettingsData";
@@ -53,11 +53,46 @@ export default function ShiftsManager() {
 
 function ShiftsTab() {
   const { data, loading, error, create, update, remove } = useShifts();
+  const { getShiftAssigned } = useShiftOps();
+  const employees = useEmployees();
   const [viewMode, setViewMode] = useState<"table" | "card">(() =>
     typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? "card" : "table"
   );
   const [editing, setEditing] = useState<Partial<Shift> | null>(null);
   const [assigning, setAssigning] = useState<Shift | null>(null);
+  const [assignedMap, setAssignedMap] = useState<Record<string, string[]>>({});
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
+
+  const shiftUids = useMemo(() => data.map((s) => s.uid).filter(Boolean).join(","), [data]);
+
+  const refreshAssigned = useCallback(async () => {
+    if (!shiftUids) return;
+    const uids = shiftUids.split(",");
+    setLoadingAssigned(true);
+    try {
+      const results = await Promise.all(
+        uids.map(async (uid) => {
+          try {
+            const list = await getShiftAssigned(uid);
+            return [uid, Array.isArray(list) ? list : []] as const;
+          } catch {
+            return [uid, []] as const;
+          }
+        })
+      );
+      const map: Record<string, string[]> = {};
+      results.forEach(([uid, list]) => { if (uid) map[uid] = list; });
+      setAssignedMap(map);
+    } catch {
+      // ignore errors
+    } finally {
+      setLoadingAssigned(false);
+    }
+  }, [shiftUids, getShiftAssigned]);
+
+  useEffect(() => {
+    void refreshAssigned();
+  }, [shiftUids]);
 
   return (
     <div id="hr-settings-shifts-panel" data-testid="hr-settings-shifts-panel" className="rounded-xl border border-gray-200 bg-white shadow-xs overflow-hidden">
@@ -105,50 +140,77 @@ function ShiftsTab() {
                   <th className="text-left px-4 py-3 font-semibold">Half-day</th>
                   <th className="text-left px-4 py-3 font-semibold">Break</th>
                   <th className="text-left px-4 py-3 font-semibold">Weekly off</th>
+                  <th className="text-left px-4 py-3 font-semibold">Assigned Staff</th>
                   <th className="px-4 py-3 font-semibold"></th>
                 </tr>
               </thead>
               <tbody>
-                {data.map((s) => (
-                  <tr key={s.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
-                    <td className="px-6 py-3 font-medium text-gray-900">{s.name || "—"}</td>
-                    <td className="px-4 py-3 text-gray-700">{displayTime(s.startTime)} – {displayTime(s.endTime)} {s.isOvernight === true && <Badge variant="info">Overnight</Badge>}</td>
-                    <td className="px-4 py-3 text-gray-600">{s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</td>
-                    <td className="px-4 py-3 text-gray-600">{asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>{" "}
-                      <Button id={`hr-settings-shifts-edit-${s.uid}`} data-testid={`hr-settings-shifts-edit-${s.uid}`} variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>{" "}
-                      <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
-                    </td>
-                  </tr>
-                ))}
+                {data.map((s) => {
+                  const ids = s.uid ? assignedMap[s.uid] ?? [] : [];
+                  const names = ids
+                    .map((id) => employees.data.find((e) => e.uid === id)?.name || id)
+                    .filter(Boolean);
+                  return (
+                    <tr key={s.uid} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                      <td className="px-6 py-3 font-medium text-gray-900">{s.name || "—"}</td>
+                      <td className="px-4 py-3 text-gray-700">{displayTime(s.startTime)} – {displayTime(s.endTime)} {s.isOvernight === true && <Badge variant="info">Overnight</Badge>}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {loadingAssigned && !ids.length ? (
+                          <span className="text-gray-400">Loading...</span>
+                        ) : !names.length ? (
+                          <span className="text-gray-400">None</span>
+                        ) : names.length <= 2 ? (
+                          <span className="font-medium text-gray-800">{names.join(", ")}</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5" title={names.join(", ")}>
+                            <Badge variant="info">{names.length} assigned</Badge>
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>{" "}
+                        <Button id={`hr-settings-shifts-edit-${s.uid}`} data-testid={`hr-settings-shifts-edit-${s.uid}`} variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>{" "}
+                        <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
           <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto">
-            {data.map((s) => (
-              <div key={s.uid} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
-                <div>
-                  <h4 className="font-semibold text-gray-900 text-base mb-1">{s.name || "Untitled Shift"}</h4>
-                  <p className="text-sm font-medium text-teal-700 mb-2">{displayTime(s.startTime)} – {displayTime(s.endTime)}</p>
-                  {s.isOvernight === true && <Badge variant="info">Overnight</Badge>}
-                  <div className="text-xs text-gray-500 space-y-1">
-                    <p><b>Grace:</b> {s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</p>
-                    <p><b>Half-day threshold:</b> {s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</p>
-                    <p><b>Break:</b> {s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</p>
-                    <p><b>Off days:</b> {asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</p>
+            {data.map((s) => {
+              const ids = s.uid ? assignedMap[s.uid] ?? [] : [];
+              const names = ids
+                .map((id) => employees.data.find((e) => e.uid === id)?.name || id)
+                .filter(Boolean);
+              return (
+                <div key={s.uid} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col justify-between gap-3 shadow-xs hover:shadow-md transition-shadow">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-base mb-1">{s.name || "Untitled Shift"}</h4>
+                    <p className="text-sm font-medium text-teal-700 mb-2">{displayTime(s.startTime)} – {displayTime(s.endTime)}</p>
+                    {s.isOvernight === true && <Badge variant="info">Overnight</Badge>}
+                    <div className="text-xs text-gray-500 space-y-1">
+                      <p><b>Grace:</b> {s.graceMinutes != null ? `${s.graceMinutes}m` : "—"}</p>
+                      <p><b>Half-day threshold:</b> {s.halfDayThresholdMinutes != null ? `${s.halfDayThresholdMinutes}m` : "—"}</p>
+                      <p><b>Break:</b> {s.breakMinutes != null ? `${s.breakMinutes}m` : "—"}</p>
+                      <p><b>Off days:</b> {asDays(s.weeklyOffDays).map(dayShort).join(", ") || "—"}</p>
+                      <p><b>Assigned staff:</b> {names.length ? names.join(", ") : "None"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3 mt-1">
+                    <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>
+                    <Button variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>
+                    <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3 mt-1">
-                  <Button variant="outline" size="sm" onClick={() => setAssigning(s)}>Assign</Button>
-                  <Button variant="outline" size="sm" onClick={() => setEditing(s)}>Edit</Button>
-                  <Button variant="outline" size="sm" onClick={() => s.uid && remove(s.uid)}>Delete</Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -157,7 +219,7 @@ function ShiftsTab() {
           onSave={async (v) => { if (v.uid) await update(v.uid, v as unknown as Record<string, unknown>); else await create(v as unknown as Record<string, unknown>); }} />
       )}
       {assigning && assigning.uid && (
-        <AssignModal title={`Assign to ${assigning.name}`} entityUid={assigning.uid} kind="shift" onClose={() => setAssigning(null)} />
+        <AssignModal title={`Assign to ${assigning.name}`} entityUid={assigning.uid} kind="shift" onClose={() => { setAssigning(null); void refreshAssigned(); }} />
       )}
     </div>
   );

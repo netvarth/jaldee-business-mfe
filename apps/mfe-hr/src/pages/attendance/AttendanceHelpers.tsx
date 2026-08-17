@@ -1,0 +1,105 @@
+import type { CSSProperties } from "react";
+import { CheckCircle2, XCircle, Timer } from "lucide-react";
+import type { AttendanceRecord } from "../../services/useAttendanceData";
+
+export type SubTab = "logs" | "pending" | "overtime" | "field" | "compoff" | "onduty" | "kiosk";
+
+export const ATTENDANCE_ROUTES: Array<{ key: SubTab; route: string; label: string }> = [
+  { key: "logs", route: "logs", label: "Logs History" },
+  { key: "pending", route: "pending-verifications", label: "Pending Verifications" },
+  { key: "overtime", route: "pending-overtime", label: "Pending Overtime" },
+  { key: "field", route: "field-track", label: "Field Track" },
+  { key: "compoff", route: "comp-off", label: "Comp-Off" },
+  { key: "onduty", route: "on-duty", label: "On-Duty" },
+  { key: "kiosk", route: "face-kiosk", label: "Face Kiosk Mode" },
+];
+
+export const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 24, boxShadow: "var(--shadow-sm)" };
+export const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)" };
+export const th: CSSProperties = { textAlign: "left", padding: "12px 16px", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)" };
+export const tdc: CSSProperties = { padding: "14px 16px", fontSize: 13, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
+export const sel: CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 14, fontWeight: 600, color: "var(--dark-text)" };
+
+export function fmtTime(iso?: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+export function minutesToHours(minutes?: number) {
+  if (!minutes || minutes <= 0) return "0 mins";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min${m === 1 ? "" : "s"}`;
+  if (m === 0) return `${h} ${h > 1 ? "hrs" : "hr"}`;
+  return `${h} hr ${m} min${m === 1 ? "" : "s"}`;
+}
+
+export function statusBadge(status?: string): CSSProperties {
+  const key = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  if (key === "present") return { background: "rgba(16,185,129,0.08)", color: "#059669", border: "1px solid rgba(16,185,129,0.2)" };
+  if (key === "absent") return { background: "rgba(244,63,94,0.08)", color: "#e11d48", border: "1px solid rgba(244,63,94,0.2)" };
+  if (key === "half_day") return { background: "rgba(245,158,11,0.1)", color: "#b45309", border: "1px solid rgba(245,158,11,0.25)" };
+  if (key === "leave") return { background: "rgba(59,130,246,0.08)", color: "#2563eb", border: "1px solid rgba(59,130,246,0.2)" };
+  if (key === "holiday") return { background: "rgba(139,92,246,0.09)", color: "#7c3aed", border: "1px solid rgba(139,92,246,0.22)" };
+  if (key === "rest_day") return { background: "rgba(100,116,139,0.1)", color: "#64748b", border: "1px solid rgba(100,116,139,0.22)" };
+  return { background: "rgba(100,116,139,0.08)", color: "var(--light-text)", border: "1px solid var(--border-color)" };
+}
+
+export function formatDuration(workedMinutes?: number, workedHours?: number, workedHoursFormatted?: string): string {
+  if (workedHoursFormatted && !workedHoursFormatted.includes("(")) return workedHoursFormatted;
+  if (workedMinutes !== undefined && workedMinutes !== null) {
+    const hrs = Math.floor(workedMinutes / 60);
+    const mins = workedMinutes % 60;
+    if (hrs === 0) return `${mins} mins`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}`;
+    return `${hrs} hr ${mins} mins`;
+  }
+  if (workedHours !== undefined && workedHours !== null && workedHours > 0) {
+    const totalMins = Math.round(workedHours * 60);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs === 0) return `${mins} mins`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}`;
+    return `${hrs} hr ${mins} mins`;
+  }
+  return "—";
+}
+
+export function StatusBadge({ status }: { status?: string }) {
+  return (
+    <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      {status || "Pending"}
+    </span>
+  );
+}
+
+export function OvertimePill({ minutes, status, approved }: { minutes?: number; status?: string; approved?: number }) {
+  if (!minutes || minutes <= 0) return null;
+  const normalized = (status || "Pending").toLowerCase();
+  const Icon = normalized === "approved" ? CheckCircle2 : normalized === "rejected" ? XCircle : Timer;
+  const color = normalized === "approved" ? "#059669" : normalized === "rejected" ? "#e11d48" : "#b45309";
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, background: `${color}12`, color, border: `1px solid ${color}30`, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+      <Icon size={12} /> OT {minutesToHours(minutes)}
+      {normalized === "approved" ? ` / ${minutesToHours(approved ?? minutes)} approved` : ` ${status || "Pending"}`}
+    </span>
+  );
+}
+
+export function isSystemFlagged(status?: string, generated?: boolean, source?: string, generatedBy?: string) {
+  const key = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  return !!generated || /system|cron|auto/i.test(source || "") || /system|cron|auto/i.test(generatedBy || "") || key === "absent" || key === "holiday";
+}
+
+export function hasNoShiftFlag(record: AttendanceRecord) {
+  const flags = [...(record.validationFlags ?? []), ...(record.attendanceFlags ?? [])];
+  return record.noShiftAssigned === true
+    || record.shiftResolutionSource?.toUpperCase() === "NONE"
+    || flags.some((flag) => /NO[_\s-]?SHIFT/i.test(flag));
+}
+
+export function effectiveShiftLabel(record: AttendanceRecord) {
+  if (hasNoShiftFlag(record)) return "No shift assigned";
+  return record.effectiveShiftName || record.shiftName || "—";
+}

@@ -9,6 +9,7 @@ import {
   useMyLeaves,
   useMyPayslips,
   useMyProfile,
+  sortAttendanceLatestFirst,
   type MyPayslip,
 } from "../../services/useEss";
 import { useBranches } from "../../services/useBranches";
@@ -20,6 +21,9 @@ import { useAttendanceRules, useLeaveTypes } from "../../services/useSettingsDat
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { useExits } from "../../services/useExits";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
+import { AttendanceBreakManager, BREAK_TYPE_OPTIONS } from "../../components/AttendanceBreakManager";
+import { useHrApi } from "../../services/useHrApi";
+import type { AttendanceBreak } from "../../types";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
@@ -65,7 +69,26 @@ function calcLeaveDays(start?: string, end?: string, half?: boolean): number {
   const startDate = new Date(start);
   const endDate = new Date(end);
   if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 0;
-  return Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1;
+}
+
+function formatHoursAndMinutes(workedHours?: number, workedMinutes?: number, workedHoursFormatted?: string): string {
+  if (workedHoursFormatted && !workedHoursFormatted.includes('(')) return workedHoursFormatted;
+  if (workedMinutes !== undefined && workedMinutes !== null) {
+    const hrs = Math.floor(workedMinutes / 60);
+    const mins = workedMinutes % 60;
+    if (hrs === 0) return `${mins} mins`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? 'hours' : 'hour'}`;
+    return `${hrs} hr ${mins} mins`;
+  }
+  if (workedHours !== undefined && workedHours !== null && workedHours > 0) {
+    const totalMins = Math.round(workedHours * 60);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs === 0) return `${mins} mins`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? 'hours' : 'hour'}`;
+    return `${hrs} hr ${mins} mins`;
+  }
+  return '--';
 }
 
 function mergeLeaveBalanceBuckets<T extends { leaveTypeName?: string; total?: number; used?: number; available?: number; status?: string }>(
@@ -199,10 +222,120 @@ export default function EssPortal() {
   const today = new Date().toISOString().slice(0, 10);
   const branches = useBranches({ enabled: section === "attendance" });
   const [selectedLocationUid, setSelectedLocationUid] = useState("");
-  const todayAttendance = useMemo(
-    () => attendance.data.find((item) => item.dateStr === today),
-    [attendance.data, today],
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const sortedAttendance = useMemo(
+    () => sortAttendanceLatestFirst(attendance.data),
+    [attendance.data],
   );
+  const todayAttendance = useMemo(
+    () => sortedAttendance.find((item) => item.dateStr === today),
+    [sortedAttendance, today],
+  );
+
+  const api = useHrApi();
+  const [essDetailedBreaks, setEssDetailedBreaks] = useState<AttendanceBreak[]>([]);
+
+  useEffect(() => {
+    if (!todayAttendance?.id) {
+      setEssDetailedBreaks([]);
+      return;
+    }
+    let isMounted = true;
+    const loadBreaks = async () => {
+      try {
+        let rec: Record<string, unknown> | null = null;
+        try {
+          rec = await api.get<Record<string, unknown>>(`/attendance/${todayAttendance.id}`);
+        } catch {
+          try {
+            const list = await api.get<Record<string, unknown>[]>("/me/attendance");
+            if (Array.isArray(list)) {
+              rec = list.find((item) => item.id === todayAttendance.id || item.uid === todayAttendance.id) || null;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        if (!isMounted || !rec) return;
+        const rawBreaks = rec.breaks ?? rec.attendanceBreaks ?? rec.breakList ?? rec.breakRecords ?? rec.activeBreak;
+        let list: unknown[] = [];
+        if (Array.isArray(rawBreaks)) list = rawBreaks;
+        else if (rawBreaks && typeof rawBreaks === "object") list = [rawBreaks];
+
+        if (list.length > 0) {
+          const normalized = list.map((item) => {
+            const b = item as Record<string, unknown>;
+            return {
+              ...b,
+              id: String(b.id || b.uid || b.breakUid || ""),
+              uid: (b.uid || b.id || b.breakUid) as string,
+              breakIn: (b.breakIn || b.breakInTime || b.startTime || b.startedAt) as string,
+              breakOut: (b.breakOut || b.breakOutTime || b.endTime || b.endedAt) as string,
+              breakType: (b.breakType || b.type || "LUNCH") as string,
+            };
+          });
+          setEssDetailedBreaks(normalized);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    void loadBreaks();
+    return () => { isMounted = false; };
+  }, [api, todayAttendance?.id]);
+
+  const activeBreaksList = useMemo(() => {
+    if (Array.isArray(todayAttendance?.breaks) && todayAttendance.breaks.length > 0) {
+      return todayAttendance.breaks;
+    }
+    if (essDetailedBreaks.length > 0) {
+      return essDetailedBreaks;
+    }
+    return [];
+  }, [todayAttendance?.breaks, essDetailedBreaks]);
+
+  const calculatedTotalBreakMinutes = useMemo(() => {
+    if (todayAttendance?.totalBreakMinutes && todayAttendance.totalBreakMinutes > 0) {
+      return todayAttendance.totalBreakMinutes;
+    }
+    return activeBreaksList.reduce((acc, b) => {
+      if (b.durationMinutes) return acc + b.durationMinutes;
+      if (b.breakIn && b.breakOut) {
+        const start = new Date(b.breakIn).getTime();
+        const end = new Date(b.breakOut).getTime();
+        if (end > start) return acc + Math.round((end - start) / 60000);
+      }
+      return acc;
+    }, 0);
+  }, [todayAttendance?.totalBreakMinutes, activeBreaksList]);
+
+function formatHoursAndMinutes(hoursVal?: number | null): string {
+  if (hoursVal == null || isNaN(hoursVal) || hoursVal <= 0) return "--";
+  const totalMinutes = Math.round(hoursVal * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+  const liveHoursToday = useMemo(() => {
+    if (!todayAttendance?.clockIn) return null;
+    if (todayAttendance.workedHours != null && todayAttendance.workedHours > 0) {
+      return formatHoursAndMinutes(todayAttendance.workedHours);
+    }
+    const clockInMs = new Date(todayAttendance.clockIn).getTime();
+    if (isNaN(clockInMs)) return null;
+
+    const clockOutMs = todayAttendance.clockOut ? new Date(todayAttendance.clockOut).getTime() : Date.now();
+    if (isNaN(clockOutMs) || clockOutMs <= clockInMs) return "0m";
+
+    const grossMins = (clockOutMs - clockInMs) / 60000;
+    const breakMins = calculatedTotalBreakMinutes || 0;
+    const netMins = Math.max(0, grossMins - breakMins);
+    return formatHoursAndMinutes(netMins / 60);
+  }, [todayAttendance?.clockIn, todayAttendance?.clockOut, todayAttendance?.workedHours, calculatedTotalBreakMinutes]);
+
   const faceRequired = !!attendanceRules.data?.faceRecognitionRequired;
   const shouldShowLocationSelect = branches.data.length > 1;
 
@@ -722,25 +855,26 @@ export default function EssPortal() {
                       <AttendanceMetricCard
                         icon={Timer}
                         label="Hours Today"
-                        value={todayAttendance?.workedHours != null ? `${todayAttendance.workedHours.toFixed(2)}h` : "--"}
+                        value={liveHoursToday ?? "--"}
                         detail={todayAttendance?.clockOut ? "Session closed" : todayAttendance?.clockIn ? "Live shift running" : "Starts after punch in"}
                         tone="sky"
                       />
                       <AttendanceMetricCard
                         icon={History}
                         label="This Week"
-                        value={`${attendance.data
-                          .filter((item) => item.dateStr && new Date(item.dateStr) >= startOfWeek(today))
-                          .reduce((sum, item) => sum + (item.workedHours ?? 0), 0)
-                          .toFixed(1)}h`}
+                        value={formatHoursAndMinutes(
+                          attendance.data
+                            .filter((item) => item.dateStr && new Date(item.dateStr) >= startOfWeek(today))
+                            .reduce((sum, item) => sum + (item.workedHours ?? 0), 0)
+                        )}
                         detail={`${attendance.data.filter((item) => item.dateStr && new Date(item.dateStr) >= startOfWeek(today) && item.clockIn).length} logged day(s)`}
                         tone="amber"
                       />
                       <AttendanceMetricCard
                         icon={CalendarDays}
                         label="Break Time"
-                        value={formatMinutes(todayAttendance?.totalBreakMinutes)}
-                        detail={todayAttendance?.breaks?.length ? `${todayAttendance.breaks.length} recorded break(s)` : "No breaks recorded"}
+                        value={formatMinutes(calculatedTotalBreakMinutes)}
+                        detail={activeBreaksList.length ? `${activeBreaksList.length} recorded break(s)` : "No breaks recorded"}
                         tone="violet"
                       />
                     </div>
@@ -757,7 +891,7 @@ export default function EssPortal() {
                               <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500 sm:text-xs sm:tracking-[0.16em]">Attendance Console</div>
                               <div className="mt-1.5 font-mono text-[18px] font-black tracking-tight text-slate-950 md:text-[20px] lg:text-[22px]">
                                 {todayAttendance?.clockIn && !todayAttendance?.clockOut
-                                  ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+                                  ? new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })
                                   : "--:--:--"}
                               </div>
                               <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-600">
@@ -806,14 +940,53 @@ export default function EssPortal() {
                                   Punch In
                                 </Button>
                               ) : !todayAttendance.clockOut ? (
-                                <Button
-                                  data-testid="ess-attendance-punch-out"
-                                  onClick={() => void attendance.punchOut(todayAttendance.id)}
-                                  disabled={punchBusy}
-                                  className="h-11 w-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 active:bg-emerald-800"
-                                >
-                                  Punch Out
-                                </Button>
+                                <div className="space-y-3">
+                                  <AttendanceBreakManager
+                                    attendanceUid={todayAttendance.id}
+                                    employeeUid={profile.data?.id || todayAttendance.employeeUid}
+                                    breaks={activeBreaksList}
+                                    isPunchedIn={!!todayAttendance.clockIn}
+                                    isPunchedOut={!!todayAttendance.clockOut}
+                                    onStartBreak={(breakType, opts) =>
+                                      attendance.startBreak(
+                                        opts?.attendanceUid || todayAttendance.id,
+                                        breakType,
+                                        opts?.employeeUid || profile.data?.id || todayAttendance.employeeUid,
+                                        opts?.breakIn
+                                      )
+                                    }
+                                    onEndBreak={(breakUid, breakOutIso, opts) =>
+                                      attendance.endBreak(
+                                        opts?.attendanceUid || todayAttendance.id,
+                                        breakUid,
+                                        breakOutIso,
+                                        opts?.employeeUid || profile.data?.id || todayAttendance.employeeUid,
+                                        opts?.breakType
+                                      )
+                                    }
+                                    onBreakStateChange={setIsOnBreak}
+                                    compact
+                                  />
+
+                                  <Button
+                                    data-testid="ess-attendance-punch-out"
+                                    onClick={() => void attendance.punchOut(todayAttendance.id)}
+                                    disabled={punchBusy || isOnBreak}
+                                    className={`h-11 w-full text-white shadow-sm ${
+                                      isOnBreak
+                                        ? "bg-slate-300 cursor-not-allowed text-slate-500 hover:bg-slate-300"
+                                        : "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800"
+                                    }`}
+                                    title={isOnBreak ? "End active break before punching out" : undefined}
+                                  >
+                                    Punch Out
+                                  </Button>
+                                  {isOnBreak ? (
+                                    <p className="text-center text-xs font-medium text-amber-700">
+                                      Please end your active break before punching out.
+                                    </p>
+                                  ) : null}
+                                </div>
                               ) : (
                                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800">
                                   Today&apos;s attendance is completed.
@@ -846,9 +1019,25 @@ export default function EssPortal() {
                         {todayAttendance ? (
                           <div className="mt-4 space-y-2.5">
                             <AttendanceTimelineRow label="Clock In" value={time(todayAttendance.clockIn)} detail={todayAttendance.clockInType ?? "Office"} />
+                            {activeBreaksList.length > 0 ? (
+                              activeBreaksList.map((b, idx) => {
+                                const type = (b.breakType || (b as Record<string, unknown>).type || "LUNCH") as string;
+                                const opt = BREAK_TYPE_OPTIONS.find((o) => o.value === type) || BREAK_TYPE_OPTIONS[0];
+                                const inStr = time(b.breakIn);
+                                const outStr = b.breakOut ? time(b.breakOut) : "Active";
+                                const dur = b.durationMinutes ? `${b.durationMinutes} mins` : (b.breakIn && b.breakOut ? `${calculateDurationMinutes(b.breakIn, b.breakOut)} mins` : "In Progress");
+                                return (
+                                  <AttendanceTimelineRow
+                                    key={b.uid || b.id || idx}
+                                    label={`${opt.icon} ${opt.label}`}
+                                    value={`${inStr} – ${outStr}`}
+                                    detail={`${dur} (${opt.description})`}
+                                  />
+                                );
+                              })
+                            ) : null}
                             <AttendanceTimelineRow label="Clock Out" value={time(todayAttendance.clockOut)} detail={todayAttendance.clockOut ? "Shift completed" : "Still active"} />
-                            <AttendanceTimelineRow label="Worked Hours" value={todayAttendance.workedHours != null ? `${todayAttendance.workedHours.toFixed(2)}h` : "--"} detail={todayAttendance.status ?? "Present"} />
-                            <AttendanceTimelineRow label="Break Time" value={formatMinutes(todayAttendance.totalBreakMinutes)} detail={todayAttendance.breaks?.length ? `${todayAttendance.breaks.length} break(s)` : "No breaks"} />
+                            <AttendanceTimelineRow label="Worked Hours" value={liveHoursToday ?? (todayAttendance.workedHours != null ? formatHoursAndMinutes(todayAttendance.workedHours) : "--")} detail={todayAttendance.status ?? "Present"} />
                           </div>
                         ) : (
                           <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-5 py-7 text-center text-sm text-slate-500">
@@ -863,7 +1052,7 @@ export default function EssPortal() {
                         <div>
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
                           <h3 className="mt-2 text-[17px] font-black tracking-tight text-slate-950 md:text-[19px] lg:text-[20px]">
-                            Recent Attendance Logs ({attendance.data.length})
+                            Recent Attendance Logs ({sortedAttendance.length})
                           </h3>
                           <p className="mt-1 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Daily check-in, check-out, work mode and worked hours.</p>
                         </div>
@@ -875,7 +1064,7 @@ export default function EssPortal() {
                         {attendanceViewMode === "table" ? (
                           <SimpleTable
                             headers={["Date", "Effective Shift", "In", "Out", "Mode", "Hours", "Status"]}
-                            rows={attendance.data.map((item) => [
+                            rows={sortedAttendance.map((item) => [
                               item.dateStr ? formatDate(item.dateStr) : "--",
                               item.noShiftAssigned || item.shiftResolutionSource?.toUpperCase() === "NONE"
                                 ? "No shift assigned"
@@ -883,24 +1072,24 @@ export default function EssPortal() {
                               time(item.clockIn),
                               time(item.clockOut),
                               item.clockInType ?? "--",
-                              item.workedHours?.toFixed(2) ? `${item.workedHours.toFixed(2)}h` : "--",
+                              item.workedHours != null && item.workedHours > 0 ? formatHoursAndMinutes(item.workedHours, item.workedMinutes, item.workedHoursFormatted) : "--",
                               item.status ?? "--",
                             ])}
                           />
-                        ) : attendance.data.length === 0 ? (
+                        ) : sortedAttendance.length === 0 ? (
                           <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
                             No attendance records found.
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            {attendance.data.map((item, index) => (
+                            {sortedAttendance.map((item, index) => (
                               <AttendanceHistoryCard
                                 key={item.id || `${item.dateStr ?? "attendance"}-${index}`}
                                 date={item.dateStr ? formatDate(item.dateStr) : "--"}
                                 clockIn={time(item.clockIn)}
                                 clockOut={time(item.clockOut)}
                                 mode={item.clockInType ?? "--"}
-                                hours={item.workedHours?.toFixed(2) ? `${item.workedHours.toFixed(2)}h` : "--"}
+                                hours={item.workedHours != null && item.workedHours > 0 ? formatHoursAndMinutes(item.workedHours, item.workedMinutes, item.workedHoursFormatted) : "--"}
                                 status={item.status ?? "--"}
                               />
                             ))}
@@ -1012,7 +1201,7 @@ export default function EssPortal() {
                                 <tr key={item.id || `${item.documentType ?? "document"}-${index}`}>
                                   <td className="border-b px-3 py-4 font-semibold text-slate-950">{item.documentType || "Document"}</td>
                                   <td className="border-b px-3 py-4">
-                                    <DocumentStatusBadge status={status} />
+                                    <EssStatusBadge status={status} />
                                   </td>
                                   <td className="border-b px-3 py-4 text-slate-500">{formatDate(item.updatedAt || item.createdAt)}</td>
                                   <td className="border-b px-3 py-4 text-right">
@@ -1502,12 +1691,12 @@ function AttendanceMetricCard({
     <SectionCard className="border-slate-200 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-          <div className="mt-3 text-[18px] font-black leading-none tracking-tight text-slate-950 md:text-[19px] lg:text-[20px]">{value}</div>
-          <div className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
+          <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+          <div className="mt-2.5 text-[22px] font-black leading-none tracking-tight text-slate-950 md:text-[24px] lg:text-[26px]">{value}</div>
+          <div className="mt-2 text-xs text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
         </div>
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${toneClass}`}>
-          <Icon size={18} />
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${toneClass}`}>
+          <Icon size={20} />
         </div>
       </div>
     </SectionCard>
@@ -1516,12 +1705,12 @@ function AttendanceMetricCard({
 
 function AttendanceTimelineRow({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5">
       <div className="min-w-0">
-        <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
-        <div className="mt-0.5 truncate text-[12px] text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
+        <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+        <div className="mt-0.5 truncate text-xs text-slate-500 md:text-[13px] lg:text-sm">{detail}</div>
       </div>
-      <div className="shrink-0 text-[14px] font-black text-slate-950 md:text-[15px] lg:text-[16px]">{value}</div>
+      <div className="shrink-0 text-[15px] font-black text-slate-950 md:text-[16px] lg:text-[17px]">{value}</div>
     </div>
   );
 }
@@ -1534,14 +1723,14 @@ function AttendanceViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+    <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
       <button
         type="button"
         onClick={() => onChange("table")}
         aria-label="Table view"
         className={[
-          "inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-          value === "table" ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50",
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+          value === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
         ].join(" ")}
       >
         <Rows3 size={16} />
@@ -1551,14 +1740,30 @@ function AttendanceViewToggle({
         onClick={() => onChange("cards")}
         aria-label="Card view"
         className={[
-          "inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors",
-          value === "cards" ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50",
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+          value === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
         ].join(" ")}
       >
         <LayoutGrid size={16} />
       </button>
     </div>
   );
+}
+
+function EssStatusBadge({ status }: { status: string }) {
+  const norm = (status || "").toUpperCase().replace(/_/g, " ");
+  const tone =
+    norm === "VERIFIED" || norm === "APPROVED" || norm === "PAID" || norm === "REIMBURSED" || norm === "PRESENT" || norm === "SUCCESS"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : norm === "SUBMITTED" || norm === "IN_PROGRESS" || norm === "IN PROGRESS" || norm === "HALF_DAY" || norm === "HALF DAY"
+        ? "border-sky-200 bg-sky-50 text-sky-700"
+        : norm === "REJECTED" || norm === "DECLINED" || norm === "ABSENT" || norm === "CANCELLED"
+          ? "border-rose-200 bg-rose-50 text-rose-700"
+          : norm === "ACKNOWLEDGED"
+            ? "border-purple-200 bg-purple-50 text-purple-700"
+            : "border-amber-200 bg-amber-50 text-amber-700";
+
+  return <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.1em] ${tone}`}>{status || "—"}</span>;
 }
 
 function AttendanceHistoryCard({
@@ -1577,17 +1782,15 @@ function AttendanceHistoryCard({
   status: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Attendance Day</div>
-          <div className="mt-1.5 text-[20px] font-black leading-none text-slate-950 md:text-[22px] lg:text-[24px]">{date}</div>
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 pb-2.5 mb-3">
+        <div className="min-w-0">
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Attendance Day</div>
+          <div className="mt-0.5 text-sm sm:text-base font-extrabold text-slate-900 truncate">{date}</div>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
-          {status}
-        </span>
+        <EssStatusBadge status={status} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         <AttendanceHistoryField label="Clock In" value={clockIn} />
         <AttendanceHistoryField label="Clock Out" value={clockOut} />
         <AttendanceHistoryField label="Work Mode" value={mode} />
@@ -1599,9 +1802,9 @@ function AttendanceHistoryCard({
 
 function AttendanceHistoryField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md bg-white border border-slate-100 px-3 py-2 md:px-3.5 md:py-2.5">
-      <div className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">{label}</div>
-      <div className="mt-1.5 text-[13px] font-semibold text-slate-950 md:text-[14px] lg:text-[15px]">{value}</div>
+    <div className="rounded-lg bg-slate-50/80 border border-slate-100 px-3 py-2">
+      <div className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className="mt-0.5 text-xs sm:text-[13px] font-bold text-slate-950 truncate">{value}</div>
     </div>
   );
 }
@@ -1620,17 +1823,15 @@ function LeaveHistoryCard({
   status: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 pb-2.5 mb-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Leave Type</div>
-          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[22px]">{type}</div>
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Leave Type</div>
+          <div className="mt-0.5 text-sm sm:text-base font-extrabold text-slate-900 truncate">{type}</div>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
-          {status}
-        </span>
+        <EssStatusBadge status={status} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         <AttendanceHistoryField label="From" value={from} />
         <AttendanceHistoryField label="To" value={to} />
         <AttendanceHistoryField label="Duration" value={duration} />
@@ -1656,40 +1857,25 @@ function PayslipCard({
   testId: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 pb-2.5 mb-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Payslip Month</div>
-          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[22px]">{month}</div>
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Payslip Month</div>
+          <div className="mt-0.5 text-sm sm:text-base font-extrabold text-slate-900 truncate">{month}</div>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-slate-600">
-          {status}
-        </span>
+        <EssStatusBadge status={status} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         <AttendanceHistoryField label="Net Pay" value={netPay} />
         <AttendanceHistoryField label="Status" value={status} />
         <AttendanceHistoryField label="Generated" value={generated} />
         <AttendanceHistoryField label="Month" value={month} />
       </div>
-      <Button type="button" variant="outline" size="sm" className="mt-4 w-full" icon={<Eye size={15} />} data-testid={testId} onClick={onView}>
+      <Button type="button" variant="outline" size="sm" className="mt-3 w-full" icon={<Eye size={15} />} data-testid={testId} onClick={onView}>
         View Payslip
       </Button>
     </div>
   );
-}
-
-function DocumentStatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "VERIFIED"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : status === "SUBMITTED"
-        ? "border-sky-200 bg-sky-50 text-sky-700"
-        : status === "REJECTED"
-          ? "border-rose-200 bg-rose-50 text-rose-700"
-          : "border-amber-200 bg-amber-50 text-amber-700";
-
-  return <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${tone}`}>{status}</span>;
 }
 
 function DocumentRequestCard({
@@ -1708,24 +1894,24 @@ function DocumentRequestCard({
   onSubmit?: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 pb-2.5 mb-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-500">Requested Document</div>
-          <div className="mt-1.5 truncate text-[18px] font-black leading-none text-slate-950 md:text-[20px] lg:text-[22px]">{title}</div>
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Requested Document</div>
+          <div className="mt-0.5 text-sm sm:text-base font-extrabold text-slate-900 truncate">{title}</div>
         </div>
-        <DocumentStatusBadge status={status} />
+        <EssStatusBadge status={status} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2">
         <AttendanceHistoryField label="Status" value={status} />
         <AttendanceHistoryField label="Updated" value={updated} />
       </div>
-      <div className="mt-4 flex justify-end gap-2">
+      <div className="mt-3 flex justify-end gap-2">
         {hasFile && onView ? (
           <button
             type="button"
             onClick={onView}
-            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
           >
             View
           </button>
@@ -1734,7 +1920,7 @@ function DocumentRequestCard({
           <button
             type="button"
             onClick={onSubmit}
-            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Submit
           </button>
@@ -1744,31 +1930,31 @@ function DocumentRequestCard({
   );
 }
 
-function SimpleTable({ headers, rows }: { headers: string[]; rows: Array<Array<string>> }) {
+function SimpleTable({ headers, rows }: { headers: string[]; rows: (string | React.ReactNode)[][] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-[13px] md:text-[14px] lg:text-base">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <table className="w-full border-collapse text-left text-sm sm:text-[15px]">
         <thead>
-          <tr>
+          <tr className="bg-slate-50/80 border-b border-slate-200">
             {headers.map((header) => (
-              <th key={header} className="border-b px-3 py-3 text-[12px] uppercase text-slate-500 md:text-[13px] lg:text-sm">
+              <th key={header} className="px-4 py-3.5 text-[11px] sm:text-xs font-extrabold uppercase tracking-[0.14em] text-slate-500 whitespace-nowrap">
                 {header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={headers.length} className="px-3 py-8 text-center text-[13px] text-slate-500 md:text-[14px] lg:text-base">
+              <td colSpan={headers.length} className="px-4 py-10 text-center text-sm font-medium text-slate-500">
                 No records found.
               </td>
             </tr>
           ) : (
             rows.map((row, index) => (
-              <tr key={index}>
+              <tr key={index} className="transition-colors hover:bg-slate-50/60">
                 {row.map((value, cell) => (
-                  <td key={cell} className="border-b px-3 py-4 text-[13px] md:text-[14px] lg:text-base">
+                  <td key={cell} className="px-4 py-4 font-semibold text-slate-900 whitespace-nowrap">
                     {value}
                   </td>
                 ))}
@@ -1784,7 +1970,7 @@ function SimpleTable({ headers, rows }: { headers: string[]; rows: Array<Array<s
 function time(value?: string) {
   if (!value) return "-";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 function formatMinutes(value?: number) {

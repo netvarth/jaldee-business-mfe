@@ -53,14 +53,22 @@ const sectionStack: CSSProperties = {
 };
 
 function statusBar(s?: string): string {
-  if (s === "Open") return "#3b82f6";
-  if (s === "In Progress") return "#f59e0b";
-  return "#10b981";
+  const norm = (s || "").toUpperCase().replace(/_/g, " ");
+  if (norm === "OPEN") return "#3b82f6";
+  if (norm === "IN PROGRESS") return "#f59e0b";
+  if (norm === "ACKNOWLEDGED") return "#8b5cf6";
+  if (norm === "RESOLVED") return "#10b981";
+  if (norm === "CLOSED") return "#64748b";
+  if (norm === "REJECTED") return "#ef4444";
+  return "#3b82f6";
 }
 
 function statusBadge(s?: string): { bg: string; icon: ReactNode } {
-  if (s === "Resolved") return { bg: "#10b981", icon: <CheckCircle2 size={12} /> };
-  if (s === "In Progress") return { bg: "#f59e0b", icon: <Clock size={12} /> };
+  const norm = (s || "").toUpperCase().replace(/_/g, " ");
+  if (norm === "RESOLVED" || norm === "CLOSED") return { bg: "#10b981", icon: <CheckCircle2 size={12} /> };
+  if (norm === "ACKNOWLEDGED") return { bg: "#8b5cf6", icon: <CheckCircle2 size={12} /> };
+  if (norm === "IN PROGRESS") return { bg: "#f59e0b", icon: <Clock size={12} /> };
+  if (norm === "REJECTED") return { bg: "#ef4444", icon: <AlertCircle size={12} /> };
   return { bg: "#3b82f6", icon: <AlertCircle size={12} /> };
 }
 
@@ -134,9 +142,9 @@ export default function Tickets() {
       header: "Department",
       width: "14%",
       render: (t) => (
-        <span className="font-semibold text-xs text-[var(--color-text-primary)] truncate">
+        <div className="min-w-0 max-w-full truncate text-xs font-semibold text-[var(--color-text-primary)]">
           {t.department || "-"}
-        </span>
+        </div>
       ),
     },
     {
@@ -144,7 +152,7 @@ export default function Tickets() {
       header: "Title",
       width: "22%",
       render: (t) => (
-        <div className="min-w-0 font-bold text-sm text-[var(--color-text-primary)] truncate">
+        <div className="min-w-0 max-w-full truncate font-extrabold text-base text-[var(--color-text-primary)]">
           {t.title || "-"}
         </div>
       ),
@@ -163,20 +171,31 @@ export default function Tickets() {
       key: "status",
       header: "Status",
       width: "12%",
-      render: (t) => (
-        <Badge variant={t.status === "Resolved" ? "success" : t.status === "In Progress" ? "info" : "primary"}>
-          {t.status || "Open"}
-        </Badge>
-      ),
+      render: (t) => {
+        const norm = (t.status || "Open").toUpperCase().replace(/_/g, " ");
+        let variant: "success" | "info" | "primary" | "warning" | "danger" | "neutral" = "primary";
+        let extraClass = "";
+        if (norm === "RESOLVED" || norm === "CLOSED") variant = "success";
+        else if (norm === "ACKNOWLEDGED") {
+          variant = "neutral";
+          extraClass = "bg-purple-100 text-purple-800 border border-purple-200 font-extrabold";
+        } else if (norm === "IN PROGRESS") variant = "info";
+        else if (norm === "REJECTED") variant = "danger";
+        return (
+          <Badge variant={variant} className={extraClass}>
+            {t.status || "Open"}
+          </Badge>
+        );
+      },
     },
     {
       key: "uid",
       header: "Uid",
       width: "12%",
       render: (t) => (
-        <span className="font-mono text-xs font-semibold text-[var(--color-text-secondary)] truncate">
+        <div className="min-w-0 max-w-full truncate font-mono text-sm font-semibold text-[var(--color-text-secondary)]">
           {(t.uid || t.id || "-").slice(-8).toUpperCase()}
-        </span>
+        </div>
       ),
     },
     {
@@ -184,9 +203,9 @@ export default function Tickets() {
       header: "Subject",
       width: "16%",
       render: (t) => (
-        <span className="text-xs text-[var(--color-text-secondary)] truncate">
+        <div className="min-w-0 max-w-full truncate text-sm font-medium text-[var(--color-text-secondary)]">
           {t.subject || t.title || "-"}
-        </span>
+        </div>
       ),
     },
     {
@@ -194,7 +213,7 @@ export default function Tickets() {
       header: "Category",
       width: "12%",
       render: (t) => (
-        <Badge variant="outline">
+        <Badge variant="outline" className="max-w-full truncate">
           {t.category || "General"}
         </Badge>
       ),
@@ -465,12 +484,15 @@ export default function Tickets() {
               Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
             </Button>
           ) : null}
-          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 shrink-0">
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
             <button
               type="button"
               aria-label="Table view"
               onClick={() => setViewMode("table")}
-              className={`rounded-lg p-2 transition-colors ${viewMode === "table" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+              className={[
+                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                viewMode === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+              ].join(" ")}
             >
               <Rows3 size={16} />
             </button>
@@ -478,7 +500,10 @@ export default function Tickets() {
               type="button"
               aria-label="Card view"
               onClick={() => setViewMode("cards")}
-              className={`rounded-lg p-2 transition-colors ${viewMode === "cards" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+              className={[
+                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                viewMode === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+              ].join(" ")}
             >
               <LayoutGrid size={16} />
             </button>
@@ -494,7 +519,7 @@ export default function Tickets() {
               getRowId={(t) => t.id}
               loading={tickets.loading}
               className="rounded-none border-0 bg-transparent shadow-none"
-              tableClassName="min-w-[920px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+              tableClassName="min-w-[920px] [&_thead_tr]:bg-slate-50/80 [&_thead_tr]:border-b [&_thead_tr]:border-slate-200 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:sm:text-xs [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em] [&_thead_th]:text-slate-500 [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:sm:text-[15px] [&_tbody_td]:font-semibold [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/60"
               emptyState={
                 <EmptyState
                   icon={<MessageSquare size={36} strokeWidth={1.5} />}

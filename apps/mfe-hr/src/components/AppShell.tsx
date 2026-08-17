@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div id="hr-app-shell" data-testid="hr-app-shell" className="flex h-full min-h-[calc(100vh-56px)] bg-[#f7f9fc] text-slate-900">
-      <aside id="hr-app-sidebar" data-testid="hr-app-sidebar" className="flex w-[292px] shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc] px-4 py-5">
+      <aside id="hr-app-sidebar" data-testid="hr-app-sidebar" className="hidden lg:flex w-[260px] xl:w-[292px] shrink-0 flex-col border-r border-slate-200 bg-[#f8fafc] px-4 py-5">
         <div className="mb-8 flex items-center gap-3 px-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2e6f67] text-white shadow-sm">
             <BriefcaseBusiness size={20} />
@@ -88,7 +88,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <main id="hr-app-main" data-testid="hr-app-main" className="flex min-w-0 flex-1 flex-col">
-        <header id="hr-app-topbar" data-testid="hr-app-topbar" className="flex h-20 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-8">
+        <header id="hr-app-topbar" data-testid="hr-app-topbar" className="flex h-16 sm:h-20 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-6 md:px-8">
           <div className="relative w-full max-w-xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input

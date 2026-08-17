@@ -27,16 +27,62 @@ function buildPunchOutPayload<T extends { uid?: string; id?: string; clockInType
   };
 }
 
+function normalizeAttendanceBreak(item: unknown) {
+  if (!item || typeof item !== "object") return {};
+  const b = item as Record<string, unknown>;
+  const id = String(b.id ?? b.uid ?? b.breakUid ?? "");
+  const uid = (b.uid ?? b.id ?? b.breakUid) as string | undefined;
+  const breakIn = (b.breakIn ?? b.breakInTime ?? b.startTime ?? b.startedAt) as string | undefined;
+  const breakOut = (b.breakOut ?? b.breakOutTime ?? b.endTime ?? b.endedAt) as string | undefined;
+  const breakType = (b.breakType ?? b.type ?? "LUNCH") as string | undefined;
+  const durationMinutes = (b.durationMinutes ?? b.duration ?? b.breakMinutes) as number | undefined;
+
+  return {
+    ...b,
+    id,
+    uid,
+    breakIn,
+    breakOut,
+    breakType,
+    durationMinutes,
+  };
+}
+
 function withId<T extends { uid?: string; id?: string }>(value: Record<string, unknown>): T {
   const uid = (value.uid ?? value.id) as string | undefined;
   const hrDepartment = (value.hrDepartment ?? value.department) as string | undefined;
+  const rawBreaks = value.breaks ?? value.attendanceBreaks ?? value.breakList ?? value.breakRecords ?? value.activeBreak;
+  let breaks: unknown[] = [];
+  if (Array.isArray(rawBreaks)) {
+    breaks = rawBreaks.map(normalizeAttendanceBreak);
+  } else if (rawBreaks && typeof rawBreaks === "object") {
+    breaks = [normalizeAttendanceBreak(rawBreaks)];
+  }
+
   return {
     ...value,
     id: String(uid ?? ""),
     uid,
     department: hrDepartment,
     hrDepartment,
+    breaks,
+    attendanceBreaks: breaks,
   } as T;
+}
+
+export function sortAttendanceLatestFirst<T extends { dateStr?: string; clockIn?: string; createdAt?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const timeA = a.clockIn ? new Date(a.clockIn).getTime() : (a.dateStr ? new Date(a.dateStr).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0));
+    const timeB = b.clockIn ? new Date(b.clockIn).getTime() : (b.dateStr ? new Date(b.dateStr).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0));
+
+    if (timeA !== timeB) {
+      return timeB - timeA; // Descending (latest date & time first)
+    }
+
+    const clockInA = a.clockIn ? new Date(a.clockIn).getTime() : 0;
+    const clockInB = b.clockIn ? new Date(b.clockIn).getTime() : 0;
+    return clockInB - clockInA;
+  });
 }
 
 function useEssList<T extends { uid?: string; id?: string }>(
@@ -56,7 +102,12 @@ function useEssList<T extends { uid?: string; id?: string }>(
     setError(null);
     try {
       const response = await api.get<Record<string, unknown>[]>(endpoint);
-      setData(Array.isArray(response) ? response.map((item) => withId<T>(item)) : []);
+      const list = Array.isArray(response) ? response.map((item) => withId<T>(item)) : [];
+      if (endpoint.includes("attendance")) {
+        setData(sortAttendanceLatestFirst(list as unknown as { dateStr?: string; clockIn?: string }[]) as unknown as T[]);
+      } else {
+        setData(list);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to load ${endpoint}`);
       setData([]);
@@ -80,7 +131,7 @@ export interface MyAttendance {
 
 export interface MyLeave {
   id: string; uid?: string; leaveTypeName?: string; startDate?: string; endDate?: string;
-  reason?: string; status?: string; duration?: number; isHalfDay?: boolean;
+  reason?: string; status?: string; duration?: number; isHalfDay?: boolean; halfDayType?: "FIRST_HALF" | "SECOND_HALF" | string;
 }
 
 export interface MyLeaveBalance {
@@ -152,7 +203,44 @@ export function useMyAttendance(options: { enabled?: boolean } = {}) {
     await api.put(`/me/attendance/${uid}/punch-out`, buildPunchOutPayload(record, uid));
     await reload();
   }, [api, data, reload]);
-  return { data, loading, error, reload, punchIn, punchOut };
+  const startBreak = useCallback(async (
+    uid: string,
+    breakType: string,
+    employeeUid?: string | null,
+    breakInIso?: string
+  ) => {
+    const attendanceUid = uid;
+    const body: Record<string, unknown> = {
+      attendanceUid,
+      breakType,
+      breakIn: breakInIso || new Date().toISOString(),
+    };
+    if (employeeUid) body.employeeUid = employeeUid;
+    const res = await api.post(`/me/attendance/${uid}/breaks`, body);
+    await reload();
+    return res;
+  }, [api, reload]);
+  const endBreak = useCallback(async (
+    uid: string,
+    breakUid: string,
+    breakOutIso?: string,
+    employeeUid?: string | null,
+    breakType?: string | null
+  ) => {
+    const attendanceUid = uid;
+    const targetBreakUid = breakUid || "active";
+    const body: Record<string, unknown> = {
+      attendanceUid,
+      breakUid: targetBreakUid,
+      breakType: breakType || "LUNCH",
+      breakOut: breakOutIso || new Date().toISOString(),
+    };
+    if (employeeUid) body.employeeUid = employeeUid;
+    const res = await api.put(`/me/attendance/${uid}/breaks/${targetBreakUid}`, body);
+    await reload();
+    return res;
+  }, [api, reload]);
+  return { data, loading, error, reload, punchIn, punchOut, startBreak, endBreak };
 }
 
 export function useMyLeaves(options: { enabled?: boolean } = {}) {

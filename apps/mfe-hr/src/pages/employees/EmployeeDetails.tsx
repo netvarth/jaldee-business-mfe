@@ -66,7 +66,17 @@ function toPhoneInputValue(value?: string | null): PhoneInputValue {
     ? { countryCode: match[1], number: match[2], e164Number: normalized }
     : { countryCode: "+91", number: normalized.replace(/\D/g, ""), e164Number: "" };
 }
-function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }); }
+
+function validatePasswordRequirements(password: string) {
+  const minLength = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasDigit = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  const isValid = minLength && hasUpper && hasLower && hasDigit && hasSpecial;
+  return { minLength, hasUpper, hasLower, hasDigit, hasSpecial, isValid };
+}
 
 const DEDUCTION_COMPONENTS = new Set(["PF", "ESI", "TDS", "PROFESSIONAL_TAX", "LWF", "LOAN", "ADVANCE", "MEDICLAIM"]);
 function isDeductionComponent(component: EmployeeComponentValue) {
@@ -405,6 +415,7 @@ export default function EmployeeDetails() {
       .filter((p) => !!p.employeeUid && employeeKeys.has(p.employeeUid))
       .sort((left, right) => String(right.generatedAt || right.monthStr || right.month || "").localeCompare(String(left.generatedAt || left.monthStr || left.month || "")));
   }, [allPayslips, employee?.id, employee?.uid]);
+  const pwdReqs = useMemo(() => validatePasswordRequirements(credentials.password), [credentials.password]);
   const assignedStructureUid = employeePayroll.assignment?.structureUid || employeePayroll.assignment?.structure?.uid || employeePayroll.assignment?.structure?.id || "";
   const assignedStructure = payrollStructures.data.find((structure) => (structure.uid || structure.id) === assignedStructureUid) || employeePayroll.assignment?.structure;
   useEffect(() => {
@@ -639,6 +650,11 @@ export default function EmployeeDetails() {
       setLoginError("Password is required.");
       return;
     }
+    const pwdValidation = validatePasswordRequirements(credentials.password);
+    if (!pwdValidation.isValid) {
+      setLoginError("Password must contain at least 8 characters, including uppercase, lowercase, digit, and special character.");
+      return;
+    }
     if (credentials.password !== credentials.confirmPassword) {
       setLoginError("Password and confirm password must match.");
       return;
@@ -664,7 +680,10 @@ export default function EmployeeDetails() {
         message: `${employee.name}'s login access was updated successfully.`,
       });
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to update employee login.";
+      let message = e instanceof Error ? e.message : "Failed to update employee login.";
+      if (message.includes("newPassword") || message.includes("Password must contain")) {
+        message = "Password must contain at least 8 characters, including uppercase, lowercase, digit, and special character.";
+      }
       setLoginError(message);
       captureError(e instanceof Error ? e : new Error(message), { employeeId: employee.id });
     } finally {
@@ -1494,6 +1513,40 @@ export default function EmployeeDetails() {
               />
             </div>
           </div>
+
+          {/* Password Requirements Guidance */}
+          <div
+            id="hr-password-requirements-guidance"
+            data-testid="hr-password-requirements-guidance"
+            className="rounded-xl border border-slate-200 bg-slate-50/90 p-3.5 text-xs shadow-2xs"
+          >
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 mb-2">
+              Password Requirements
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-slate-600">
+              <div className={`flex items-center gap-1.5 font-medium transition-colors ${pwdReqs.minLength ? "text-emerald-700 font-bold" : "text-slate-500"}`}>
+                <span className={`text-xs ${pwdReqs.minLength ? "text-emerald-600 font-black" : "text-slate-400"}`}>{pwdReqs.minLength ? "✓" : "○"}</span>
+                <span>At least 8 characters</span>
+              </div>
+              <div className={`flex items-center gap-1.5 font-medium transition-colors ${pwdReqs.hasUpper ? "text-emerald-700 font-bold" : "text-slate-500"}`}>
+                <span className={`text-xs ${pwdReqs.hasUpper ? "text-emerald-600 font-black" : "text-slate-400"}`}>{pwdReqs.hasUpper ? "✓" : "○"}</span>
+                <span>Uppercase letter (A-Z)</span>
+              </div>
+              <div className={`flex items-center gap-1.5 font-medium transition-colors ${pwdReqs.hasLower ? "text-emerald-700 font-bold" : "text-slate-500"}`}>
+                <span className={`text-xs ${pwdReqs.hasLower ? "text-emerald-600 font-black" : "text-slate-400"}`}>{pwdReqs.hasLower ? "✓" : "○"}</span>
+                <span>Lowercase letter (a-z)</span>
+              </div>
+              <div className={`flex items-center gap-1.5 font-medium transition-colors ${pwdReqs.hasDigit ? "text-emerald-700 font-bold" : "text-slate-500"}`}>
+                <span className={`text-xs ${pwdReqs.hasDigit ? "text-emerald-600 font-black" : "text-slate-400"}`}>{pwdReqs.hasDigit ? "✓" : "○"}</span>
+                <span>At least one digit (0-9)</span>
+              </div>
+              <div className={`flex items-center gap-1.5 font-medium transition-colors ${pwdReqs.hasSpecial ? "text-emerald-700 font-bold" : "text-slate-500"}`}>
+                <span className={`text-xs ${pwdReqs.hasSpecial ? "text-emerald-600 font-black" : "text-slate-400"}`}>{pwdReqs.hasSpecial ? "✓" : "○"}</span>
+                <span>Special character (!@#$)</span>
+              </div>
+            </div>
+          </div>
+
           <div className="employee-edit-field-pair">
             <div className="form-group">
               <label>Confirm Password</label>

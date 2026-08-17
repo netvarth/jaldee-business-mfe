@@ -307,6 +307,7 @@ function LogoFileInput({ value, onChange, automationKey, label }: {
     if (value && typeof value === "object") {
       const v = value as Record<string, unknown>;
       if (typeof v.filePath === "string" && v.filePath) return v.filePath;
+      if (typeof v.fileUrl === "string" && v.fileUrl) return v.fileUrl;
       if (typeof v.url === "string" && v.url) return v.url;
     }
     return "";
@@ -390,10 +391,13 @@ function ConfigForm({ title, subtitle, icon, fields, data, loading, error, onSav
   useEffect(() => {
     if (!data) return;
     const next = { ...data };
-    if (!next.logoUrl && data.attachment && typeof data.attachment === "object") {
-      const att = data.attachment as Record<string, unknown>;
-      const logoPath = (att.filePath || att.url) as string | undefined;
-      if (logoPath) next.logoUrl = logoPath;
+    if (!next.logoUrl) {
+      const rawAtt = data.attachment ?? (Array.isArray(data.attachments) ? data.attachments[0] : null);
+      if (rawAtt && typeof rawAtt === "object") {
+        const att = rawAtt as Record<string, unknown>;
+        const logoPath = (att.filePath || att.fileUrl || att.url) as string | undefined;
+        if (logoPath) next.logoUrl = logoPath;
+      }
     }
     fields.forEach((fieldItem) => {
       if (next[fieldItem.key] === undefined && fieldItem.sourceKey && data[fieldItem.sourceKey] !== undefined) {

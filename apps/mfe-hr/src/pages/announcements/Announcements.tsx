@@ -148,7 +148,7 @@ export default function Announcements() {
       header: "Start Date",
       width: "16%",
       render: (a) => (
-        <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+        <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
           {formatDate(a.startDate) || "Recently"}
         </span>
       ),
@@ -159,11 +159,11 @@ export default function Announcements() {
       width: "42%",
       render: (a) => (
         <div className="min-w-0">
-          <div className="flex items-center gap-2 font-bold text-sm text-[var(--color-text-primary)]">
+          <div className="flex items-center gap-2 font-extrabold text-base text-[var(--color-text-primary)]">
             {a.isPinned && <Pin size={14} color={TEAL} fill={TEAL} className="shrink-0" />}
             <span className="truncate">{a.title}</span>
           </div>
-          {a.description && <div className="mt-0.5 text-xs text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
+          {a.description && <div className="mt-0.5 text-sm font-medium text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
         </div>
       ),
     },
@@ -171,19 +171,22 @@ export default function Announcements() {
       key: "status",
       header: "Status",
       width: "14%",
-      render: (a) => (
-        <span style={{ borderRadius: 999, padding: "4px 14px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: a.status === "Disabled" ? "#374151" : "#065f46", background: a.status === "Disabled" ? "#f3f4f6" : "#d1fae5", display: "inline-block" }}>
-          {a.status || "Enabled"}
-        </span>
-      ),
+      render: (a) => {
+        const disabled = a.status === "Disabled";
+        return (
+          <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.1em] ${disabled ? "border-slate-200 bg-slate-100 text-slate-600" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+            {a.status || "Enabled"}
+          </span>
+        );
+      },
     },
     {
       key: "actions",
       header: "Actions",
-      width: "14%",
+      width: "18%",
       align: "right",
       render: (a) => (
-        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           {a.attachments?.length ? (
             <Button variant="outline" size="sm" icon={<Paperclip size={14} />} onClick={() => setAttachmentView(a)}>
               {a.attachments.length}
@@ -194,14 +197,22 @@ export default function Announcements() {
               {a.status === "Disabled" ? "Enable" : "Disable"}
             </Button>
           ) : (
-            <Button
-              variant={a.isAcknowledged ? "ghost" : "primary"}
-              size="sm"
-              disabled={a.isAcknowledged}
-              onClick={() => handleAcknowledge(a.id)}
-            >
-              {a.isAcknowledged ? "Acknowledged" : "Acknowledge"}
-            </Button>
+            a.isAcknowledged ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1 text-xs font-extrabold text-emerald-700">
+                <CheckCircle2 size={14} className="text-emerald-600" /> Acknowledged
+              </span>
+            ) : (
+              <Button
+                id={`hr-announcement-ack-${a.id}`}
+                data-testid={`hr-announcement-ack-${a.id}`}
+                variant="primary"
+                size="sm"
+                className="bg-teal-700 text-white font-extrabold hover:bg-teal-800"
+                onClick={() => handleAcknowledge(a.id)}
+              >
+                Acknowledge
+              </Button>
+            )
           )}
         </div>
       ),
@@ -352,12 +363,15 @@ export default function Announcements() {
           >
             Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
           </Button>
-          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
             <button
               type="button"
               aria-label="Table view"
               onClick={() => setViewMode("table")}
-              className={`rounded-lg p-2 transition-colors ${viewMode === "table" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+              className={[
+                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                viewMode === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+              ].join(" ")}
             >
               <Rows3 size={16} />
             </button>
@@ -365,7 +379,10 @@ export default function Announcements() {
               type="button"
               aria-label="Card view"
               onClick={() => setViewMode("cards")}
-              className={`rounded-lg p-2 transition-colors ${viewMode === "cards" ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
+              className={[
+                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                viewMode === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+              ].join(" ")}
             >
               <LayoutGrid size={16} />
             </button>
@@ -382,7 +399,7 @@ export default function Announcements() {
               getRowId={(a) => a.id}
               loading={ann.loading}
               className="rounded-none border-0 bg-transparent shadow-none"
-              tableClassName="min-w-[800px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[60px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+              tableClassName="min-w-[800px] [&_thead_tr]:bg-slate-50/80 [&_thead_tr]:border-b [&_thead_tr]:border-slate-200 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:sm:text-xs [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em] [&_thead_th]:text-slate-500 [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:sm:text-[15px] [&_tbody_td]:font-semibold [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/60"
               emptyState={
                 <EmptyState
                   icon={<Megaphone size={36} strokeWidth={1.5} />}

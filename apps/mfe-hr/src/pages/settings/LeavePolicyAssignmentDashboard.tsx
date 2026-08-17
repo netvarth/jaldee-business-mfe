@@ -7,6 +7,16 @@ import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
 import { TEAL, lbl, th, tdc, card, PanelHeader, SettingsEmptyState, ErrorBar, Center, LEAVE_CATEGORY_OPTIONS, leaveCategoryLabel, type Crud, type Row } from "./SettingsComponents";
 
+function formatCutoffDay(day?: unknown): string {
+  if (day === undefined || day === null || day === "" || isNaN(Number(day))) return "—";
+  const num = Number(day);
+  const j = num % 10, k = num % 100;
+  if (j === 1 && k !== 11) return `${num}st`;
+  if (j === 2 && k !== 12) return `${num}nd`;
+  if (j === 3 && k !== 13) return `${num}rd`;
+  return `${num}th`;
+}
+
 function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { setStatus: (uid: string, status: "Enabled" | "Disabled") => Promise<void> } }) {
   const { eventBus } = useMFEProps();
   const api = useHrApi();
@@ -78,6 +88,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
       name: "",
       category: "CASUAL",
       annualQuota: 0,
+      accrualCutoffDay: "",
       accrualType: "Monthly",
       paid: true,
       carryForward: false,
@@ -94,6 +105,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
       name: policy.name || "",
       category: policy.category || "CASUAL",
       annualQuota: policy.annualQuota ?? 0,
+      accrualCutoffDay: policy.accrualCutoffDay ?? "",
       accrualType: policy.accrualType || "Monthly",
       paid: policy.paid ?? true,
       carryForward: policy.carryForward ?? false,
@@ -109,6 +121,14 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
       eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Policy", message: "Leave type name is required." });
       return;
     }
+    if (policyForm.accrualCutoffDay !== undefined && policyForm.accrualCutoffDay !== null && policyForm.accrualCutoffDay !== "") {
+      const day = Number(policyForm.accrualCutoffDay);
+      if (!Number.isInteger(day) || day < 1 || day > 31) {
+        setPolicyError("Accrual cutoff day must be an integer between 1 and 31.");
+        eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave Policy", message: "Accrual cutoff day must be an integer between 1 and 31." });
+        return;
+      }
+    }
     setSavingPolicy(true);
     setPolicyError(null);
     try {
@@ -116,6 +136,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
         name: policyForm.name,
         category: policyForm.category,
         annualQuota: Number(policyForm.annualQuota || 0),
+        accrualCutoffDay: policyForm.accrualCutoffDay !== "" && policyForm.accrualCutoffDay !== null ? Number(policyForm.accrualCutoffDay) : null,
         accrualType: policyForm.accrualType,
         paid: !!policyForm.paid,
         carryForward: !!policyForm.carryForward,
@@ -252,16 +273,17 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
         ) : policyView === "table" ? (
           <div className="overflow-x-auto w-full">
             <table id="hr-settings-leave-policy-table" data-testid="hr-settings-leave-policy-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={th}>Leave Type</th><th style={th}>Category</th><th style={th}>Quota</th><th style={th}>Accrual</th><th style={th}>Rules</th><th style={th}>Color</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
+              <thead><tr><th style={th}>Leave Type</th><th style={th}>Category</th><th style={th}>Quota</th><th style={th}>Accrual</th><th style={th}>Cutoff</th><th style={th}>Rules</th><th style={th}>Color</th><th style={{ ...th, textAlign: "right" }}>Actions</th></tr></thead>
               <tbody>
                 {leaveTypes.data.length === 0 ? (
-                  <tr><td colSpan={7}><SettingsEmptyState title="No leave types" description="Add a leave type before assigning balance periods." compact /></td></tr>
+                  <tr><td colSpan={8}><SettingsEmptyState title="No leave types" description="Add a leave type before assigning balance periods." compact /></td></tr>
                 ) : leaveTypes.data.map((policy) => (
                   <tr key={policy.id}>
                     <td style={tdc}><b>{policy.name as string}</b></td>
                     <td style={tdc}>{leaveCategoryLabel(policy.category)}</td>
                     <td style={tdc}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</td>
                     <td style={tdc}>{(policy.accrualType as string) || "—"}</td>
+                    <td style={tdc}>{formatCutoffDay(policy.accrualCutoffDay)}</td>
                     <td style={tdc}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
@@ -298,9 +320,10 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
                     </div>
                     <span style={{ width: 18, height: 18, flexShrink: 0, borderRadius: 6, border: "1px solid var(--border-color)", background: (policy.colorHex as string) || "#cbd5e1" }} title={(policy.colorHex as string) || "No color"} />
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                     <div><div style={lbl}>Quota</div><div style={{ marginTop: 4, fontSize: 13 }}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</div></div>
                     <div><div style={lbl}>Accrual</div><div style={{ marginTop: 4, fontSize: 13 }}>{(policy.accrualType as string) || "—"}</div></div>
+                    <div><div style={lbl}>Cutoff</div><div style={{ marginTop: 4, fontSize: 13 }}>{formatCutoffDay(policy.accrualCutoffDay)}</div></div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
@@ -452,6 +475,23 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Accrual Type</label>
             <Select id="hr-settings-leave-policy-accrual" testId="hr-settings-leave-policy-accrual" value={(policyForm.accrualType as string) || "Monthly"} onChange={(e) => setPolicyForm((f) => ({ ...f, accrualType: e.target.value }))} options={["Monthly", "Yearly", "Quarterly"].map((value) => ({ value, label: value }))} />
+          </div>
+          <div>
+            <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Accrual Cutoff Day</label>
+            <Input
+              id="hr-settings-leave-policy-cutoff-day"
+              data-testid="hr-settings-leave-policy-cutoff-day"
+              type="number"
+              min={1}
+              max={31}
+              placeholder="e.g. 15 (1-31)"
+              value={String(policyForm.accrualCutoffDay ?? "")}
+              onChange={(e) => setPolicyForm((f) => ({ ...f, accrualCutoffDay: e.target.value }))}
+              className="rounded-xl !h-11"
+            />
+            <p style={{ fontSize: 10.5, color: "var(--light-text)", marginTop: 4, lineHeight: "1.3" }}>
+              Employees joining on or before this calendar day receive their first month's accrual immediately upon joining. Joining after this day starts with 0 balance until the next cycle.
+            </p>
           </div>
           <label style={{ ...ruleToggle(!!policyForm.paid), gridColumn: "1 / -1" }}>
             <input id="hr-settings-leave-policy-paid" data-testid="hr-settings-leave-policy-paid" type="checkbox" checked={!!policyForm.paid} onChange={(e) => setPolicyForm((f) => ({ ...f, paid: e.target.checked }))} />

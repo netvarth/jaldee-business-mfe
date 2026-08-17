@@ -19,8 +19,11 @@ import { useBranches } from "../../services/useBranches";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs, type AttendanceRecord } from "../../services/useAttendanceData";
 import { useAttendanceSearchSchema } from "../../services/useAttendanceSearchSchema";
 import { useAttendanceRules } from "../../services/useSettingsData";
+import { useHrApi } from "../../services/useHrApi";
 import { formatDate } from "../../lib/utils";
 import { CLOCK_TYPE_OPTIONS, ClockType } from "../../types";
+import type { AttendanceBreak } from "../../types";
+import { AttendanceBreakManager } from "../../components/AttendanceBreakManager";
 
 type SubTab = "logs" | "pending" | "overtime" | "field" | "compoff" | "onduty" | "kiosk";
 
@@ -56,72 +59,12 @@ function attendanceFilterSchema(schema: SearchSchema | null): SearchSchema | nul
   return { ...schema, fields };
 }
 
-const ATTENDANCE_ROUTES: Array<{ key: SubTab; route: string; label: string }> = [
-  { key: "logs", route: "logs", label: "Logs History" },
-  { key: "pending", route: "pending-verifications", label: "Pending Verifications" },
-  { key: "overtime", route: "pending-overtime", label: "Pending Overtime" },
-  { key: "field", route: "field-track", label: "Field Track" },
-  { key: "compoff", route: "comp-off", label: "Comp-Off" },
-  { key: "onduty", route: "on-duty", label: "On-Duty" },
-  { key: "kiosk", route: "face-kiosk", label: "Face Kiosk Mode" },
-];
-
-const card: CSSProperties = { background: "var(--surface-bg)", border: "1px solid var(--border-color)", borderRadius: 24, boxShadow: "var(--shadow-sm)" };
-const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--light-text)" };
-const th: CSSProperties = { textAlign: "left", padding: "12px 16px", fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--light-text)" };
-const tdc: CSSProperties = { padding: "14px 16px", fontSize: 13, color: "var(--dark-text)", borderTop: "1px solid var(--border-color)" };
-const sel: CSSProperties = { width: "100%", height: 44, borderRadius: 12, border: "1px solid var(--border-color)", background: "var(--surface-bg)", padding: "0 12px", fontSize: 14, fontWeight: 600, color: "var(--dark-text)" };
-
-function fmtTime(iso?: string) { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }); }
-function minutesToHours(minutes?: number) {
-  if (!minutes || minutes <= 0) return "0h";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
-}
-function statusBadge(status?: string): CSSProperties {
-  const key = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
-  if (key === "present") return { background: "rgba(16,185,129,0.08)", color: "#059669", border: "1px solid rgba(16,185,129,0.2)" };
-  if (key === "absent") return { background: "rgba(244,63,94,0.08)", color: "#e11d48", border: "1px solid rgba(244,63,94,0.2)" };
-  if (key === "half_day") return { background: "rgba(245,158,11,0.1)", color: "#b45309", border: "1px solid rgba(245,158,11,0.25)" };
-  if (key === "leave") return { background: "rgba(59,130,246,0.08)", color: "#2563eb", border: "1px solid rgba(59,130,246,0.2)" };
-  if (key === "holiday") return { background: "rgba(139,92,246,0.09)", color: "#7c3aed", border: "1px solid rgba(139,92,246,0.22)" };
-  if (key === "rest_day") return { background: "rgba(100,116,139,0.1)", color: "#64748b", border: "1px solid rgba(100,116,139,0.22)" };
-  return { background: "rgba(100,116,139,0.08)", color: "var(--light-text)", border: "1px solid var(--border-color)" };
-}
-function StatusBadge({ status }: { status?: string }) {
-  return <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{status || "Pending"}</span>;
-}
-function OvertimePill({ minutes, status, approved }: { minutes?: number; status?: string; approved?: number }) {
-  if (!minutes || minutes <= 0) return null;
-  const normalized = (status || "Pending").toLowerCase();
-  const Icon = normalized === "approved" ? CheckCircle2 : normalized === "rejected" ? XCircle : Timer;
-  const color = normalized === "approved" ? "#059669" : normalized === "rejected" ? "#e11d48" : "#b45309";
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, background: `${color}12`, color, border: `1px solid ${color}30`, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
-      <Icon size={12} /> OT {minutesToHours(minutes)}
-      {normalized === "approved" ? ` / ${minutesToHours(approved ?? minutes)} approved` : ` ${status || "Pending"}`}
-    </span>
-  );
-}
-function isSystemFlagged(status?: string, generated?: boolean, source?: string, generatedBy?: string) {
-  const key = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
-  return !!generated || /system|cron|auto/i.test(source || "") || /system|cron|auto/i.test(generatedBy || "") || key === "absent" || key === "holiday";
-}
-function hasNoShiftFlag(record: AttendanceRecord) {
-  const flags = [...(record.validationFlags ?? []), ...(record.attendanceFlags ?? [])];
-  return record.noShiftAssigned === true
-    || record.shiftResolutionSource?.toUpperCase() === "NONE"
-    || flags.some((flag) => /NO[_\s-]?SHIFT/i.test(flag));
-}
-function effectiveShiftLabel(record: AttendanceRecord) {
-  if (hasNoShiftFlag(record)) return "No shift assigned";
-  const name = record.effectiveShiftName || record.shiftName;
-  const time = record.shiftStartTime || record.shiftEndTime
-    ? `${fmtTime(record.shiftStartTime)} – ${fmtTime(record.shiftEndTime)}`
-    : "";
-  return name && time ? `${name} (${time})` : name || time || "—";
-}
+import {
+  card, lbl, th, tdc, sel, fmtTime, minutesToHours, statusBadge, formatDuration,
+  StatusBadge, OvertimePill, isSystemFlagged, hasNoShiftFlag, effectiveShiftLabel,
+  ATTENDANCE_ROUTES, type SubTab,
+} from "./AttendanceHelpers";
+import { AttendanceSubTabs } from "./AttendanceSubTabs";
 function subtabFromPath(pathname: string): SubTab {
   const segment = pathname.split("/").filter(Boolean).at(-1);
   const match = ATTENDANCE_ROUTES.find((item) => item.route === segment || item.key === segment);
@@ -180,30 +123,21 @@ function AttendanceViewToggle({
   onChange: (value: ViewMode) => void;
 }) {
   return (
-    <div data-view-toggle="table-card" style={{ display: "inline-flex", alignItems: "center", height: 40, gap: 2, padding: 2, border: "1px solid var(--border-color)", borderRadius: 8, background: "var(--surface-bg)" }}>
+    <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs">
       <button
         type="button"
         id="hr-attendance-view-table"
         data-testid="hr-attendance-view-table"
         data-active={value === "table"}
         onClick={() => onChange("table")}
-        style={{
-          display: "inline-flex",
-          width: 32,
-          height: 32,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 6,
-          border: "none",
-          cursor: "pointer",
-          background: value === "table" ? "var(--primary-color)" : "transparent",
-          color: value === "table" ? "white" : "var(--light-text)",
-          transition: "background-color 0.15s, color 0.15s"
-        }}
+        className={[
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+          value === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+        ].join(" ")}
         aria-label="Table view"
         title="Table view"
       >
-        <Rows3 size={15} />
+        <Rows3 size={16} />
       </button>
       <button
         type="button"
@@ -211,23 +145,14 @@ function AttendanceViewToggle({
         data-testid="hr-attendance-view-cards"
         data-active={value === "cards"}
         onClick={() => onChange("cards")}
-        style={{
-          display: "inline-flex",
-          width: 32,
-          height: 32,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 6,
-          border: "none",
-          cursor: "pointer",
-          background: value === "cards" ? "var(--primary-color)" : "transparent",
-          color: value === "cards" ? "white" : "var(--light-text)",
-          transition: "background-color 0.15s, color 0.15s"
-        }}
+        className={[
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+          value === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+        ].join(" ")}
         aria-label="Card view"
         title="Card view"
       >
-        <LayoutGrid size={15} />
+        <LayoutGrid size={16} />
       </button>
     </div>
   );
@@ -353,6 +278,40 @@ export default function Attendance() {
   const today = new Date().toISOString().slice(0, 10);
   const open = useMemo(() => selectedEmployeeAttendance.data.find((a) => a.employeeUid === actor && a.dateStr === today && a.clockIn && !a.clockOut), [selectedEmployeeAttendance.data, actor, today]);
   const clockedIn = !!open;
+
+  const api = useHrApi();
+  const [detailedBreaks, setDetailedBreaks] = useState<AttendanceBreak[]>([]);
+
+  useEffect(() => {
+    if (!open?.id) {
+      setDetailedBreaks([]);
+      return;
+    }
+    let isMounted = true;
+    const loadBreaks = async () => {
+      try {
+        let rec: Record<string, unknown> | null = null;
+        try {
+          rec = await api.get<Record<string, unknown>>(`/attendance/${open.id}`);
+        } catch {
+          try {
+            const list = await api.get<Record<string, unknown>[]>("/me/attendance");
+            if (Array.isArray(list)) {
+              rec = list.find((item) => item.id === open.id || item.uid === open.id) || null;
+            }
+          } catch { rec = null; }
+        }
+        if (rec && isMounted) {
+          const raw = rec.breaks || rec.attendanceBreaks || rec.breakList || [];
+          if (Array.isArray(raw)) setDetailedBreaks(raw as AttendanceBreak[]);
+        }
+      } catch {
+        if (isMounted) setDetailedBreaks([]);
+      }
+    };
+    void loadBreaks();
+    return () => { isMounted = false; };
+  }, [api, open?.id]);
   const weekHours = useMemo(() => {
     const since = new Date(); since.setDate(since.getDate() - 7);
     return selectedEmployeeAttendance.data.filter((a) => a.employeeUid === actor && a.dateStr && new Date(a.dateStr) >= since).reduce((t, a) => t + (a.workedHours ?? 0), 0);
@@ -505,7 +464,7 @@ export default function Attendance() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
             <div>
               <div style={lbl}>Hours Worked</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "var(--dark-text)", marginTop: 2 }}>{weekHours.toFixed(1)}h</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "var(--dark-text)", marginTop: 2 }}>{formatDuration(undefined, weekHours)}</div>
               <div style={{ fontSize: 8.5, color: "var(--light-text)", marginTop: 1, fontWeight: 800, letterSpacing: "0.04em" }}>THIS WEEK</div>
             </div>
             <div>
@@ -601,8 +560,8 @@ export default function Attendance() {
                 onEndReached={attendanceEmployeeOptions.onLoadMore}
                 disabled={!selectedLocationUid}
                 options={attendanceEmployeeOptions.data.map((employee) => ({
-                  value: employee.id,
-                  label: employee.name,
+                  value: employee.id || "",
+                  label: employee.name || employee.employeeId || employee.id || "Employee",
                 }))}
               />
               <Select
@@ -623,6 +582,49 @@ export default function Attendance() {
               <Button id="hr-attendance-punch-button" data-testid="hr-attendance-punch-button" variant={clockedIn ? "danger" : "primary"} size="lg" onClick={handlePunch} disabled={!actor} loading={busy} fullWidth>
                 {clockedIn ? "Clock Out" : "Clock In"}
               </Button>
+              <AttendanceBreakManager
+                attendanceUid={open?.id}
+                employeeUid={actor}
+                breaks={open?.breaks}
+                isPunchedIn={clockedIn}
+                isPunchedOut={!clockedIn}
+                onStartBreak={async (breakType, opts) => {
+                  if (open?.id) {
+                    const res = await attendance.startBreak(
+                      opts?.attendanceUid || open.id,
+                      breakType,
+                      opts?.employeeUid || actor,
+                      opts?.breakIn
+                    );
+                    await attendance.reload();
+                    try {
+                      const rec = await api.get<Record<string, unknown>>(`/attendance/${open.id}`);
+                      const raw = rec?.breaks || rec?.attendanceBreaks || rec?.breakList || [];
+                      if (Array.isArray(raw)) setDetailedBreaks(raw as AttendanceBreak[]);
+                    } catch { /* ignore */ }
+                    return res;
+                  }
+                }}
+                onEndBreak={async (breakUid, breakOutIso, opts) => {
+                  if (open?.id) {
+                    const res = await attendance.endBreak(
+                      opts?.attendanceUid || open.id,
+                      breakUid,
+                      breakOutIso,
+                      opts?.employeeUid || actor,
+                      opts?.breakType
+                    );
+                    await attendance.reload();
+                    try {
+                      const rec = await api.get<Record<string, unknown>>(`/attendance/${open.id}`);
+                      const raw = rec?.breaks || rec?.attendanceBreaks || rec?.breakList || [];
+                      if (Array.isArray(raw)) setDetailedBreaks(raw as AttendanceBreak[]);
+                    } catch { /* ignore */ }
+                    return res;
+                  }
+                }}
+                compact
+              />
               {(msg || empError) && <div data-testid="hr-attendance-punch-message" style={{ fontSize: 12, textAlign: "center", color: empError && !msg ? "var(--danger-color)" : "var(--light-text)", marginTop: 4 }}>{msg || `Employees failed to load: ${empError}`}</div>}
             </div>
 
@@ -636,16 +638,90 @@ export default function Attendance() {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 180, color: "var(--light-text)", gap: 10 }}><History size={36} strokeWidth={1.2} /><span style={{ ...lbl }}>No Records</span></div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{todayLogs.map((a) => (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", border: "1px solid var(--border-color)", borderRadius: 12, background: "rgba(100,116,139,0.02)" }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 13 }}>{a.clockInType || "Office"}</div>
-                  <div style={{ fontSize: 12, color: "var(--light-text)", marginTop: 2 }}>In {fmtTime(a.clockIn)} · Out {fmtTime(a.clockOut)}</div>
-                  <div data-testid={`hr-attendance-timeline-effective-shift-${a.id}`} style={{ fontSize: 11, color: hasNoShiftFlag(a) ? "var(--color-warning)" : "var(--light-text)", marginTop: 2 }}>{effectiveShiftLabel(a)}</div>
+              <div key={a.id} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "14px 16px", border: "1px solid var(--border-color)", borderRadius: 14, background: "rgba(100,116,139,0.02)" }}>
+                {/* Header Row: Work Mode + Badges */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ fontWeight: 800, color: "var(--dark-text)", fontSize: 13.5 }}>{a.clockInType || "Office"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} />
+                    <StatusBadge status={a.status || "Present"} />
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} />
-                  <StatusBadge status={a.status || "Present"} />
-                </div>
+
+                {/* Timing Row */}
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--light-text)" }}>In {fmtTime(a.clockIn)} · Out {fmtTime(a.clockOut)}</div>
+
+                {/* Shift Label */}
+                {effectiveShiftLabel(a) && effectiveShiftLabel(a) !== "—" && effectiveShiftLabel(a) !== "No shift assigned" && (
+                  <div data-testid={`hr-attendance-timeline-effective-shift-${a.id}`} style={{ fontSize: 11, color: hasNoShiftFlag(a) ? "var(--color-warning)" : "var(--light-text)" }}>{effectiveShiftLabel(a)}</div>
+                )}
+
+                {/* Break Info Section */}
+                {(() => {
+                  const recordObj = a as Record<string, unknown>;
+                  const rawList = (
+                    (Array.isArray(a.breaks) && a.breaks.length > 0 ? a.breaks : null) ??
+                    (a.id === open?.id && detailedBreaks.length > 0 ? detailedBreaks : null) ??
+                    (Array.isArray(recordObj.attendanceBreaks) ? recordObj.attendanceBreaks : null) ??
+                    (Array.isArray(recordObj.breakList) ? recordObj.breakList : null) ??
+                    (recordObj.activeBreak && typeof recordObj.activeBreak === "object" ? [recordObj.activeBreak] : [])
+                  ) as Record<string, unknown>[];
+                  const breakList = Array.isArray(rawList) ? rawList : [];
+                  if (breakList.length === 0) return null;
+
+                  return (
+                    <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {breakList.map((b, idx) => {
+                        const rawType = String(b.breakType || b.type || b.name || "Break");
+                        const bType = rawType.charAt(0).toUpperCase() + rawType.slice(1).toLowerCase();
+                        const bIn = (b.breakIn || b.breakInTime || b.startTime) as string | undefined;
+                        const bOut = (b.breakOut || b.breakOutTime || b.endTime) as string | undefined;
+                        const bDuration = Number(b.durationMinutes || b.duration || b.breakMinutes || 0);
+                        const isActive = Boolean(bIn && !bOut);
+
+                        let calculatedMins = bDuration;
+                        if (!calculatedMins && bIn && bOut) {
+                          const s = new Date(bIn).getTime();
+                          const e = new Date(bOut).getTime();
+                          if (!isNaN(s) && !isNaN(e) && e > s) {
+                            calculatedMins = Math.round((e - s) / 60000);
+                          }
+                        }
+
+                        return (
+                          <div
+                            key={idx}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              background: isActive ? "rgba(245,158,11,0.08)" : "rgba(100,116,139,0.04)",
+                              border: isActive ? "1px solid rgba(245,158,11,0.22)" : "1px solid var(--border-color)",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 13 }}>☕</span>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: isActive ? "#b45309" : "var(--dark-text)" }}>
+                                {bType}
+                              </span>
+                              {isActive && (
+                                <span style={{ background: "#fef3c7", color: "#92400e", fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4, textTransform: "uppercase" }}>
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--light-text)", whiteSpace: "nowrap" }}>
+                              {fmtTime(bIn)} {bOut ? `– ${fmtTime(bOut)}` : "→ Ongoing"} {calculatedMins > 0 ? `(${minutesToHours(calculatedMins)})` : ""}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             ))}</div>
           )}
@@ -784,6 +860,73 @@ export default function Attendance() {
                       { key: "clockInType", header: "Work Type", width: "12%", render: (a) => <span style={{ color: "var(--light-text)" }}>{a.clockInType || "—"}</span> },
                       { key: "clockIn", header: "Clock In", width: "12%", render: (a) => fmtTime(a.clockIn) },
                       { key: "clockOut", header: "Clock Out", width: "12%", render: (a) => fmtTime(a.clockOut) },
+                      {
+                        key: "workedHours",
+                        header: "Worked Duration",
+                        width: "14%",
+                        render: (a) => (
+                          <span className="whitespace-nowrap font-semibold text-[var(--dark-text)]">
+                            {formatDuration(a.workedMinutes, a.workedHours, a.workedHoursFormatted)}
+                          </span>
+                        ),
+                      },
+                      {
+                        key: "breaks",
+                        header: "Breaks",
+                        width: "12%",
+                        render: (a) => {
+                          const recordObj = a as Record<string, unknown>;
+                          const rawList = (
+                            (Array.isArray(a.breaks) && a.breaks.length > 0 ? a.breaks : null) ??
+                            (a.id === open?.id && detailedBreaks.length > 0 ? detailedBreaks : null) ??
+                            (Array.isArray(recordObj.attendanceBreaks) ? recordObj.attendanceBreaks : null) ??
+                            (Array.isArray(recordObj.breakList) ? recordObj.breakList : null) ??
+                            (recordObj.activeBreak && typeof recordObj.activeBreak === "object" ? [recordObj.activeBreak] : [])
+                          ) as Record<string, unknown>[];
+
+                          const breakList = Array.isArray(rawList) ? rawList : [];
+
+                          let totalMinutes = breakList.reduce((acc, b) => {
+                            const start = b.breakIn || b.breakInTime || b.startTime;
+                            const end = b.breakOut || b.breakOutTime || b.endTime;
+                            if (start && end) {
+                              const s = new Date(start as string).getTime();
+                              const e = new Date(end as string).getTime();
+                              if (!isNaN(s) && !isNaN(e) && e > s) {
+                                return acc + Math.round((e - s) / 60000);
+                              }
+                            }
+                            return acc + Number(b.durationMinutes || b.duration || b.breakMinutes || 0);
+                          }, 0);
+
+                          if (totalMinutes === 0) {
+                            const fallbackMins = Number(
+                              recordObj.totalBreakMinutes ?? recordObj.breakMinutes ?? recordObj.totalBreakDuration ?? recordObj.breakDuration ?? 0
+                            );
+                            if (fallbackMins > 0) totalMinutes = fallbackMins;
+                          }
+
+                          const activeBreak = breakList.find((b) => (b.breakIn || b.breakInTime) && !(b.breakOut || b.breakOutTime));
+
+                          if (totalMinutes === 0 && breakList.length === 0 && !activeBreak) {
+                            return <span style={{ color: "var(--light-text)" }}>—</span>;
+                          }
+
+                          return (
+                            <div className="flex flex-col gap-0.5 whitespace-nowrap" title={`${breakList.length || 1} break(s)`}>
+                              <div className="flex items-center gap-1 font-semibold text-amber-900 text-xs">
+                                <span>☕</span>
+                                <span>{totalMinutes > 0 ? minutesToHours(totalMinutes) : `${breakList.length || 1} break`}</span>
+                                {activeBreak && (
+                                  <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 animate-pulse">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        },
+                      },
                       { key: "overtimeMinutes", header: "Overtime", width: "16%", render: (a) => <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /> },
                       { key: "status", header: "Status", width: "14%", align: "right", render: (a) => <StatusBadge status={a.status} /> },
                     ] as ColumnDef<typeof attendance.data[0]>[]}
@@ -873,282 +1016,27 @@ export default function Attendance() {
                 )}
               </>
             )}
-            {subtab === "pending" && (
-              viewMode === "table" ? (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Mode</th><th style={th}>Clock In</th><th style={th}>Designated Approver</th><th style={{ ...th, textAlign: "right" }}>Verification</th></tr></thead>
-                  <tbody>{pendingVerifs.length === 0 ? <tr><td colSpan={6} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No pending WFH or on-field attendance approvals.</td></tr> : pendingVerifs.map((a) => {
-                    const approver = approverFor(a.employeeUid);
-                    return (
-                      <tr key={a.id}>
-                        <td style={{ ...tdc, fontWeight: 600 }}>{empName(a.employeeUid)}</td>
-                        <td style={tdc}>{formatDate(a.dateStr)}</td>
-                        <td style={tdc}><span style={{ ...lbl, color: "var(--primary-color)" }}>{a.clockInType || "—"}</span></td>
-                        <td style={tdc}>{fmtTime(a.clockIn)}</td>
-                        <td style={tdc}>{approver ? <span style={{ fontWeight: 600 }}>{approver.name}</span> : <span style={{ ...lbl }}>HR / Admin</span>}</td>
-                        <td style={{ ...tdc, textAlign: "right" }}>
-                          <button id={`hr-attendance-approve-${a.id}`} data-testid={`hr-attendance-approve-${a.id}`} onClick={() => attendance.verify(a.id, "Approved", approver?.uid)} className="btn-grid-action" style={{ marginRight: 8 }}>Approve</button>
-                          <button id={`hr-attendance-reject-${a.id}`} data-testid={`hr-attendance-reject-${a.id}`} onClick={() => attendance.verify(a.id, "Rejected", approver?.uid)} style={{ height: 30, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "#e11d48", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Reject</button>
-                        </td>
-                      </tr>
-                    );})}</tbody>
-                </table>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
-                  {pendingVerifs.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No pending WFH or on-field attendance approvals.</div>
-                  ) : (
-                    pendingVerifs.map((a) => {
-                      const approver = approverFor(a.employeeUid);
-                      return (
-                        <div key={a.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{empName(a.employeeUid)}</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                            <div>
-                              <div style={lbl}>Date</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{formatDate(a.dateStr)}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Mode</div>
-                              <div style={{ fontWeight: 600, color: "var(--primary-color)", marginTop: 2 }}>{a.clockInType || "—"}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Clock In</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{fmtTime(a.clockIn)}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Approver</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{approver ? approver.name : "HR / Admin"}</div>
-                            </div>
-                          </div>
-                          <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 12, display: "flex", gap: 8, marginTop: 4 }}>
-                            <button id={`hr-attendance-card-approve-${a.id}`} data-testid={`hr-attendance-card-approve-${a.id}`} onClick={() => attendance.verify(a.id, "Approved", approver?.uid)} className="btn-grid-action" style={{ flex: 1 }}>Approve</button>
-                            <button id={`hr-attendance-card-reject-${a.id}`} data-testid={`hr-attendance-card-reject-${a.id}`} onClick={() => attendance.verify(a.id, "Rejected", approver?.uid)} style={{ flex: 1, height: 32, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "#e11d48", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Reject</button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )
-            )}
-            {subtab === "overtime" && (
-              viewMode === "table" ? (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Shift Time</th><th style={th}>Worked</th><th style={th}>Requested OT</th><th style={th}>Approved Minutes</th><th style={{ ...th, textAlign: "right" }}>Action</th></tr></thead>
-                  <tbody>{pendingOvertime.length === 0 ? <tr><td colSpan={7} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No pending overtime requests.</td></tr> : pendingOvertime.map((a) => {
-                    const approved = overtimeDrafts[a.id] ?? a.overtimeMinutes ?? 0;
-                    const shiftTime = a.shiftStartTime || a.shiftEndTime ? `${fmtTime(a.shiftStartTime)} - ${fmtTime(a.shiftEndTime)}` : "—";
-                    return (
-                      <tr key={a.id}>
-                        <td style={{ ...tdc, fontWeight: 600 }}>{empName(a.employeeUid)}</td>
-                        <td style={tdc}>{formatDate(a.dateStr)}</td>
-                        <td style={tdc}>{shiftTime}</td>
-                        <td style={tdc}>{a.workedHours != null ? `${a.workedHours.toFixed(2)}h` : "—"}</td>
-                        <td style={tdc}><OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /></td>
-                        <td style={tdc}>
-                          <input
-                            id={`hr-attendance-overtime-minutes-${a.id}`}
-                            data-testid={`hr-attendance-overtime-minutes-${a.id}`}
-                            type="number"
-                            min={0}
-                            value={approved}
-                            onChange={(event) => setOvertimeDrafts((drafts) => ({ ...drafts, [a.id]: Math.max(0, Number(event.target.value) || 0) }))}
-                            style={{ ...sel, width: 120, height: 36 }}
-                          />
-                        </td>
-                        <td style={{ ...tdc, textAlign: "right" }}>
-                          <button id={`hr-attendance-overtime-approve-${a.id}`} data-testid={`hr-attendance-overtime-approve-${a.id}`} onClick={() => void actOvertime(a.id, approved)} className="btn-grid-action" style={{ marginRight: 8 }}>Approve</button>
-                          <button id={`hr-attendance-overtime-reject-${a.id}`} data-testid={`hr-attendance-overtime-reject-${a.id}`} onClick={() => void actOvertime(a.id, 0)} style={{ height: 30, padding: "0 12px", borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "#e11d48", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Reject</button>
-                        </td>
-                      </tr>
-                    );
-                  })}</tbody>
-                </table>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
-                  {pendingOvertime.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No pending overtime requests.</div>
-                  ) : (
-                    pendingOvertime.map((a) => {
-                      const approved = overtimeDrafts[a.id] ?? a.overtimeMinutes ?? 0;
-                      const shiftTime = a.shiftStartTime || a.shiftEndTime ? `${fmtTime(a.shiftStartTime)} - ${fmtTime(a.shiftEndTime)}` : "—";
-                      return (
-                        <div key={a.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{empName(a.employeeUid)}</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                            <div>
-                              <div style={lbl}>Date</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{formatDate(a.dateStr)}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Shift Time</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{shiftTime}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Worked Hours</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{a.workedHours != null ? `${a.workedHours.toFixed(2)}h` : "—"}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Requested OT</div>
-                              <div style={{ marginTop: 2 }}><OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /></div>
-                            </div>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
-                            <span style={lbl}>Approved Minutes</span>
-                            <input
-                              id={`hr-attendance-card-overtime-minutes-${a.id}`}
-                              data-testid={`hr-attendance-card-overtime-minutes-${a.id}`}
-                              type="number"
-                              min={0}
-                              value={approved}
-                              onChange={(event) => setOvertimeDrafts((drafts) => ({ ...drafts, [a.id]: Math.max(0, Number(event.target.value) || 0) }))}
-                              style={{ ...sel, width: "100%", height: 38 }}
-                            />
-                          </div>
-                          <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 12, display: "flex", gap: 8 }}>
-                            <button id={`hr-attendance-card-overtime-approve-${a.id}`} data-testid={`hr-attendance-card-overtime-approve-${a.id}`} onClick={() => void actOvertime(a.id, approved)} className="btn-grid-action" style={{ flex: 1 }}>Approve</button>
-                            <button id={`hr-attendance-card-overtime-reject-${a.id}`} data-testid={`hr-attendance-card-overtime-reject-${a.id}`} onClick={() => void actOvertime(a.id, 0)} style={{ flex: 1, height: 32, borderRadius: 8, border: "1px solid var(--border-color)", background: "var(--surface-bg)", color: "#e11d48", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>Reject</button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )
-            )}
-            {subtab === "field" && (
-              <>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, padding: "16px 20px", borderBottom: "1px solid var(--border-color)", background: "rgba(100,116,139,0.03)" }}>
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "var(--dark-text)" }}>Live Field Tracking</div>
-                    <div style={{ fontSize: 11, color: "var(--light-text)" }}>Capture GPS for {actorEmp?.name || "the selected employee"} using this device.</div>
-                    {geoMsg && <div data-testid="hr-attendance-location-message" style={{ fontSize: 11, marginTop: 4, color: /denied|Failed|Could not|not supported|first/.test(geoMsg) ? "#e11d48" : "#059669" }}>{geoMsg}</div>}
-                  </div>
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, fontWeight: 700, color: "var(--light-text)" }}>
-                    <input id="hr-attendance-auto-track" data-testid="hr-attendance-auto-track" type="checkbox" checked={autoTrack} onChange={(e) => setAutoTrack(e.target.checked)} /> Auto every 30s
-                  </label>
-                  <button id="hr-attendance-capture-location" data-testid="hr-attendance-capture-location" onClick={captureLocation} disabled={geoBusy} style={{ height: 38, padding: "0 18px", borderRadius: 10, border: "none", background: "var(--primary-color)", color: "white", fontWeight: 800, fontSize: 12, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    {geoBusy ? <Loader2 size={15} className="animate-spin" /> : <MapPin size={15} />} Capture Location
-                  </button>
-                </div>
-                {viewMode === "table" ? (
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead><tr><th style={th}>User</th><th style={th}>Timestamp</th><th style={th}>Coordinates</th><th style={th}>Accuracy</th></tr></thead>
-                    <tbody>{locationLogs.data.length === 0 ? <tr><td colSpan={4} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No field tracking data available.</td></tr> : locationLogs.data.map((l) => (
-                      <tr key={l.id}><td style={{ ...tdc, fontWeight: 600 }}>{l.userId || "—"}</td><td style={tdc}>{l.timestamp ? new Date(l.timestamp).toLocaleString() : "—"}</td><td style={{ ...tdc, fontFamily: "monospace", fontSize: 12 }}>{l.latitude != null && l.longitude != null ? `${l.latitude.toFixed(5)}, ${l.longitude.toFixed(5)}` : "—"}</td><td style={tdc}>{l.accuracy != null ? `${l.accuracy.toFixed(0)} m` : "—"}</td></tr>
-                    ))}</tbody>
-                  </table>
-                ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
-                    {locationLogs.data.length === 0 ? (
-                      <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No field tracking data available.</div>
-                    ) : (
-                      locationLogs.data.map((l) => (
-                        <div key={l.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                          <div style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{l.userId || "—"}</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                            <div>
-                              <div style={lbl}>Timestamp</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{l.timestamp ? new Date(l.timestamp).toLocaleString() : "—"}</div>
-                            </div>
-                            <div>
-                              <div style={lbl}>Accuracy</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{l.accuracy != null ? `${l.accuracy.toFixed(0)} m` : "—"}</div>
-                            </div>
-                            <div style={{ gridColumn: "1/-1" }}>
-                              <div style={lbl}>Coordinates</div>
-                              <div style={{ fontWeight: 600, color: "var(--dark-text)", fontFamily: "monospace", fontSize: 12, marginTop: 2 }}>{l.latitude != null && l.longitude != null ? `${l.latitude.toFixed(5)}, ${l.longitude.toFixed(5)}` : "—"}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-            {subtab === "compoff" && (
-              viewMode === "table" ? (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Employee</th><th style={th}>Credited Days</th><th style={th}>Expiry</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
-                  <tbody>{compoffs.data.length === 0 ? <tr><td colSpan={4} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No comp-off credits.</td></tr> : compoffs.data.map((c) => (
-                    <tr key={c.id}><td style={{ ...tdc, fontWeight: 600 }}>{empName(c.employeeUid)}</td><td style={tdc}>{c.creditedDays ?? "—"}</td><td style={tdc}>{formatDate(c.expiryDate)}</td><td style={{ ...tdc, textAlign: "right" }}><span style={lbl}>{c.status || "—"}</span></td></tr>
-                  ))}</tbody>
-                </table>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
-                  {compoffs.data.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No comp-off credits.</div>
-                  ) : (
-                    compoffs.data.map((c) => (
-                      <div key={c.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{empName(c.employeeUid)}</span>
-                          <span style={{ ...lbl, color: "var(--primary-color)" }}>{c.status || "—"}</span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                          <div>
-                            <div style={lbl}>Credited Days</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{c.creditedDays ?? "—"}</div>
-                          </div>
-                          <div>
-                            <div style={lbl}>Expiry</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{formatDate(c.expiryDate)}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )
-            )}
-            {subtab === "onduty" && (
-              viewMode === "table" ? (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead><tr><th style={th}>Employee</th><th style={th}>Date</th><th style={th}>Client Site</th><th style={th}>Reason</th><th style={{ ...th, textAlign: "right" }}>Status</th></tr></thead>
-                  <tbody>{onduty.data.length === 0 ? <tr><td colSpan={5} style={{ ...tdc, textAlign: "center", color: "var(--light-text)" }}>No on-duty requests.</td></tr> : onduty.data.map((o) => (
-                    <tr key={o.id}><td style={{ ...tdc, fontWeight: 600 }}>{empName(o.employeeUid)}</td><td style={tdc}>{formatDate(o.date)}</td><td style={tdc}>{o.clientSite || "—"}</td><td style={{ ...tdc, color: "var(--light-text)" }}>{o.reason || "—"}</td><td style={{ ...tdc, textAlign: "right" }}>
-                      {(o.status || "").toLowerCase() === "pending" ? <button id={`hr-attendance-onduty-approve-${o.id}`} data-testid={`hr-attendance-onduty-approve-${o.id}`} onClick={() => onduty.update(o.id, { status: "Approved" })} className="btn-grid-action">Approve</button> : <span style={lbl}>{o.status || "—"}</span>}
-                    </td></tr>
-                  ))}</tbody>
-                </table>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, padding: 16 }}>
-                  {onduty.data.length === 0 ? (
-                    <div style={{ textAlign: "center", color: "var(--light-text)", gridColumn: "1/-1", padding: 24 }}>No on-duty requests.</div>
-                  ) : (
-                    onduty.data.map((o) => (
-                      <div key={o.id} style={{ ...card, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontWeight: 700, color: "var(--dark-text)", fontSize: 14 }}>{empName(o.employeeUid)}</span>
-                          <span style={{ ...lbl, color: o.status === "Approved" ? "#10b981" : "var(--light-text)" }}>{o.status || "—"}</span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-                          <div>
-                            <div style={lbl}>Date</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{formatDate(o.date)}</div>
-                          </div>
-                          <div>
-                            <div style={lbl}>Client Site</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{o.clientSite || "—"}</div>
-                          </div>
-                          <div style={{ gridColumn: "1/-1" }}>
-                            <div style={lbl}>Reason</div>
-                            <div style={{ fontWeight: 600, color: "var(--dark-text)", marginTop: 2 }}>{o.reason || "—"}</div>
-                          </div>
-                        </div>
-                        {(o.status || "").toLowerCase() === "pending" && (
-                          <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 12, display: "flex", gap: 8 }}>
-                            <button id={`hr-attendance-card-onduty-approve-${o.id}`} data-testid={`hr-attendance-card-onduty-approve-${o.id}`} onClick={() => onduty.update(o.id, { status: "Approved" })} className="btn-grid-action" style={{ flex: 1 }}>Approve</button>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )
-            )}
+            <AttendanceSubTabs
+              subtab={subtab}
+              viewMode={viewMode}
+              pendingVerifs={pendingVerifs}
+              pendingOvertime={pendingOvertime}
+              overtimeDrafts={overtimeDrafts}
+              setOvertimeDrafts={setOvertimeDrafts}
+              approverFor={approverFor}
+              empName={empName}
+              actOvertime={actOvertime}
+              attendance={attendance}
+              actorEmp={actorEmp}
+              geoMsg={geoMsg}
+              autoTrack={autoTrack}
+              setAutoTrack={setAutoTrack}
+              geoBusy={geoBusy}
+              captureLocation={captureLocation}
+              locationLogs={locationLogs}
+              compoffs={compoffs}
+              onduty={onduty}
+            />
             {subtab === "kiosk" && <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--light-text)", fontSize: 13 }}>Face Kiosk Mode — webcam capture is pending; the backend enrollment endpoint is wired.</div>}
           </>
         )}
