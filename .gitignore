@@ -8,6 +8,8 @@ coverage/
 
 .env
 .env.*
+!.env.development
+!.env.production
 
 .DS_Store
 Thumbs.db
