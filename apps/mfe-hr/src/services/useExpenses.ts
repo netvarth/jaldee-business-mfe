@@ -27,10 +27,19 @@ export function useExpenses(
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = schema
-        ? await api.post<unknown>(`${basePath}/search`, buildHrSearchBody(filters, schema, 0, 1000))
-        : await api.get<Record<string, unknown>[]>(basePath);
-      const records = schema ? unwrapHrSearchPage(res).content : (Array.isArray(res) ? res : []);
+      let records: Record<string, unknown>[] = [];
+      if (schema) {
+        try {
+          const res = await api.post<unknown>(`${basePath}/search`, buildHrSearchBody(filters, schema, 0, 1000));
+          records = unwrapHrSearchPage(res).content;
+        } catch {
+          const res = await api.get<Record<string, unknown>[]>(basePath);
+          records = Array.isArray(res) ? res : [];
+        }
+      } else {
+        const res = await api.get<Record<string, unknown>[]>(basePath);
+        records = Array.isArray(res) ? res : [];
+      }
       setData(records.map(withId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load expenses");

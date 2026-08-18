@@ -27,7 +27,8 @@ import {
   Home,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Checkbox, Combobox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, Dialog, DialogFooter, type ColumnDef } from "@jaldee/design-system";
+import { Button, Checkbox, Combobox, Input, Popover, Select, Textarea, DataTable, SectionCard, EmptyState, Dialog, DialogFooter } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { usePositions, useHierarchyLevels, useAreaManagers, useTransfers, type Transfer } from "../../services/useOrg";
 import { useEmployees } from "../../services/useEmployees";
@@ -1298,29 +1299,24 @@ export default function OrgStructure() {
             }
           />
           {positions.error && <ErrBar text={positions.error} />}
-          <div style={{ ...card, border: "none", background: "transparent" }}>
+          <div>
             {positions.loading ? (
               <div style={{ padding: 40, textAlign: "center" }}><Loader2 size={18} className="animate-spin" style={{ display: "inline" }} /></div>
             ) : positionsView === "table" ? (
-              <div className="overflow-hidden rounded-[12px] border border-[#d7e3f1] bg-white">
-                <DataTable
-                  data={positions.data}
-                  columns={positionColumns}
-                  getRowId={(row) => row.id}
-                  emptyState={
-                    <div className="rounded-b-[12px]">
-                      <OrgEmptyState
-                        icon={<Briefcase size={34} strokeWidth={1.5} />}
-                        title="No positions found"
-                        description="Configured positions for each branch will appear here."
-                        className="py-10"
-                      />
-                    </div>
-                  }
-                  className="rounded-none border-0 bg-transparent shadow-none"
-                  tableClassName="min-w-[720px] border-separate border-spacing-0 [&_thead_tr]:border-[#d7e3f1] [&_tbody_tr]:border-[#d7e3f1] [&_thead_th]:h-12 [&_thead_th]:border-b [&_thead_th]:border-[#d7e3f1] [&_thead_th]:bg-white [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_thead_th]:text-[#587398] [&_thead_th:first-child]:rounded-tl-[12px] [&_thead_th:last-child]:rounded-tr-[12px] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3 [&_tbody_td]:border-b [&_tbody_td]:border-[#d7e3f1] [&_tbody_tr:last-child_td]:border-b-0 [&_tbody_tr:last-child_td:first-child]:rounded-bl-[12px] [&_tbody_tr:last-child_td:last-child]:rounded-br-[12px]"
-                />
-              </div>
+              <DataTable
+                data={positions.data}
+                columns={positionColumns}
+                getRowId={(row) => row.id}
+                className="border border-slate-200 rounded-[12px] shadow-sm bg-white overflow-hidden"
+                emptyState={
+                  <OrgEmptyState
+                    icon={<Briefcase size={34} strokeWidth={1.5} />}
+                    title="No positions found"
+                    description="Configured positions for each branch will appear here."
+                    className="py-10"
+                  />
+                }
+              />
             ) : (
               <div className="grid gap-3 p-[14px] md:grid-cols-2 xl:grid-cols-3">
                 {positions.data.length === 0 ? (
@@ -1392,30 +1388,25 @@ export default function OrgStructure() {
             }
           />
           {levels.error && <ErrBar text={levels.error} />}
-          <div style={{ ...card, border: "none", background: "transparent" }}>
+          <div>
             {levels.loading ? (
               <div style={{ padding: 40, textAlign: "center" }}><Loader2 size={18} className="animate-spin" style={{ display: "inline" }} /></div>
             ) : levelsView === "table" ? (
-              <div className="overflow-hidden rounded-[12px] border border-[#d7e3f1] bg-white">
-                <DataTable
-                  data-testid="hr-org-level"
-                  data={levels.data}
-                  columns={levelColumns}
-                  getRowId={(row) => row.id}
-                  emptyState={
-                    <div className="rounded-b-[12px]">
-                      <OrgEmptyState
-                        icon={<Layers size={34} strokeWidth={1.5} />}
-                        title="No levels defined"
-                        description="Hierarchy level labels will appear here once they are configured."
-                        className="py-10"
-                      />
-                    </div>
-                  }
-                  className="rounded-none border-0 bg-transparent shadow-none"
-                  tableClassName="min-w-[640px] border-separate border-spacing-0 [&_thead_tr]:border-[#d7e3f1] [&_tbody_tr]:border-[#d7e3f1] [&_thead_th]:h-12 [&_thead_th]:border-b [&_thead_th]:border-[#d7e3f1] [&_thead_th]:bg-white [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_thead_th]:text-[#587398] [&_thead_th:first-child]:rounded-tl-[12px] [&_thead_th:last-child]:rounded-tr-[12px] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3 [&_tbody_td]:border-b [&_tbody_td]:border-[#d7e3f1] [&_tbody_tr:last-child_td]:border-b-0 [&_tbody_tr:last-child_td:first-child]:rounded-bl-[12px] [&_tbody_tr:last-child_td:last-child]:rounded-br-[12px]"
-                />
-              </div>
+              <DataTable
+                data-testid="hr-org-level"
+                data={levels.data}
+                columns={levelColumns}
+                getRowId={(row) => row.id}
+                className="border border-slate-200 rounded-[12px] shadow-sm bg-white overflow-hidden"
+                emptyState={
+                  <OrgEmptyState
+                    icon={<Layers size={34} strokeWidth={1.5} />}
+                    title="No levels defined"
+                    description="Hierarchy level labels will appear here once they are configured."
+                    className="py-10"
+                  />
+                }
+              />
             ) : (
               <div className="grid gap-3 p-[14px] md:grid-cols-2 xl:grid-cols-3">
                 {levels.data.length === 0 ? (

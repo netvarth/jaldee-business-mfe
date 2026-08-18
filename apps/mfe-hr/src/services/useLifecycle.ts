@@ -26,6 +26,8 @@ export interface DisciplinaryAction {
   notes?: string;
 }
 
+export type MemoSeverity = "Low" | "Medium" | "High" | "Critical";
+
 export interface WarningMemo {
   id: string;
   uid?: string;
@@ -35,7 +37,7 @@ export interface WarningMemo {
   issuedByName?: string;
   issuedOn?: string;
   category?: string;
-  severity?: "Low" | "Medium" | "High";
+  severity?: MemoSeverity;
   description?: string;
   acknowledgedAt?: string;
   ackComment?: string;
@@ -91,7 +93,8 @@ export function useDisciplinary(employeeUid?: string) {
   return { data, loading, error, reload: load, create, close };
 }
 
-export function useMemos(employeeUid?: string) {
+export function useMemos(options: { employeeUid?: string; isEss?: boolean } = {}) {
+  const { employeeUid, isEss } = options;
   const api = useHrApi();
   const [data, setData] = useState<WarningMemo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,11 +102,35 @@ export function useMemos(employeeUid?: string) {
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
+      if (isEss) {
+        try {
+          const res = await api.post<Record<string, unknown>>("/me/warning-memos/search", { page: 0, size: 100 });
+          const items = (res?.content ?? res?.items ?? res) as Record<string, unknown>[];
+          if (Array.isArray(items)) {
+            setData(items.map((r) => withId<WarningMemo>(r)));
+            return;
+          }
+        } catch {
+          // fallback to list endpoint if search endpoint fails
+        }
+      } else {
+        try {
+          const res = await api.post<Record<string, unknown>>("/enforcement/warning-memos/search", { page: 0, size: 100 });
+          const items = (res?.content ?? res?.items ?? res) as Record<string, unknown>[];
+          if (Array.isArray(items)) {
+            setData(items.map((r) => withId<WarningMemo>(r)));
+            return;
+          }
+        } catch {
+          // fallback
+        }
+      }
+
       const res = await api.get<Record<string, unknown>[]>(`/lifecycle/memos${employeeUid ? `?employeeUid=${employeeUid}` : ""}`);
       setData(Array.isArray(res) ? res.map((r) => withId<WarningMemo>(r)) : []);
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load memos"); setData([]); }
     finally { setLoading(false); }
-  }, [api, employeeUid]);
+  }, [api, employeeUid, isEss]);
   useEffect(() => { void load(); }, [load]);
 
   const issue = useCallback(async (p: Record<string, unknown>) => { await api.post("/lifecycle/memos", p); await load(); }, [api, load]);

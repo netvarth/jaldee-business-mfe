@@ -631,10 +631,24 @@ export function usePayrollRuns(options?: PayrollLoadOptions) {
       if (err.status === 422 || err.code === "PAYROLL_RATE_MISSING") {
         throw new Error("Payroll cannot run because a daily wage or hourly employee is missing a daily or hourly rate.");
       }
-      throw e;
     }
   }, [api, reload]);
-  return { data, loading, error, reload, processRun };
+  const createRun = useCallback(async (payload: { monthStr: string; status?: string }) => {
+    return processRun(payload.monthStr);
+  }, [processRun]);
+
+  const finalizeRun = useCallback(async (runUid?: string, payload?: { status?: string; monthStr?: string }) => {
+    if (runUid) {
+      await api.post(`${PAYROLL_ROOT}/runs/${runUid}/finalize`, payload || {});
+    } else if (payload?.monthStr) {
+      await api.post(`${PAYROLL_ROOT}/runs/finalize?month=${encodeURIComponent(payload.monthStr)}`, payload || {});
+    } else {
+      await api.post(`${PAYROLL_ROOT}/runs/finalize`, payload || {});
+    }
+    await reload();
+  }, [api, reload]);
+
+  return { data, loading, error, reload, processRun, createRun, finalizeRun };
 }
 
 export function usePayrollCustomFields(options: PayrollCustomFieldLoadOptions = {}) {

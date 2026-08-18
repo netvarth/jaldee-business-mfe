@@ -147,6 +147,7 @@ const MonthPicker = forwardRef<HTMLInputElement, MonthPickerProps>(
 
         <div ref={fieldRef} className={cn("relative", fullWidth && "w-full")}>
           <input
+            data-testid={props["data-testid"] ? `${props["data-testid"]}-display` : inputId ? `${inputId}-display` : "month-picker-display"}
             value={selectedDate ? formatDisplayValue(selectedDate) : ""}
             readOnly
             disabled={disabled}

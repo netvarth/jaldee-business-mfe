@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Table as Rows3, LayoutGrid, Filter } from "lucide-react";
-import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, DataTable, EmptyState, SkeletonTable, DataTablePagination, Drawer, FileUpload, type ColumnDef } from "@jaldee/design-system";
+import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, DataTable, EmptyState, SkeletonTable, DataTablePagination, Drawer, FileUpload, SectionCard } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -149,16 +150,20 @@ export default function Expenses() {
   const { schema: rawExpenseSchema, loading: schemaLoading } = useExpenseSearchSchema(true, isEmployeeView);
   const expenseSchema = useMemo(() => {
     if (!rawExpenseSchema) return null;
+    const fields = rawExpenseSchema.fields.filter((f) => {
+      const label = (f.label || "").trim().toLowerCase();
+      const name = (f.name || f.key || "").trim().toLowerCase();
+      if (name === "date" || label === "date") return false;
+      if (name.includes("transport") || name.includes("kms") || name.includes("mode")) return false;
+      if (label === "employee" || name === "employee" || name === "employeeuid") return false;
+      return true;
+    });
+    const defaultSortField = rawExpenseSchema.defaultSort?.field;
+    const defaultSort = defaultSortField === "date" ? undefined : rawExpenseSchema.defaultSort;
     return {
       ...rawExpenseSchema,
-      fields: rawExpenseSchema.fields.filter((f) => {
-        const label = (f.label || "").trim().toLowerCase();
-        const name = (f.name || f.key || "").trim().toLowerCase();
-        if (name.includes("transport") || name.includes("kms") || name.includes("mode")) return false;
-        if (label === "employee" || name === "employee" || name === "employeeuid") return false;
-        return true;
-      }),
-      defaultSort: rawExpenseSchema.defaultSort,
+      fields,
+      defaultSort,
     };
   }, [rawExpenseSchema]);
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
@@ -427,115 +432,124 @@ export default function Expenses() {
         <StatCard tag="Total Registers" label="Total Ledger Count" value={`${scopedExpenses.length} Claims`} sub="Expense claims logged" tone={TEAL} icon={<Receipt size={24} />} accent />
       </div>
 
-      {/* TABS + FILTERS HEADER */}
-      <div style={{ ...panel, padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* ROW 1: TABS & VIEW TOGGLE */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, background: "rgba(100,116,139,0.08)", padding: 4, borderRadius: 6, maxWidth: "100%" }}>
-            {(isEmployeeView ? EXPENSE_ROUTES.filter((t) => t.key === "ledger") : EXPENSE_ROUTES).map((t) => {
-              const activeTab = isEmployeeView ? "ledger" : tab;
-              const label = t.key === "ledger" ? `${t.label} (${scopedExpenses.length})` : `${t.label} (${pendingCount} Pending)`;
-              return (
-                <button key={t.key} id={`hr-expenses-tab-${t.key}`} data-testid={`hr-expenses-tab-${t.key}`} data-active={activeTab === t.key ? "true" : "false"} onClick={() => { setPage(1); navigate(isEmployeeView ? "/me/expenses" : `/expenses/${t.route}`); }} style={{ padding: "8px 16px", borderRadius: 4, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", background: activeTab === t.key ? (t.key === "approvals" ? TEAL : "white") : "transparent", color: activeTab === t.key ? (t.key === "approvals" ? "white" : "var(--dark-text)") : "var(--light-text)", boxShadow: activeTab === t.key && t.key === "ledger" ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>{label}</button>
-              );
-            })}
-          </div>
-          <ExpensesViewToggle value={viewMode} onChange={setViewMode} />
-        </div>
-
-        {/* ROW 2: INLINE FILTERS */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] pt-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <div className="min-w-[150px] sm:min-w-[180px]">
-            <Select
-              id="hr-expenses-filter-category"
-              testId="hr-expenses-filter-category"
-              aria-label="Filter by Category"
-              value={categoryFilter}
-              onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
-              options={[
-                { value: "all", label: "All Categories" },
-                { value: "Travel", label: "Travel" },
-                { value: "Food", label: "Food" },
-                { value: "Lodging", label: "Lodging" },
-                { value: "Other", label: "Other" },
-              ]}
-            />
+      {/* TABS + FILTERS HEADER IN INTEGRATED CARD */}
+      <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+        <div className="flex flex-col gap-3 border-b border-[var(--color-border)] p-4">
+          {/* ROW 1: TABS */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-[color:color-mix(in_srgb,var(--color-border)_25%,transparent)] p-1">
+              {(isEmployeeView ? EXPENSE_ROUTES.filter((t) => t.key === "ledger") : EXPENSE_ROUTES).map((t) => {
+                const activeTab = isEmployeeView ? "ledger" : tab;
+                const label = t.key === "ledger" ? `${t.label} (${scopedExpenses.length})` : `${t.label} (${pendingCount} Pending)`;
+                return (
+                  <button
+                    key={t.key}
+                    id={`hr-expenses-tab-${t.key}`}
+                    data-testid={`hr-expenses-tab-${t.key}`}
+                    data-active={activeTab === t.key ? "true" : "false"}
+                    onClick={() => { setPage(1); navigate(isEmployeeView ? "/me/expenses" : `/expenses/${t.route}`); }}
+                    className={`rounded px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] transition-colors ${activeTab === t.key ? (t.key === "approvals" ? "bg-[var(--primary-color)] text-white shadow-xs" : "bg-white text-slate-900 shadow-xs") : "text-slate-500 hover:text-slate-800"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
-            {!isEmployeeView && tab === "ledger" && (
-              <div className="min-w-[150px] sm:min-w-[180px]">
-              <Select
-                id="hr-expenses-filter-status"
-                testId="hr-expenses-filter-status"
-                aria-label="Filter by Status"
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                options={[
-                  { value: "all", label: "All Statuses" },
-                  { value: "Pending", label: "Pending" },
-                  { value: "Approved", label: "Approved" },
-                  { value: "Reimbursed", label: "Reimbursed" },
-                  { value: "Paid", label: "Paid" },
-                  { value: "Rejected", label: "Rejected" },
-                ]}
-              />
-              </div>
-            )}
           </div>
-          <Button
-            type="button"
-            id="hr-expenses-filter-button"
-            data-testid="hr-expenses-filter-button"
-            variant={appliedFilterCount > 0 ? "primary" : "outline"}
-            icon={<Filter size={16} />}
-            aria-label="Open expense claim filters"
-            onClick={openFilters}
-            className="ml-auto shrink-0"
-          >
-            <span className="hidden sm:inline">Filter</span>
-            {appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-          </Button>
-        </div>
-      </div>
 
-
-
-      {/* TABLE */}
-      {expenses.loading ? (
-        <div style={{ ...card, padding: 20 }}>
-          <SkeletonTable rows={4} columns={tab === "approvals" ? 7 : 6} />
+          {/* ROW 2: INLINE FILTERS */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <div className="min-w-[150px] sm:min-w-[180px]">
+                <Select
+                  id="hr-expenses-filter-category"
+                  testId="hr-expenses-filter-category"
+                  aria-label="Filter by Category"
+                  value={categoryFilter}
+                  onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+                  options={[
+                    { value: "all", label: "All Categories" },
+                    { value: "Travel", label: "Travel" },
+                    { value: "Food", label: "Food" },
+                    { value: "Lodging", label: "Lodging" },
+                    { value: "Other", label: "Other" },
+                  ]}
+                />
+              </div>
+              {!isEmployeeView && tab === "ledger" && (
+                <div className="min-w-[150px] sm:min-w-[180px]">
+                  <Select
+                    id="hr-expenses-filter-status"
+                    testId="hr-expenses-filter-status"
+                    aria-label="Filter by Status"
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                    options={[
+                      { value: "all", label: "All Statuses" },
+                      { value: "Pending", label: "Pending" },
+                      { value: "Approved", label: "Approved" },
+                      { value: "Reimbursed", label: "Reimbursed" },
+                      { value: "Paid", label: "Paid" },
+                      { value: "Rejected", label: "Rejected" },
+                    ]}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                id="hr-expenses-filter-button"
+                data-testid="hr-expenses-filter-button"
+                variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                icon={<Filter size={16} />}
+                aria-label="Open expense claim filters"
+                onClick={openFilters}
+              >
+                <span className="hidden sm:inline">Filter</span>
+                {appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+              </Button>
+              <ExpensesViewToggle value={viewMode} onChange={setViewMode} />
+            </div>
+          </div>
         </div>
-      ) : viewMode === "table" ? (
-        <div data-testid="hr-expenses-table-panel" style={{ ...card }}>
-          <DataTable
-            data-testid="hr-expenses-table"
-            data={pagedRows}
-            columns={columns}
-            getRowId={(e) => e.id}
-            loading={expenses.loading}
-            className="rounded-none border-0 bg-transparent shadow-none"
-            tableClassName="min-w-[920px] [&_thead_tr]:bg-slate-50/80 [&_thead_tr]:border-b [&_thead_tr]:border-slate-200 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:sm:text-xs [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em] [&_thead_th]:text-slate-500 [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:sm:text-[15px] [&_tbody_td]:font-semibold [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/60"
-            emptyState={
-              <EmptyState
-                icon={<Receipt size={36} strokeWidth={1.5} />}
-                title={tab === "approvals" && !isEmployeeView ? "No claims awaiting verification" : "No expense claim logs found"}
-                description="Expense claims matching your filters will appear here."
-              />
-            }
-          />
-          <DataTablePagination
-            testId="hr-expenses-pagination"
-            page={page}
-            pageSize={pageSize}
-            total={rows.length}
-            onChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-          />
-        </div>
-      ) : (
+
+        {/* TABLE */}
+        {expenses.loading ? (
+          <div className="p-5">
+            <SkeletonTable rows={4} columns={tab === "approvals" ? 7 : 6} />
+          </div>
+        ) : viewMode === "table" ? (
+          <div data-testid="hr-expenses-table-panel">
+            <DataTable
+              data-testid="hr-expenses-table"
+              data={pagedRows}
+              columns={columns}
+              getRowId={(e) => e.id}
+              loading={expenses.loading}
+              className="rounded-none border-0 bg-transparent shadow-none"
+              tableClassName="w-full min-w-0"
+              emptyState={
+                <EmptyState
+                  icon={<Receipt size={36} strokeWidth={1.5} />}
+                  title={tab === "approvals" && !isEmployeeView ? "No claims awaiting verification" : "No expense claim logs found"}
+                  description="Expense claims matching your filters will appear here."
+                />
+              }
+            />
+            <DataTablePagination
+              testId="hr-expenses-pagination"
+              page={page}
+              pageSize={pageSize}
+              total={rows.length}
+              onChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        ) : (
         <div data-testid="hr-expenses-cards-panel" style={{ ...card, padding: 16 }}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {pagedRows.length === 0 ? (
@@ -641,6 +655,7 @@ export default function Expenses() {
           />
         </div>
       )}
+      </SectionCard>
       </div>
 
       {/* SUBMIT MODAL */}

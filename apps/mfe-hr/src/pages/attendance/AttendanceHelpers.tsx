@@ -26,6 +26,20 @@ export function fmtTime(iso?: string) {
   return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+export function TimeCell({ iso }: { iso?: string }) {
+  if (!iso) return <span style={{ color: "var(--light-text)" }}>—</span>;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return <span style={{ color: "var(--light-text)" }}>—</span>;
+  const formatted = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  const [timeStr, ampm] = formatted.split(" ");
+  return (
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+      <span style={{ fontWeight: 600, fontSize: 12.5, color: "var(--dark-text)" }}>{timeStr}</span>
+      {ampm && <span style={{ fontSize: 9.5, opacity: 0.75, fontWeight: 700, textTransform: "uppercase", color: "var(--light-text)" }}>{ampm}</span>}
+    </div>
+  );
+}
+
 export function minutesToHours(minutes?: number) {
   if (!minutes || minutes <= 0) return "0 mins";
   const h = Math.floor(minutes / 60);
@@ -68,7 +82,7 @@ export function formatDuration(workedMinutes?: number, workedHours?: number, wor
 
 export function StatusBadge({ status }: { status?: string }) {
   return (
-    <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+    <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
       {status || "Pending"}
     </span>
   );
@@ -79,10 +93,34 @@ export function OvertimePill({ minutes, status, approved }: { minutes?: number; 
   const normalized = (status || "Pending").toLowerCase();
   const Icon = normalized === "approved" ? CheckCircle2 : normalized === "rejected" ? XCircle : Timer;
   const color = normalized === "approved" ? "#059669" : normalized === "rejected" ? "#e11d48" : "#b45309";
+  const labelText = normalized === "approved"
+    ? `OT ${minutesToHours(minutes)} / ${minutesToHours(approved ?? minutes)} approved`
+    : `OT ${minutesToHours(minutes)} ${status || "Pending"}`;
+
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, background: `${color}12`, color, border: `1px solid ${color}30`, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
-      <Icon size={12} /> OT {minutesToHours(minutes)}
-      {normalized === "approved" ? ` / ${minutesToHours(approved ?? minutes)} approved` : ` ${status || "Pending"}`}
+    <span
+      title={labelText}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: 4,
+        padding: "4px 8px",
+        borderRadius: 8,
+        background: `${color}12`,
+        color,
+        border: `1px solid ${color}30`,
+        fontSize: 10,
+        fontWeight: 800,
+        lineHeight: 1.35,
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        wordBreak: "break-word",
+        whiteSpace: "normal",
+      }}
+    >
+      <Icon size={12} style={{ flexShrink: 0 }} />
+      <span>{labelText}</span>
     </span>
   );
 }

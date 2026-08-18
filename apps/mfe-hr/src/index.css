@@ -2401,3 +2401,41 @@ a:hover {
         padding-bottom: 76px !important;
     }
 }
+
+/* Canonical HR table header bar & row styling — matching user screenshot across all DataTables */
+:is(.hr-page-shell, #hr-settings-page, [id^="hr-"], [data-testid*="table"], section, div) table thead tr,
+table thead tr {
+    background-color: #f8fafc !important;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+    height: 44px !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page, [id^="hr-"], [data-testid*="table"], section, div) table thead th,
+table thead th {
+    background-color: #f8fafc !important;
+    background: #f8fafc !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: #475569 !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page, [id^="hr-"], [data-testid*="table"], section, div) table tbody tr,
+table tbody tr {
+    border-bottom: 1px solid rgba(241, 245, 249, 0.9) !important;
+    transition: background-color 0.15s ease !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page, [id^="hr-"], [data-testid*="table"], section, div) table tbody tr:hover,
+table tbody tr:hover {
+    background-color: rgba(248, 250, 252, 0.6) !important;
+}
+
+:is(.hr-page-shell, #hr-settings-page, [id^="hr-"], [data-testid*="table"], section, div) table tbody td,
+table tbody td {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+}

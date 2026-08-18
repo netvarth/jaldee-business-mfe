@@ -16,7 +16,7 @@ export interface DataTableColumnFilter {
 }
 
 export interface ColumnDef<T> {
-  key: keyof T | string;
+  key?: keyof T | string;
   header: ReactNode;
   sortable?: boolean;
   sticky?: "left" | "right";
@@ -26,6 +26,7 @@ export interface ColumnDef<T> {
   className?: string;
   headerClassName?: string;
   render?: (row: T) => ReactNode;
+  cell?: (row: T) => ReactNode;
   footer?: () => ReactNode;
   sortFn?: (a: T, b: T) => number;
   filter?: DataTableColumnFilter;
@@ -116,6 +117,12 @@ export function DataTable<T extends object>({
     () => columns.filter((col) => !col.hidden),
     [columns]
   );
+
+  function getColKey(col: ColumnDef<T>, index: number): string {
+    if (col.key !== undefined && col.key !== null) return String(col.key);
+    if (typeof col.header === "string" && col.header.trim()) return col.header;
+    return `col-${index}`;
+  }
 
   const sortKey = sorting?.sortKey ?? internalSortKey;
   const sortDir = sorting?.sortDir ?? internalSortDir;
@@ -258,7 +265,7 @@ export function DataTable<T extends object>({
         />
       )}
 
-      <div className="min-w-0 max-w-full overflow-x-auto">
+      <div className="w-full min-w-0 max-w-full overflow-x-auto rounded-[12px]">
         <table
           role="table"
           data-testid={`${testId}-table`}
@@ -266,14 +273,14 @@ export function DataTable<T extends object>({
         >
           <colgroup>
             {selection && <col style={{ width: 44, minWidth: 44, maxWidth: 44 }} />}
-            {visibleColumns.map((column) => (
-              <col key={String(column.key)} style={{ width: column.width }} />
+            {visibleColumns.map((column, colIdx) => (
+              <col key={getColKey(column, colIdx)} style={{ width: column.width }} />
             ))}
           </colgroup>
           <thead>
             <tr className="border-b border-[color:color-mix(in_srgb,var(--color-border)_82%,white)] bg-[color:color-mix(in_srgb,var(--color-surface-secondary)_38%,white)]">
               {selection && (
-                <th scope="col" style={{ width: 44, minWidth: 44, maxWidth: 44 }} className="px-2 py-2 text-left md:px-3">
+                <th scope="col" style={{ width: 44, minWidth: 44, maxWidth: 44 }} className="px-2 py-2 text-left md:px-3 first:rounded-tl-[11px]">
                   <input
                     type="checkbox"
                     data-testid={`${testId}-select-all`}
@@ -291,9 +298,10 @@ export function DataTable<T extends object>({
                 </th>
               )}
 
-              {visibleColumns.map((col) => {
+              {visibleColumns.map((col, colIdx) => {
+                const colKey = getColKey(col, colIdx);
                 const columnIsSortable = Boolean(col.sortable && supportsColumnSorting);
-                const isSorted = sortKey === String(col.key);
+                const isSorted = sortKey === colKey;
                 const ariaSort = columnIsSortable
                   ? isSorted
                     ? sortDir === "asc"
@@ -302,17 +310,22 @@ export function DataTable<T extends object>({
                     : "none"
                   : undefined;
 
+                const isFirstCol = colIdx === 0 && !selection;
+                const isLastCol = colIdx === visibleColumns.length - 1;
+
                 return (
                   <th
-                    key={String(col.key)}
+                    key={colKey}
                     scope="col"
                     aria-sort={ariaSort}
-                    data-testid={`${testId}-col-${String(col.key)}`}
+                    data-testid={`${testId}-col-${colKey}`}
                     style={{ width: col.width }}
-                    onClick={() => columnIsSortable && handleSort(String(col.key))}
+                    onClick={() => columnIsSortable && handleSort(colKey)}
                     className={cn(
-                      "px-2 py-2 text-[length:var(--text-xs)] font-medium whitespace-normal break-words md:px-3",
+                      "px-2 py-3 text-[11px] font-extrabold uppercase tracking-[0.08em] whitespace-normal break-words md:px-3",
                       "text-[var(--color-text-secondary)]",
+                      isFirstCol && "first:rounded-tl-[11px]",
+                      isLastCol && "last:rounded-tr-[11px]",
                       col.align === "center" && "text-center",
                       col.align === "right" && "text-right",
                       (!col.align || col.align === "left") && "text-left",
@@ -362,8 +375,8 @@ export function DataTable<T extends object>({
                     </td>
                   )}
 
-                  {visibleColumns.map((col) => (
-                    <td key={String(col.key)} className="px-2 py-2.5 md:px-3">
+                  {visibleColumns.map((col, colIdx) => (
+                    <td key={getColKey(col, colIdx)} className="px-2 py-2.5 md:px-3">
                       <Skeleton height={12} width="80%" />
                     </td>
                   ))}
@@ -420,24 +433,29 @@ export function DataTable<T extends object>({
                       </td>
                     )}
 
-                    {visibleColumns.map((col) => (
-                      <td
-                        key={String(col.key)}
-                        data-testid={`${testId}-cell-${rowId}-${String(col.key)}`}
-                        className={cn(
-                          "px-2 py-2.5 align-middle text-[var(--color-text-primary)] whitespace-normal break-words md:px-3",
-                          col.align === "center" && "text-center",
-                          col.align === "right" && "text-right",
-                          col.sticky === "left" && "sticky left-0 z-10 bg-inherit",
-                          col.sticky === "right" && "sticky right-0 z-10 bg-inherit",
-                          col.className
-                        )}
-                      >
-                        {col.render
-                          ? col.render(row)
-                          : String(getCellValue(row, col.key) ?? "")}
-                      </td>
-                    ))}
+                    {visibleColumns.map((col, colIdx) => {
+                      const colKey = getColKey(col, colIdx);
+                      return (
+                        <td
+                          key={colKey}
+                          data-testid={`${testId}-cell-${rowId}-${colKey}`}
+                          className={cn(
+                            "px-2 py-2.5 align-middle text-[var(--color-text-primary)] whitespace-normal break-words md:px-3",
+                            col.align === "center" && "text-center",
+                            col.align === "right" && "text-right",
+                            col.sticky === "left" && "sticky left-0 z-10 bg-inherit",
+                            col.sticky === "right" && "sticky right-0 z-10 bg-inherit",
+                            col.className
+                          )}
+                        >
+                          {col.render
+                            ? col.render(row)
+                            : typeof (col as any).cell === "function"
+                            ? (col as any).cell(row)
+                            : String((col.key ? getCellValue(row, col.key) : undefined) ?? "")}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })

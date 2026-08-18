@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, Table as Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
-import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, Input, SectionCard, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, ShieldAlert, Table as Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, Input, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -17,6 +18,7 @@ import { useDocumentRequests, type DocumentRequest } from "../../services/useDoc
 import Announcements from "../announcements/Announcements";
 import Expenses from "../expenses/Expenses";
 import Tickets from "../tickets/Tickets";
+import EssMemos from "./EssMemos";
 import { useAttendanceRules, useLeaveTypes } from "../../services/useSettingsData";
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { useExits } from "../../services/useExits";
@@ -27,7 +29,7 @@ import type { AttendanceBreak } from "../../types";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
-type Section = "overview" | "profile" | "attendance" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "separation" | "helpdesk";
+type Section = "overview" | "profile" | "attendance" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "memos" | "separation" | "helpdesk";
 
 const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: LucideIcon }> = [
   { key: "overview", route: "", label: "Overview", Icon: User },
@@ -38,6 +40,7 @@ const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: Luci
   { key: "staffspace", route: "staffspace", label: "StaffSpace", Icon: FileText },
   { key: "payslips", route: "payslips", label: "Payslips", Icon: Wallet },
   { key: "expenses", route: "expenses", label: "Expenses", Icon: Receipt },
+  { key: "memos", route: "memos", label: "Warning Memos", Icon: ShieldAlert },
   { key: "separation", route: "separation", label: "Separation", Icon: LogOut },
   { key: "helpdesk", route: "helpdesk", label: "HelpDesk", Icon: MessageSquare },
 ];
@@ -51,6 +54,7 @@ const SECTION_DESCRIPTIONS: Record<Section, string> = {
   payslips: "View payroll statements and generated payslips.",
   staffspace: "Company announcements and internal updates.",
   expenses: "Submit and track employee expense claims.",
+  memos: "Review warning notices and acknowledge disclosures.",
   separation: "Raise and track your resignation request.",
   helpdesk: "Raise support requests and follow updates.",
 };
@@ -164,6 +168,8 @@ export default function EssPortal() {
   const [exitBusy, setExitBusy] = useState(false);
   const [exitError, setExitError] = useState<string | null>(null);
   const [exitForm, setExitForm] = useState({ noticePeriodDays: "30", reason: "" });
+  const [selectedExitDetail, setSelectedExitDetail] = useState<ExitRequest | null>(null);
+  const [exitDetailLoading, setExitDetailLoading] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [documentSubmitBusy, setDocumentSubmitBusy] = useState(false);
   const [documentSubmitError, setDocumentSubmitError] = useState<string | null>(null);
@@ -177,6 +183,7 @@ export default function EssPortal() {
     startDate: "",
     endDate: "",
     isHalfDay: false,
+    halfDayType: "FIRST_HALF" as "FIRST_HALF" | "SECOND_HALF",
     reason: "",
   });
   const profile = useMyProfile();
@@ -588,6 +595,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
         startDate: leaveApplyForm.startDate,
         endDate,
         isHalfDay: leaveApplyForm.isHalfDay,
+        halfDayType: leaveApplyForm.isHalfDay ? leaveApplyForm.halfDayType : undefined,
         duration,
         reason: leaveApplyForm.reason,
         status: "Pending",
@@ -598,6 +606,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
         startDate: "",
         endDate: "",
         isHalfDay: false,
+        halfDayType: "FIRST_HALF",
         reason: "",
       });
       setLeaveApplyOpen(false);
@@ -1387,18 +1396,43 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                           {exits.data
                             .filter((item) => item.employeeUid === (profile.data?.id || profile.data?.uid))
                             .map((item) => (
-                              <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3">
+                              <div
+                                key={item.id}
+                                id={`ess-exit-item-${item.id}`}
+                                data-testid={`ess-exit-item-${item.id}`}
+                                onClick={async () => {
+                                  setExitDetailLoading(true);
+                                  try {
+                                    const details = await exits.getExitDetails(item.id || item.uid || "");
+                                    setSelectedExitDetail(details);
+                                  } catch {
+                                    setSelectedExitDetail(item);
+                                  } finally {
+                                    setExitDetailLoading(false);
+                                  }
+                                }}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 transition-all"
+                              >
                                 <div>
                                   <div className="font-bold text-slate-900">{item.separationType || "Resignation"}</div>
                                   <div className="mt-1 text-xs text-slate-500">{item.reason || "No reason provided"}</div>
                                 </div>
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{(item.status || "Pending").replaceAll("_", " ")}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{(item.status || "Pending").replaceAll("_", " ")}</span>
+                                  <span className="text-xs font-bold text-teal-600 hover:underline">View Details →</span>
+                                </div>
                               </div>
                             ))}
                         </div>
                       )}
                     </div>
                   </div>
+                </SectionCard>
+              )}
+
+              {section === "memos" && (
+                <SectionCard className="mt-2 border-slate-200 shadow-sm lg:mt-6">
+                  <EssMemos />
                 </SectionCard>
               )}
 
@@ -1436,6 +1470,78 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
           </div>
         </div>
       </div>
+      <Dialog
+        open={!!selectedExitDetail}
+        onClose={() => setSelectedExitDetail(null)}
+        title="Exit Request Details"
+        size="md"
+        testId="ess-exit-detail-modal"
+      >
+        {selectedExitDetail && (
+          <div className="grid gap-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h4 className="text-base font-extrabold text-slate-900">{selectedExitDetail.separationType || "Resignation"}</h4>
+                <div className="mt-0.5 text-xs text-slate-500">
+                  Employee: {selectedExitDetail.employeeName || profile.data?.name || "Self"}
+                </div>
+              </div>
+              <EssStatusBadge status={selectedExitDetail.status || "Pending"} />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Notice Period</div>
+                <div className="mt-1 text-sm font-black text-slate-900">
+                  {selectedExitDetail.noticePeriodDays ?? "—"} Days
+                  {selectedExitDetail.noticeWaivedDays ? ` (−${selectedExitDetail.noticeWaivedDays} waived)` : ""}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Last Working Day</div>
+                <div className="mt-1 text-sm font-black text-slate-900">
+                  {formatDate(selectedExitDetail.lastWorkingDay) || "—"}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Clearance Status</div>
+                <div className="mt-1 text-sm font-black text-slate-900">
+                  {selectedExitDetail.clearanceStatus || "Pending"}
+                </div>
+              </div>
+            </div>
+
+            {selectedExitDetail.reason && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Reason for Separation</div>
+                <div className="mt-1 text-xs font-semibold text-slate-800 italic">
+                  "{selectedExitDetail.reason}"
+                </div>
+              </div>
+            )}
+
+            {selectedExitDetail.clearances && selectedExitDetail.clearances.length > 0 && (
+              <div className="rounded-xl border border-slate-200 p-3.5 space-y-2">
+                <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">Department Clearances</div>
+                <div className="grid gap-2">
+                  {selectedExitDetail.clearances.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold">
+                      <span className="text-slate-900">{c.departmentName}</span>
+                      <EssStatusBadge status={c.status || "Pending"} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setSelectedExitDetail(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
       <Dialog
         open={documentDialogOpen}
         onClose={() => setDocumentDialogOpen(false)}
@@ -1535,15 +1641,51 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
               />
             </div>
             {leaveApplyForm.startDate && (!leaveApplyForm.endDate || leaveApplyForm.startDate === leaveApplyForm.endDate) && (
-              <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
-                <input
-                  id="ess-leave-half-day"
-                  data-testid="ess-leave-half-day"
-                  type="checkbox"
-                  checked={leaveApplyForm.isHalfDay}
-                  onChange={(e) => setLeaveApplyForm((current) => ({ ...current, isHalfDay: e.target.checked }))}
-                /> Apply as Half Day (0.5 days)
-              </label>
+              <div className="space-y-2">
+                <label style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(100,116,139,0.06)", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 700, color: "var(--dark-text)" }}>
+                  <input
+                    id="ess-leave-half-day"
+                    data-testid="ess-leave-half-day"
+                    type="checkbox"
+                    checked={leaveApplyForm.isHalfDay}
+                    onChange={(e) => setLeaveApplyForm((current) => ({ ...current, isHalfDay: e.target.checked }))}
+                  /> Apply as Half Day (0.5 days)
+                </label>
+
+                {leaveApplyForm.isHalfDay && (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">Half-Day Session</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        id="ess-leave-half-day-first"
+                        data-testid="ess-leave-half-day-first"
+                        onClick={() => setLeaveApplyForm((f) => ({ ...f, halfDayType: "FIRST_HALF" }))}
+                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          leaveApplyForm.halfDayType === "FIRST_HALF"
+                            ? "bg-teal-50 border-2 border-teal-600 text-teal-800"
+                            : "bg-white border border-slate-200 text-slate-700"
+                        }`}
+                      >
+                        First Half
+                      </button>
+                      <button
+                        type="button"
+                        id="ess-leave-half-day-second"
+                        data-testid="ess-leave-half-day-second"
+                        onClick={() => setLeaveApplyForm((f) => ({ ...f, halfDayType: "SECOND_HALF" }))}
+                        className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          leaveApplyForm.halfDayType === "SECOND_HALF"
+                            ? "bg-teal-50 border-2 border-teal-600 text-teal-800"
+                            : "bg-white border border-slate-200 text-slate-700"
+                        }`}
+                      >
+                        Second Half
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {leaveApplyForm.startDate && (
               <div style={{ background: "rgba(17,94,89,0.05)", border: "1px solid rgba(17,94,89,0.1)", padding: 16, borderRadius: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

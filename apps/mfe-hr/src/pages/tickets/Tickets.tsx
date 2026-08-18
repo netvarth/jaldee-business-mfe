@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Plus, Search, Filter, MessageSquare, Clock, CheckCircle2, AlertCircle, Send, Paperclip, Loader2, X, Download, LayoutGrid, Table as Rows3 } from "lucide-react";
-import { Badge, Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination, DataTable, type ColumnDef } from "@jaldee/design-system";
+import { Badge, Combobox, Input, Select, Textarea, EmptyState, Dialog, SkeletonCard, Button, Drawer, DataTablePagination, DataTable, SectionCard } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -152,7 +153,7 @@ export default function Tickets() {
       header: "Title",
       width: "22%",
       render: (t) => (
-        <div className="min-w-0 max-w-full truncate font-extrabold text-base text-[var(--color-text-primary)]">
+        <div className="min-w-0 max-w-full truncate text-xs sm:text-sm font-semibold text-[var(--color-text-primary)]">
           {t.title || "-"}
         </div>
       ),
@@ -453,65 +454,60 @@ export default function Tickets() {
           <div aria-hidden="true" className="hidden xl:block" />
         </div>
 
-        <div
-          style={{
-            ...panel,
-            padding: 14,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <Input
-            id="hr-tickets-search"
-            data-testid="hr-tickets-search"
-            placeholder="Search tickets by ID or subject..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            icon={<Search size={18} />}
-            containerClassName="flex-1"
-            className="h-12 rounded-xl bg-white text-base font-semibold shadow-sm"
-          />
-          {!isEmployeeView ? (
-            <Button
-              id="hr-tickets-filter-button"
-              data-testid="hr-tickets-filter-button"
-              variant={appliedFilterCount > 0 ? "primary" : "outline"}
-              icon={<Filter size={16} />}
-              aria-label="Filter tickets"
-              onClick={openFilters}
-            >
-              Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-            </Button>
-          ) : null}
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
-            <button
-              type="button"
-              aria-label="Table view"
-              onClick={() => setViewMode("table")}
-              className={[
-                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-                viewMode === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              <Rows3 size={16} />
-            </button>
-            <button
-              type="button"
-              aria-label="Card view"
-              onClick={() => setViewMode("cards")}
-              className={[
-                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-                viewMode === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              <LayoutGrid size={16} />
-            </button>
+        {/* SEARCH & FEED IN INTEGRATED CARD */}
+        <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+          <div className="flex gap-2 border-b border-[var(--color-border)] p-4 sm:items-center">
+            <Input
+              id="hr-tickets-search"
+              data-testid="hr-tickets-search"
+              placeholder="Search tickets by ID or subject..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              icon={<Search size={16} />}
+              containerClassName="min-w-0 flex-1 sm:max-w-md"
+            />
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {!isEmployeeView ? (
+                <Button
+                  id="hr-tickets-filter-button"
+                  data-testid="hr-tickets-filter-button"
+                  variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                  icon={<Filter size={16} />}
+                  aria-label="Filter tickets"
+                  onClick={openFilters}
+                >
+                  Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+                </Button>
+              ) : null}
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
+                <button
+                  type="button"
+                  aria-label="Table view"
+                  onClick={() => setViewMode("table")}
+                  className={[
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                    viewMode === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <Rows3 size={16} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Card view"
+                  onClick={() => setViewMode("cards")}
+                  className={[
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                    viewMode === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <LayoutGrid size={16} />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {viewMode === "table" ? (
-          <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] shadow-sm overflow-hidden" data-testid="hr-tickets-table-container">
+          {viewMode === "table" ? (
+            <div data-testid="hr-tickets-table-container">
             <DataTable
               data-testid="hr-tickets-table"
               data={items}
@@ -519,7 +515,7 @@ export default function Tickets() {
               getRowId={(t) => t.id}
               loading={tickets.loading}
               className="rounded-none border-0 bg-transparent shadow-none"
-              tableClassName="min-w-[920px] [&_thead_tr]:bg-slate-50/80 [&_thead_tr]:border-b [&_thead_tr]:border-slate-200 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:sm:text-xs [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em] [&_thead_th]:text-slate-500 [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:sm:text-[15px] [&_tbody_td]:font-semibold [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/60"
+              tableClassName="w-full min-w-0"
               emptyState={
                 <EmptyState
                   icon={<MessageSquare size={36} strokeWidth={1.5} />}
@@ -534,7 +530,7 @@ export default function Tickets() {
             />
           </div>
         ) : (
-        <div style={{ display: "grid", gap: 14 }}>
+        <div className="p-5 sm:p-6 grid gap-4">
           {tickets.loading ? (
             <div className="space-y-4">
               <SkeletonCard />
@@ -542,7 +538,7 @@ export default function Tickets() {
               <SkeletonCard />
             </div>
           ) : items.length === 0 ? (
-            <div style={{ ...panel, padding: "24px 0" }}>
+            <div className="p-8 text-center bg-slate-50/50 rounded-xl">
               <EmptyState
                 icon={<MessageSquare size={40} />}
                 title={search.trim() ? "No matching tickets" : "No helpdesk tickets yet"}
@@ -582,102 +578,40 @@ export default function Tickets() {
                     setReplyText("");
                     setSelected(t);
                   }}
-                  style={{ ...panel, borderRadius: 8, overflow: "hidden", display: "flex", cursor: "pointer" }}
+                  className="rounded-xl border-0 bg-slate-50/80 shadow-2xs transition-all hover:bg-slate-100/80 flex overflow-hidden cursor-pointer"
                 >
                   <div style={{ width: 6, background: statusBar(t.status), flexShrink: 0 }} />
-                  <div
-                    className="grid grid-cols-1 min-[981px]:grid-cols-[minmax(0,1fr)_auto] gap-[18px]"
-                    style={{
-                      flex: 1,
-                      padding: "16px 18px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                        <span
-                          style={{
-                            ...lbl,
-                            color: TEAL,
-                            background: "rgba(17,94,89,0.05)",
-                            padding: "3px 8px",
-                            borderRadius: 4,
-                            letterSpacing: "0.08em",
-                          }}
-                        >
+                  <div className="flex-1 p-5 sm:p-6 grid grid-cols-1 min-[981px]:grid-cols-[minmax(0,1fr)_auto] gap-4 items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold text-teal-800 bg-teal-500/10 tracking-wider">
                           {(t.id || "").slice(-6).toUpperCase()}
                         </span>
-                        <span
-                          style={{
-                            borderRadius: 4,
-                            padding: "4px 10px",
-                            fontWeight: 900,
-                            fontSize: 10,
-                            letterSpacing: "-0.1px",
-                            textTransform: "uppercase",
-                            color: "var(--dark-text)",
-                            border: "1px solid rgba(148,163,184,0.2)",
-                            background: "var(--surface-bg)",
-                          }}
-                        >
+                        <span className="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-200/80">
                           {t.category}
                         </span>
                       </div>
-                      <h3 style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.3px", color: "var(--dark-text)", margin: "0 0 4px" }}>{t.title}</h3>
-                      <p
-                        style={{
-                          fontSize: 13,
-                          color: "var(--light-text)",
-                          fontWeight: 500,
-                          lineHeight: 1.45,
-                          margin: 0,
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
+                      <h3 className="text-sm font-semibold text-slate-900 m-0 mb-1">{t.title}</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed m-0 line-clamp-2">
                         {t.description}
                       </p>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 14,
-                        background: "var(--surface-bg)",
-                        padding: "10px 12px",
-                        borderRadius: 6,
-                        border: "1px solid rgba(148,163,184,0.14)",
-                        flexWrap: "wrap",
-                      }}
-                    >
+                    <div className="flex items-center gap-3 bg-white/80 p-3 rounded-lg border-0 shadow-2xs flex-wrap">
                       <div>
-                        <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created By</p>
-                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{t.createdByName || empName(t.employeeUid)}</p>
+                        <p className="text-[10px] font-semibold uppercase text-slate-500 mb-0.5">Created By</p>
+                        <p className="text-xs font-bold text-slate-900 m-0">{t.createdByName || empName(t.employeeUid)}</p>
                       </div>
                       <div>
-                        <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Created</p>
-                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{formatDate(t.createdAtTs) || "N/A"}</p>
+                        <p className="text-[10px] font-semibold uppercase text-slate-500 mb-0.5">Created</p>
+                        <p className="text-xs font-bold text-slate-900 m-0">{formatDate(t.createdAtTs) || "N/A"}</p>
                       </div>
                       <div>
-                        <p style={{ ...lbl, fontSize: 9, marginBottom: 4 }}>Dept</p>
-                        <p style={{ fontSize: 12, fontWeight: 900, color: "var(--dark-text)" }}>{t.department || "-"}</p>
+                        <p className="text-[10px] font-semibold uppercase text-slate-500 mb-0.5">Dept</p>
+                        <p className="text-xs font-bold text-slate-900 m-0">{t.department || "-"}</p>
                       </div>
                       <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          borderRadius: 4,
-                          padding: "4px 10px",
-                          fontWeight: 900,
-                          fontSize: 10,
-                          letterSpacing: "-0.2px",
-                          textTransform: "uppercase",
-                          color: "white",
-                          background: sb.bg,
-                        }}
+                        className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white"
+                        style={{ background: sb.bg }}
                       >
                         {sb.icon} {t.status}
                       </span>
@@ -687,6 +621,7 @@ export default function Tickets() {
                           data-testid={`hr-ticket-card-close-${t.id}`}
                           variant="outline"
                           size="sm"
+                          className="!h-7 text-xs !px-2.5"
                           onClick={(event) => {
                             event.stopPropagation();
                             setMsg(null);
@@ -697,9 +632,9 @@ export default function Tickets() {
                           Close Ticket
                         </Button>
                       ) : null}
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--light-text)" }}>
-                        <MessageSquare size={16} />
-                        <span style={{ fontSize: 13, fontWeight: 900 }}>{t.responses?.length || 0}</span>
+                      <div className="flex items-center gap-1.5 text-slate-500 text-xs font-bold">
+                        <MessageSquare size={15} />
+                        <span>{t.responses?.length || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -720,7 +655,8 @@ export default function Tickets() {
               setTicketsPage(1);
             }}
           />
-        </div>
+        </SectionCard>
+      </div>
 
       <Dialog
         open={addOpen}

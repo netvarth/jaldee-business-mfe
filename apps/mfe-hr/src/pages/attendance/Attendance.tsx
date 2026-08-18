@@ -836,7 +836,7 @@ export default function Attendance() {
                       {
                         key: "employeeUid",
                         header: "Employee",
-                        width: "22%",
+                        width: "18.5%",
                         render: (a) => (
                           <div>
                             <div style={{ fontWeight: 600 }}>{empName(a.employeeUid)}</div>
@@ -846,24 +846,24 @@ export default function Attendance() {
                           </div>
                         ),
                       },
-                      { key: "dateStr", header: "Date", width: "12%", render: (a) => formatDate(a.dateStr) },
+                      { key: "dateStr", header: "Date", width: "9.5%", render: (a) => <span className="whitespace-nowrap">{formatDate(a.dateStr)}</span> },
                       {
                         key: "effectiveShiftUid",
                         header: "Effective Shift",
-                        width: "18%",
+                        width: "8%",
                         render: (a) => (
                           <span data-testid={`hr-attendance-effective-shift-${a.id}`} style={{ color: hasNoShiftFlag(a) ? "var(--color-warning)" : "var(--dark-text)", fontWeight: hasNoShiftFlag(a) ? 700 : 500 }}>
                             {effectiveShiftLabel(a)}
                           </span>
                         ),
                       },
-                      { key: "clockInType", header: "Work Type", width: "12%", render: (a) => <span style={{ color: "var(--light-text)" }}>{a.clockInType || "—"}</span> },
-                      { key: "clockIn", header: "Clock In", width: "12%", render: (a) => fmtTime(a.clockIn) },
-                      { key: "clockOut", header: "Clock Out", width: "12%", render: (a) => fmtTime(a.clockOut) },
+                      { key: "clockInType", header: "Work Type", width: "7%", render: (a) => <span className="whitespace-nowrap" style={{ color: "var(--light-text)" }}>{a.clockInType || "—"}</span> },
+                      { key: "clockIn", header: "Clock In", width: "7%", render: (a) => <span className="whitespace-nowrap">{fmtTime(a.clockIn)}</span> },
+                      { key: "clockOut", header: "Clock Out", width: "7%", render: (a) => <span className="whitespace-nowrap">{fmtTime(a.clockOut)}</span> },
                       {
                         key: "workedHours",
                         header: "Worked Duration",
-                        width: "14%",
+                        width: "10%",
                         render: (a) => (
                           <span className="whitespace-nowrap font-semibold text-[var(--dark-text)]">
                             {formatDuration(a.workedMinutes, a.workedHours, a.workedHoursFormatted)}
@@ -873,7 +873,7 @@ export default function Attendance() {
                       {
                         key: "breaks",
                         header: "Breaks",
-                        width: "12%",
+                        width: "7.5%",
                         render: (a) => {
                           const recordObj = a as Record<string, unknown>;
                           const rawList = (
@@ -927,13 +927,13 @@ export default function Attendance() {
                           );
                         },
                       },
-                      { key: "overtimeMinutes", header: "Overtime", width: "16%", render: (a) => <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /> },
-                      { key: "status", header: "Status", width: "14%", align: "right", render: (a) => <StatusBadge status={a.status} /> },
+                      { key: "overtimeMinutes", header: "Overtime", width: "18.5%", render: (a) => <OvertimePill minutes={a.overtimeMinutes} status={a.overtimeStatus} approved={a.approvedOvertimeMinutes} /> },
+                      { key: "status", header: "Status", width: "7%", align: "right", render: (a) => <StatusBadge status={a.status} /> },
                     ] as ColumnDef<typeof attendance.data[0]>[]}
                     getRowId={(a) => a.id}
                     loading={attendance.loading}
-                    className="rounded-none border-0 bg-transparent shadow-none"
-                    tableClassName="min-w-[980px]"
+                    className="rounded-none border-0 bg-transparent shadow-none [&_td]:px-2 [&_th]:px-2"
+                    tableClassName="w-full min-w-0"
                     pagination={{
                       page: attPage + 1,
                       pageSize: attPageSize,

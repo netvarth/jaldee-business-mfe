@@ -5,6 +5,7 @@ import { usePayslipDetails, type PayrollCustomField, type Payslip, type PayslipL
 import type { Employee } from "../types";
 import { HrPageHeader } from "./HrPageHeader";
 import { formatCurrency, formatDate } from "../lib/utils";
+import { useCompanyProfile } from "../services/useSettingsData";
 
 function labelize(value?: string) {
   return value ? value.replaceAll("_", " ") : "-";
@@ -94,8 +95,19 @@ function resolveLineBuckets(payslip: Payslip) {
   const lines = hasTdsLine
     ? rawLines.filter((line) => !isLegacyTaxKey(line.componentCode || line.componentName || ""))
     : rawLines;
-  const explicitEarnings = Object.entries(payslip.earnings || {});
-  const rawExplicitDeductions = Object.entries(payslip.deductions || {});
+
+  const rawEarnings = payslip.earnings?.componentBreakdown || (typeof payslip.earnings === "object" ? payslip.earnings : {});
+  const rawDeductions = payslip.deductions?.componentBreakdown || (typeof payslip.deductions === "object" ? payslip.deductions : {});
+
+  const explicitEarnings = Object.entries(rawEarnings || {}).filter(([k]) => k !== "componentBreakdown");
+  const rawExplicitDeductions = Object.entries(rawDeductions || {}).filter(([k]) => k !== "componentBreakdown");
+
+  // Check if LOP is present explicitly or in root payslip
+  const lopAmount = (payslip.deductions as Record<string, number> | undefined)?.lop ?? (payslip as Record<string, number>).lop ?? 0;
+  if (lopAmount > 0 && !rawExplicitDeductions.some(([label]) => normalizedDeductionKey(label) === "lop")) {
+    rawExplicitDeductions.push(["Loss of Pay", lopAmount]);
+  }
+
   const hasExplicitTds = rawExplicitDeductions.some(([label, amount]) => isTdsKey(label) && (amount ?? 0) !== 0);
   const explicitDeductions = hasExplicitTds
     ? rawExplicitDeductions.filter(([label]) => !isLegacyTaxKey(label))
@@ -257,6 +269,11 @@ export function PayslipStatementView({
               color: #1f2937;
               font-size: 12px;
             }
+            /* Resolve CSS custom properties for the print context */
+            --color-border: #e2e8f0;
+            --border-color: #e2e8f0;
+            --surface-bg: #ffffff;
+            --dark-text: #1f2937;
             [data-print-hidden] { display: none !important; }
             [data-payslip-print-root] {
               width: 100%;
@@ -269,9 +286,19 @@ export function PayslipStatementView({
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
+            /* Ensure flex layout renders in print (logo left, details right) */
+            [data-payslip-print-root] img {
+              display: inline-block;
+              max-width: 100px;
+              height: auto;
+              object-fit: contain;
+            }
             @page {
               size: A4 portrait;
-              margin: 5mm;
+              margin: 10mm;
+            }
+            @media print {
+              * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
           </style>
         </head>
@@ -290,7 +317,12 @@ export function PayslipStatementView({
     const str = String(raw).trim();
     return str !== "" && str !== "-";
   });
-  const company = payslip.companyProfile;
+  const companyProfileHook = useCompanyProfile();
+  const settingsCompany = companyProfileHook.data;
+  // Prefer live company profile from settings; fall back to whatever the payslip API embeds
+  const company = settingsCompany ?? payslip.companyProfile;
+  // Resolve logo: if settings has an attachment with filePath, prefer that; else logoUrl
+  const logoSrc = settingsCompany?.attachment?.filePath || settingsCompany?.logoUrl || payslip.companyProfile?.logoUrl;
   const companyAddress = [company?.addressLine, company?.city, company?.state, company?.country].filter(Boolean).join(", ");
   const companyContact = [company?.phone ? `Phone: ${company.phone}` : "", company?.email ? `Email: ${company.email}` : ""].filter(Boolean).join(" | ");
 
@@ -298,12 +330,23 @@ export function PayslipStatementView({
     <div ref={printRootRef} data-payslip-print-root style={shell}>
       <div style={topAccent} />
       <div style={headerBlock}>
-        <div style={{ display: "grid", gap: 2, alignContent: "start", alignSelf: "start" }}>
-          <div style={brand}>{company?.name || company?.legalName || "Company"}</div>
-          {company?.legalName && company.legalName !== company.name && <div style={metaText}>{company.legalName}</div>}
-          {companyAddress && <div style={metaText}>{companyAddress}</div>}
-          {companyContact && <div style={metaText}>{companyContact}</div>}
+        {/* LEFT: Logo + Company Details side-by-side */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14, alignSelf: "start" }}>
+          {logoSrc && (
+            <img
+              src={logoSrc}
+              alt={company?.name || "Company Logo"}
+              style={{ height: 56, maxHeight: 56, width: "auto", maxWidth: 100, objectFit: "contain", flexShrink: 0 }}
+            />
+          )}
+          <div style={{ display: "grid", gap: 2, alignContent: "start" }}>
+            <div style={brand}>{company?.name || company?.legalName || "Company"}</div>
+            {company?.legalName && company.legalName !== company.name && <div style={metaText}>{company.legalName}</div>}
+            {companyAddress && <div style={metaText}>{companyAddress}</div>}
+            {companyContact && <div style={metaText}>{companyContact}</div>}
+          </div>
         </div>
+        {/* RIGHT: Payslip Statement + meta */}
         <div style={{ display: "grid", gap: 6, textAlign: "right" }}>
           <div style={title}>Payslip Statement</div>
           <div style={headerMetaGrid}>
@@ -313,6 +356,7 @@ export function PayslipStatementView({
             <StatementMeta label="Status" value={payslip.status || "Generated"} />
           </div>
         </div>
+
       </div>
 
       <div style={sectionDivider} />

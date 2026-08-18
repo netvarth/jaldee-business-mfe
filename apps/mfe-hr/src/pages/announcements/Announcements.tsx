@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical, Download, LayoutGrid, Table as Rows3 } from "lucide-react";
-import { Badge, Button, DataTable, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Popover, PopoverSection, Drawer, type ColumnDef } from "@jaldee/design-system";
+import { Badge, Button, DataTable, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Popover, PopoverSection, Drawer, SectionCard } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -159,11 +160,11 @@ export default function Announcements() {
       width: "42%",
       render: (a) => (
         <div className="min-w-0">
-          <div className="flex items-center gap-2 font-extrabold text-base text-[var(--color-text-primary)]">
+          <div className="flex items-center gap-2 font-semibold text-sm text-[var(--color-text-primary)]">
             {a.isPinned && <Pin size={14} color={TEAL} fill={TEAL} className="shrink-0" />}
             <span className="truncate">{a.title}</span>
           </div>
-          {a.description && <div className="mt-0.5 text-sm font-medium text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
+          {a.description && <div className="mt-0.5 text-xs text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
         </div>
       ),
     },
@@ -340,77 +341,79 @@ export default function Announcements() {
           />
         ) : null}
 
-        {/* SEARCH & FILTER */}
-        <div style={{ ...panel, padding: 14, display: "flex", alignItems: "center", gap: 12 }}>
-          <Input
-            id="hr-announcements-search"
-            data-testid="hr-announcements-search"
-            placeholder="Search announcements..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            icon={<Search size={18} />}
-            containerClassName="flex-1"
-            className="h-12 rounded-xl bg-white text-base font-semibold shadow-sm"
-          />
-          <Button
-            type="button"
-            id="hr-announcements-filter-button"
-            data-testid="hr-announcements-filter-button"
-            variant={appliedFilterCount > 0 ? "primary" : "outline"}
-            icon={<Filter size={16} />}
-            aria-label="Filter announcements"
-            onClick={openFilters}
-          >
-            Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
-          </Button>
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
-            <button
-              type="button"
-              aria-label="Table view"
-              onClick={() => setViewMode("table")}
-              className={[
-                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-                viewMode === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              <Rows3 size={16} />
-            </button>
-            <button
-              type="button"
-              aria-label="Card view"
-              onClick={() => setViewMode("cards")}
-              className={[
-                "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
-                viewMode === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              <LayoutGrid size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* FEED / TABLE */}
-        {viewMode === "table" ? (
-          <div className="rounded-2xl border border-[color:color-mix(in_srgb,var(--color-border)_70%,white)] bg-[var(--color-surface)] shadow-sm overflow-hidden" data-testid="hr-announcements-table-container">
-            <DataTable
-              data-testid="hr-announcements-table"
-              data={items}
-              columns={columns}
-              getRowId={(a) => a.id}
-              loading={ann.loading}
-              className="rounded-none border-0 bg-transparent shadow-none"
-              tableClassName="min-w-[800px] [&_thead_tr]:bg-slate-50/80 [&_thead_tr]:border-b [&_thead_tr]:border-slate-200 [&_tbody_tr]:border-b [&_tbody_tr]:border-slate-100 [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:sm:text-xs [&_thead_th]:font-extrabold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.14em] [&_thead_th]:text-slate-500 [&_tbody_td]:h-[64px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:sm:text-[15px] [&_tbody_td]:font-semibold [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-slate-50/60"
-              emptyState={
-                <EmptyState
-                  icon={<Megaphone size={36} strokeWidth={1.5} />}
-                  title="No announcements yet"
-                  description="Official updates, policy releases, and company news will appear here."
-                />
-              }
+        {/* SEARCH & FEED IN INTEGRATED CARD */}
+        <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+          <div className="flex gap-2 border-b border-[var(--color-border)] p-4 sm:items-center">
+            <Input
+              id="hr-announcements-search"
+              data-testid="hr-announcements-search"
+              placeholder="Search announcements..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              icon={<Search size={16} />}
+              containerClassName="min-w-0 flex-1 sm:max-w-md"
             />
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <Button
+                type="button"
+                id="hr-announcements-filter-button"
+                data-testid="hr-announcements-filter-button"
+                variant={appliedFilterCount > 0 ? "primary" : "outline"}
+                icon={<Filter size={16} />}
+                aria-label="Filter announcements"
+                onClick={openFilters}
+              >
+                Filter{appliedFilterCount > 0 ? ` (${appliedFilterCount})` : ""}
+              </Button>
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-2xs shrink-0">
+                <button
+                  type="button"
+                  aria-label="Table view"
+                  onClick={() => setViewMode("table")}
+                  className={[
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                    viewMode === "table" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <Rows3 size={16} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Card view"
+                  onClick={() => setViewMode("cards")}
+                  className={[
+                    "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+                    viewMode === "cards" ? "bg-teal-50 text-teal-700 font-bold" : "text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  <LayoutGrid size={16} />
+                </button>
+              </div>
+            </div>
           </div>
-        ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 24 }}>
+
+          {/* FEED / TABLE */}
+          {viewMode === "table" ? (
+            <div data-testid="hr-announcements-table-container">
+              <DataTable
+                data-testid="hr-announcements-table"
+                data={items}
+                columns={columns}
+                getRowId={(a) => a.id}
+                loading={ann.loading}
+                className="rounded-none border-0 bg-transparent shadow-none"
+                tableClassName="w-full min-w-0"
+                emptyState={
+                  <EmptyState
+                    icon={<Megaphone size={36} strokeWidth={1.5} />}
+                    title="No announcements yet"
+                    description="Official updates, policy releases, and company news will appear here."
+                  />
+                }
+              />
+            </div>
+          ) : (
+        <div className="p-5 sm:p-6 grid gap-5 sm:gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {ann.loading ? (
             <>
               <SkeletonCard />
@@ -419,7 +422,7 @@ export default function Announcements() {
               <SkeletonCard />
             </>
           ) : items.length === 0 ? (
-            <div style={{ gridColumn: "1 / -1", background: "var(--surface-bg)", borderRadius: 36, padding: "24px 0", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+            <div style={{ gridColumn: "1 / -1", background: "var(--surface-bg)", borderRadius: 24, padding: "32px 0", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
               <EmptyState
                 icon={<Megaphone size={40} className="text-gray-300" style={{ display: "inline" }} />}
                 title="No announcements yet"
@@ -429,19 +432,17 @@ export default function Announcements() {
           ) : items.map((a) => {
             const color = typeColor(a.type);
             return (
-              <div key={a.id} style={{ background: a.isPinned ? "rgba(17,94,89,0.02)" : "var(--surface-bg)", borderRadius: 36, overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.05)", border: a.isPinned ? "2px solid rgba(17,94,89,0.2)" : "1px solid transparent", display: "flex" }}>
-                <div style={{ width: 8, background: color, flexShrink: 0 }} />
-                <div style={{ flex: 1, padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "space-between", position: "relative" }}>
+              <div key={a.id} className="rounded-2xl border-0 bg-slate-50/80 shadow-2xs transition-all hover:bg-slate-100/80 flex overflow-hidden">
+                <div style={{ width: 6, background: color, flexShrink: 0 }} />
+                <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between relative">
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10, paddingRight: 32 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-                        {a.isPinned && <div style={{ background: "rgba(17,94,89,0.1)", padding: 8, borderRadius: 12, display: "flex" }}><Pin size={16} color={TEAL} fill={TEAL} /></div>}
-                        <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: color }}>{a.type || "General"}</span>
-                        <span style={{ ...lbl, display: "inline-flex", alignItems: "center", gap: 6 }}><Calendar size={12} /> {formatDate(a.startDate) || "Recently"}</span>
-                      </div>
+                    <div className="flex items-center gap-2 mb-3 flex-wrap pr-8">
+                      {a.isPinned && <div className="p-1 rounded bg-teal-500/10"><Pin size={14} color={TEAL} fill={TEAL} /></div>}
+                      <span className="rounded-full px-2.5 py-0.5 font-bold text-[10px] uppercase tracking-wider text-white" style={{ background: color }}>{a.type || "General"}</span>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-500"><Calendar size={12} /> {formatDate(a.startDate) || "Recently"}</span>
                     </div>
                     {!isEmployeeLogin ? (
-                      <div style={{ position: "absolute", top: 32, right: 36 }}>
+                      <div className="absolute top-5 right-5">
                         <Popover
                           data-testid={`announcement-action-${a.id}`}
                           align="end"
@@ -450,16 +451,16 @@ export default function Announcements() {
                             <button
                               type="button"
                               aria-label="More actions"
-                              style={{ background: "none", border: "none", color: "var(--light-text)", cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 4 }}
+                              className="inline-flex items-center justify-center p-1 text-slate-400 hover:text-slate-600"
                             >
-                              <MoreVertical size={20} />
+                              <MoreVertical size={16} />
                             </button>
                           }
                         >
                           <PopoverSection>
                             <button
                               type="button"
-                              className="flex w-full items-center rounded-md px-3 py-2 text-left text-[length:var(--text-sm)] font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-surface-alt)]"
+                              className="flex w-full items-center rounded-md px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100"
                               onClick={() => handleToggleStatus(a.id, a.status || "Enabled")}
                             >
                               {a.status === "Disabled" ? "Enable" : "Disable"}
@@ -468,11 +469,11 @@ export default function Announcements() {
                         </Popover>
                       </div>
                     ) : null}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
-                      <h2 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>{a.title}</h2>
-                      <span style={{ borderRadius: 999, padding: "5px 16px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: a.status === "Disabled" ? "#374151" : "#065f46", background: a.status === "Disabled" ? "#f3f4f6" : "#d1fae5", flexShrink: 0 }}>{a.status || "Enabled"}</span>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h2 className="text-sm font-semibold text-slate-900 m-0">{a.title}</h2>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${a.status === "Disabled" ? "bg-slate-200 text-slate-700" : "bg-emerald-100 text-emerald-800"}`}>{a.status || "Enabled"}</span>
                     </div>
-                    <p style={{ fontSize: 15, color: "var(--light-text)", fontWeight: 500, lineHeight: 1.6, margin: "0 0 32px" }}>{a.description}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed mb-4 line-clamp-2">{a.description}</p>
                     {a.attachments?.length ? (
                       <Button
                         type="button"
@@ -480,40 +481,36 @@ export default function Announcements() {
                         data-testid={`hr-announcement-attachments-${a.id}`}
                         variant="outline"
                         size="sm"
-                        icon={<Paperclip size={15} />}
+                        className="!h-7 text-xs !px-2.5 mb-3"
+                        icon={<Paperclip size={13} />}
                         onClick={() => setAttachmentView(a)}
                       >
-                        View Attachments ({a.attachments.length})
+                        Attachments ({a.attachments.length})
                       </Button>
                     ) : null}
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 24, paddingTop: 28, borderTop: "1px solid var(--border-color)" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ height: 48, width: 48, borderRadius: 16, background: "rgba(17,94,89,0.1)", color: TEAL, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>A</div>
-                      <div><div style={{ ...lbl, color: "var(--dark-text)" }}>Official Update</div><div style={{ fontSize: 12, color: "var(--light-text)", fontWeight: 500 }}>Organization Board</div></div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200/70">
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-lg bg-teal-500/10 text-teal-700 flex items-center justify-center font-bold text-xs">A</div>
+                      <div>
+                        <div className="text-[11px] font-bold text-slate-800">Official Update</div>
+                      </div>
                     </div>
                     {isEmployeeLogin ? (
                       a.isAcknowledged ? (
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 999, background: "#d1fae5", color: "#065f46", fontSize: 13, fontWeight: 900 }}>
-                          <CheckCircle2 size={16} />
+                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">
+                          <CheckCircle2 size={13} />
                           Acknowledged
                         </div>
                       ) : (
-                        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "var(--light-text)", marginBottom: 2 }}>
-                              <CheckCircle2 size={14} />
-                              Pending acknowledgment
-                            </div>
-                          </div>
-                          <Button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} variant="primary" onClick={() => handleAcknowledge(a.id)}>Acknowledge</Button>
+                        <div className="flex items-center gap-3">
+                          <Button id={`hr-announcement-acknowledge-${a.id}`} data-testid={`hr-announcement-acknowledge-${a.id}`} variant="primary" size="sm" className="!h-7 text-xs" onClick={() => handleAcknowledge(a.id)}>Acknowledge</Button>
                         </div>
                       )
                     ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, ...lbl, color: "#10b981", marginBottom: 2 }}><CheckCircle2 size={14} /> Acknowledged</div>
-                          <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} style={{ fontSize: 14, fontWeight: 900, color: "var(--light-text)", cursor: "pointer" }}>{a.acknowledgedBy?.length || 0} Staff</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-end">
+                          <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">{a.acknowledgedBy?.length || 0} Staff</span>
                         </div>
                       </div>
                     )}
@@ -524,6 +521,7 @@ export default function Announcements() {
           })}
         </div>
         )}
+        </SectionCard>
       </div>
 
       <Dialog

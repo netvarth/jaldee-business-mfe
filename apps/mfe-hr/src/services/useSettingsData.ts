@@ -12,7 +12,7 @@ export interface ShiftRotation { id: string; uid?: string; name?: string; shiftU
 export interface Consent { id: string; uid?: string; employeeUid?: string; purpose?: string; status?: string; policyVersion?: string; grantedAt?: string; }
 export interface BranchRow { id: string; uid?: string; name?: string; code?: string; address?: string; latitude?: number; longitude?: number; radius?: number; }
 export interface Department { id: string; uid?: string; name?: string; code?: string; headEmployeeUid?: string; status?: string; }
-export interface LeaveType { id: string; uid?: string; name?: string; category?: string; annualQuota?: number; accrualCutoffDay?: number | null; carryForward?: boolean; carryForwardMax?: number; accrualType?: string; paid?: boolean; colorHex?: string; status?: string; }
+export interface LeaveType { id: string; uid?: string; name?: string; category?: string; annualQuota?: number; accrualCutoffDay?: number | null; carryForward?: boolean; carryForwardMax?: number; accrualType?: string; proRate?: boolean; paid?: boolean; colorHex?: string; status?: string; }
 export interface Holiday { id: string; uid?: string; name?: string; date?: string; type?: string; status?: string; }
 
 export interface CompanyProfile {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Building2, Users2, BadgeCheck, MapPin, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Trash2, Loader2, AlertCircle, Save, X, Info, GitBranch, ShieldAlert, Hash, Table as Rows3, LayoutGrid, Filter, ToggleLeft, ToggleRight } from "lucide-react";
-import { Button, Combobox, Input, Select, Checkbox, Textarea, DataTable, DataTablePagination, Drawer, SectionCard, type ColumnDef } from "@jaldee/design-system";
+import { Button, Combobox, Input, Select, Checkbox, Textarea, DataTable, DataTablePagination, Drawer, SectionCard } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,
@@ -498,7 +499,7 @@ export function CrudPanel({ title, subtitle, icon, addLabel, fields, columns, ho
             loading={hook.loading}
             emptyState={<div className="px-6 py-12 text-center text-sm font-semibold text-slate-500">{resolvedEmptyText}</div>}
             className={tableContainerClassName ?? "rounded-none border-0 shadow-none"}
-            tableClassName={tableClassName ?? "min-w-[720px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:py-3 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-4 [&_tbody_td]:text-sm [&_tbody_td]:font-medium"}
+            tableClassName={tableClassName ?? "w-full min-w-0"}
             pagination={hasServerPagination ? {
               page,
               pageSize,

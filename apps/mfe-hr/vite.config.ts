@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+// Clear dev module cache for Separation.tsx
 import react            from "@vitejs/plugin-react";
 import federation       from "@originjs/vite-plugin-federation";
 import path             from "path";

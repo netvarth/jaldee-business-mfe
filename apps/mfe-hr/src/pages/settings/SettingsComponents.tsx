@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Building2, Users2, BadgeCheck, Clock, CalendarDays, Plane, Fingerprint, Wallet, Plus, Pencil, Loader2, AlertCircle, Save, X, MoreVertical, Filter, ToggleLeft, ToggleRight, LayoutGrid, Table, ImageIcon } from "lucide-react";
-import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, EmptyState, FileUpload, type ColumnDef } from "@jaldee/design-system";
+import { Dialog, Select, Input, PhoneInput, phoneStringToValue, phoneValueToE164, Checkbox, Textarea, Popover, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, EmptyState, FileUpload } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import {
   SchemaFilterBuilder,
   buildDefaultSearchClauses,

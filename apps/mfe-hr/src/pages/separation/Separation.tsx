@@ -1,6 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { LogOut, Plus, X, AlertCircle, Loader2, ShieldCheck, Scissors, MessageSquare, Table as Rows3, LayoutGrid } from "lucide-react";
-import { Button, Combobox, DataTable, Dialog, DialogFooter, EmptyState, Input, Select, Textarea, type ColumnDef } from "@jaldee/design-system";
+import { Button, Combobox, DataTable, Dialog, DialogFooter, EmptyState, Input, Select, Textarea } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useExits, type ExitRequest, type ClearanceStatus } from "../../services/useExits";
 import { useEmployees } from "../../services/useEmployees";
@@ -92,13 +93,18 @@ export default function Separation() {
   };
 
   const submitRaise = async () => {
-    const missing = [!form.employeeUid && "Employee", !form.separationType && "Separation type", !form.noticePeriodDays && "Notice period"].filter(Boolean);
+    const missing = [!form.employeeUid && "Employee", !form.separationType && "Separation type", form.noticePeriodDays === "" && "Notice period"].filter(Boolean);
     if (missing.length) { setMsg(`${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required.`); return; }
+    const noticeDays = Number(form.noticePeriodDays);
+    if (isNaN(noticeDays) || noticeDays < 0) { setMsg("Notice period must be 0 or greater."); return; }
     setBusy(true); setMsg(null);
     try {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const lastWorkingDay = noticeDays === 0 ? todayIso : undefined;
       await exits.raise({
         employeeUid: form.employeeUid, separationType: form.separationType,
-        reason: form.reason || undefined, noticePeriodDays: Number(form.noticePeriodDays) || undefined,
+        reason: form.reason || undefined, noticePeriodDays: noticeDays,
+        lastWorkingDay,
       });
       setRaiseOpen(false);
       setForm({ employeeUid: "", separationType: "Resignation", reason: "", noticePeriodDays: "30" });

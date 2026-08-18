@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Filter, Search, ShieldCheck } from "lucide-react";
-import { Button, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, Select, type ColumnDef } from "@jaldee/design-system";
+import { Button, DataTable, Dialog, DialogFooter, Drawer, EmptyState, Input, SectionCard, Select } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } from "@jaldee/shared-modules";
 import type { SearchFilterClause } from "@jaldee/shared-modules";
@@ -204,8 +205,8 @@ export default function AuditLogs() {
         <SectionCard className="p-3 sm:p-5"><div className="flex items-center gap-3"><ShieldCheck className="text-emerald-600 shrink-0" /><div><div className="text-xs font-bold uppercase text-slate-500">Audit status</div><div className="mt-0.5 font-black text-emerald-700">Protected</div></div></div></SectionCard>
       </div>
 
-      <SectionCard className="p-0 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-3 sm:p-4 md:flex-row md:items-center">
+      <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+        <div className="flex flex-col gap-3 border-b border-[var(--color-border)] p-4 md:flex-row md:items-center">
           <div className="hidden flex-1 flex-wrap gap-2 xl:flex">
             {CONTEXT_OPTIONS.map((option) => (
               <Button
@@ -233,19 +234,17 @@ export default function AuditLogs() {
         </div>
         {error || schemaError ? <div data-testid="hr-audit-logs-error" className="m-3 sm:m-5 rounded-lg border border-rose-200 bg-rose-50 p-3 sm:p-4 text-sm text-rose-700">{error || schemaError}</div> : null}
         
-        {/* Table View with Horizontal Scroll Container */}
-        <div data-testid="hr-audit-logs-table" className="w-full overflow-x-auto p-2 sm:p-4">
-          <div className="min-w-[890px]">
-            <DataTable
-              data={visibleRows}
-              columns={columns}
-              loading={loading}
-              tableClassName="w-full min-w-[890px]"
-              getRowId={(record, index) => value(record, ["id", "uid", "eventUuid"], String(index))}
-              pagination={{ page, pageSize, total, mode: "server", onChange: setPage, onPageSizeChange: setPageSize }}
-              emptyState={<EmptyState title="No audit records" description="No HR audit activity matches the selected filters." />}
-            />
-          </div>
+        <div data-testid="hr-audit-logs-table" className="w-full min-w-0">
+          <DataTable
+            data={visibleRows}
+            columns={columns}
+            loading={loading}
+            className="rounded-none border-0 bg-transparent shadow-none"
+            tableClassName="w-full min-w-0"
+            getRowId={(record, index) => value(record, ["id", "uid", "eventUuid"], String(index))}
+            pagination={{ page, pageSize, total, mode: "server", onChange: setPage, onPageSizeChange: setPageSize }}
+            emptyState={<EmptyState title="No audit records" description="No HR audit activity matches the selected filters." />}
+          />
         </div>
       </SectionCard>
 

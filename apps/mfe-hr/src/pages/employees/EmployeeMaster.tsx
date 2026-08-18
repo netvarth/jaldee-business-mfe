@@ -470,7 +470,7 @@ export default function EmployeeMaster() {
               },
             }}
             className="rounded-none border-0 bg-transparent shadow-none"
-            tableClassName="min-w-[760px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+            tableClassName="w-full min-w-0"
             emptyState={
               <EmptyState
                 title={error ? "Could not load employees" : "No matching employees"}

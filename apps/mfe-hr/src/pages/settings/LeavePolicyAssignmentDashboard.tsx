@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Pencil, Loader2, AlertCircle, Save, X, Filter, Plane, Users2, ToggleLeft, ToggleRight, Table as Rows3, LayoutGrid } from "lucide-react";
-import { Dialog, Select, Input, Checkbox, Textarea, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button, type ColumnDef } from "@jaldee/design-system";
+import { Dialog, Select, Input, Checkbox, Textarea, Skeleton, SkeletonTable, MultiCombobox, TimePicker, DatePicker, DataTable, Drawer, SectionCard, Button } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useHrApi } from "../../services/useHrApi";
@@ -15,6 +16,15 @@ function formatCutoffDay(day?: unknown): string {
   if (j === 2 && k !== 12) return `${num}nd`;
   if (j === 3 && k !== 13) return `${num}rd`;
   return `${num}th`;
+}
+
+function formatEntitlementBadge(policy: Row): string {
+  const accrual = (policy.accrualType as string) || "None";
+  const proRate = accrual === "None" ? false : (policy.proRate ?? true);
+  if (!proRate || accrual === "None") {
+    return "Full Entitlement (No Proration)";
+  }
+  return `Prorated (${accrual} Accrual)`;
 }
 
 function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { setStatus: (uid: string, status: "Enabled" | "Disabled") => Promise<void> } }) {
@@ -90,6 +100,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
       annualQuota: 0,
       accrualCutoffDay: "",
       accrualType: "Monthly",
+      proRate: true,
       paid: true,
       carryForward: false,
       carryForwardMax: 0,
@@ -101,12 +112,14 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
   const openEditPolicy = (policy: Row & { id: string }) => {
     setEditing(policy);
     setPolicyError(null);
+    const accrual = (policy.accrualType as string) || "Monthly";
     setPolicyForm({
       name: policy.name || "",
       category: policy.category || "CASUAL",
       annualQuota: policy.annualQuota ?? 0,
       accrualCutoffDay: policy.accrualCutoffDay ?? "",
-      accrualType: policy.accrualType || "Monthly",
+      accrualType: accrual,
+      proRate: accrual === "None" ? false : (policy.proRate ?? true),
       paid: policy.paid ?? true,
       carryForward: policy.carryForward ?? false,
       carryForwardMax: policy.carryForwardMax ?? 0,
@@ -138,6 +151,7 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
         annualQuota: Number(policyForm.annualQuota || 0),
         accrualCutoffDay: policyForm.accrualCutoffDay !== "" && policyForm.accrualCutoffDay !== null ? Number(policyForm.accrualCutoffDay) : null,
         accrualType: policyForm.accrualType,
+        proRate: policyForm.accrualType === "None" ? false : !!policyForm.proRate,
         paid: !!policyForm.paid,
         carryForward: !!policyForm.carryForward,
         carryForwardMax: policyForm.carryForward ? Number(policyForm.carryForwardMax || 0) : 0,
@@ -282,11 +296,12 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
                     <td style={tdc}><b>{policy.name as string}</b></td>
                     <td style={tdc}>{leaveCategoryLabel(policy.category)}</td>
                     <td style={tdc}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</td>
-                    <td style={tdc}>{(policy.accrualType as string) || "—"}</td>
+                    <td style={tdc}>{formatEntitlementBadge(policy)}</td>
                     <td style={tdc}>{formatCutoffDay(policy.accrualCutoffDay)}</td>
                     <td style={tdc}>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
+                        <span style={miniPill(!policy.proRate || policy.accrualType === "None" ? "#7c3aed" : "#0284c7")}>{!policy.proRate || policy.accrualType === "None" ? "Full Entitlement" : "Prorated"}</span>
                         <span style={miniPill(policy.carryForward ? "#2563eb" : "#64748b")}>{policy.carryForward ? `Carry ${policy.carryForwardMax || 0}d` : "No Carry"}</span>
                       </div>
                     </td>
@@ -322,11 +337,12 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                     <div><div style={lbl}>Quota</div><div style={{ marginTop: 4, fontSize: 13 }}>{policy.annualQuota != null ? `${policy.annualQuota} days` : "—"}</div></div>
-                    <div><div style={lbl}>Accrual</div><div style={{ marginTop: 4, fontSize: 13 }}>{(policy.accrualType as string) || "—"}</div></div>
+                    <div><div style={lbl}>Accrual</div><div style={{ marginTop: 4, fontSize: 13 }}>{formatEntitlementBadge(policy)}</div></div>
                     <div><div style={lbl}>Cutoff</div><div style={{ marginTop: 4, fontSize: 13 }}>{formatCutoffDay(policy.accrualCutoffDay)}</div></div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <span style={miniPill(policy.paid ? "#059669" : "#64748b")}>{policy.paid ? "Paid" : "Unpaid"}</span>
+                    <span style={miniPill(!policy.proRate || policy.accrualType === "None" ? "#7c3aed" : "#0284c7")}>{!policy.proRate || policy.accrualType === "None" ? "Full Entitlement" : "Prorated"}</span>
                     <span style={miniPill(policy.carryForward ? "#2563eb" : "#64748b")}>{policy.carryForward ? `Carry ${policy.carryForwardMax || 0}d` : "No Carry"}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border-color)", paddingTop: 12 }}>
@@ -474,7 +490,23 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
           </div>
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Accrual Type</label>
-            <Select id="hr-settings-leave-policy-accrual" testId="hr-settings-leave-policy-accrual" value={(policyForm.accrualType as string) || "Monthly"} onChange={(e) => setPolicyForm((f) => ({ ...f, accrualType: e.target.value }))} options={["Monthly", "Yearly", "Quarterly"].map((value) => ({ value, label: value }))} />
+            <Select
+              id="hr-settings-leave-policy-accrual"
+              testId="hr-settings-leave-policy-accrual"
+              value={(policyForm.accrualType as string) || "Monthly"}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPolicyForm((f) => {
+                  const isNone = val === "None";
+                  return {
+                    ...f,
+                    accrualType: val,
+                    proRate: isNone ? false : (f.accrualType === "None" ? true : (f.proRate ?? true)),
+                  };
+                });
+              }}
+              options={["None", "Monthly", "Quarterly", "Yearly"].map((value) => ({ value, label: value }))}
+            />
           </div>
           <div>
             <label style={{ ...lbl, display: "block", marginBottom: 6 }}>Accrual Cutoff Day</label>
@@ -493,6 +525,22 @@ function LeavePolicyAssignmentDashboard({ leaveTypes }: { leaveTypes: Crud & { s
               Employees joining on or before this calendar day receive their first month's accrual immediately upon joining. Joining after this day starts with 0 balance until the next cycle.
             </p>
           </div>
+          <label style={{ ...ruleToggle(!!policyForm.proRate && policyForm.accrualType !== "None"), gridColumn: "1 / -1", opacity: policyForm.accrualType === "None" ? 0.6 : 1 }}>
+            <input
+              id="hr-settings-leave-policy-prorate"
+              data-testid="hr-settings-leave-policy-prorate"
+              type="checkbox"
+              checked={!!policyForm.proRate && policyForm.accrualType !== "None"}
+              disabled={policyForm.accrualType === "None"}
+              onChange={(e) => setPolicyForm((f) => ({ ...f, proRate: e.target.checked }))}
+            />
+            <span>
+              <b>Pro-rate on Joining Date</b>
+              <small style={{ display: "block", color: "var(--light-text)", marginTop: 2 }}>
+                When enabled, employees joining mid-year receive a pro-rated balance. When disabled (e.g., Maternity, Paternity, Bereavement), the full entitlement is granted upfront.
+              </small>
+            </span>
+          </label>
           <label style={{ ...ruleToggle(!!policyForm.paid), gridColumn: "1 / -1" }}>
             <input id="hr-settings-leave-policy-paid" data-testid="hr-settings-leave-policy-paid" type="checkbox" checked={!!policyForm.paid} onChange={(e) => setPolicyForm((f) => ({ ...f, paid: e.target.checked }))} />
             <span><b>Is Paid Leave?</b><small style={{ display: "block", color: "var(--light-text)", marginTop: 2 }}>Approved days remain payable.</small></span>

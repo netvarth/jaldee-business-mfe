@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Package, Plus, X, AlertCircle, Loader2, History, Undo2, UserPlus, Pencil, Eye, MoreVertical, LayoutGrid, Table as Rows3, Filter, CheckCircle2 } from "lucide-react";
-import { Badge, Button, Combobox, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn, type ColumnDef } from "@jaldee/design-system";
+import { Badge, Button, Combobox, DataTable, DataTableToolbar, Dialog, DialogFooter, Drawer, EmptyState, FileUpload, Input, Popover, PopoverSection, SectionCard, Select, Textarea, cn } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
   SchemaFilterBuilder,
@@ -441,7 +442,7 @@ export default function Assets() {
             getRowId={(asset) => asset.id}
             loading={assets.loading}
             className="rounded-none border-0 bg-transparent shadow-none"
-            tableClassName="min-w-[980px] [&_thead_tr]:border-[color:color-mix(in_srgb,var(--color-border)_42%,white)] [&_tbody_tr]:border-[color:color-mix(in_srgb,var(--color-border)_38%,white)] [&_thead_th]:h-12 [&_thead_th]:px-5 [&_thead_th]:text-[11px] [&_thead_th]:font-semibold [&_thead_th]:uppercase [&_thead_th]:tracking-[0.02em] [&_tbody_td]:h-[72px] [&_tbody_td]:px-5 [&_tbody_td]:py-3"
+            tableClassName="w-full min-w-0"
             emptyState={
               <EmptyState
                 icon={<Package size={36} strokeWidth={1.5} />}

@@ -28,13 +28,31 @@ export function buildHrSearchBody(
   page = 0,
   size = 100
 ): HrSearchRequestBody {
-  const conditions = compactSearchClauses(filterClauses, schema).map((clause) => ({
-    field: clause.field,
-    operator: clause.operator,
-    values: clause.values.filter((value) => value.trim().length > 0),
-  }));
+  const schemaFieldKeys = new Set<string>();
+  if (schema?.fields && Array.isArray(schema.fields)) {
+    for (const f of schema.fields) {
+      if (f.key) schemaFieldKeys.add(f.key);
+      if (f.name) schemaFieldKeys.add(f.name);
+    }
+  }
 
-  const sortField = schema?.defaultSort?.field;
+  const conditions = compactSearchClauses(filterClauses, schema)
+    .filter((clause) => {
+      if (schemaFieldKeys.size > 0 && !schemaFieldKeys.has(clause.field)) {
+        return false;
+      }
+      return true;
+    })
+    .map((clause) => ({
+      field: clause.field,
+      operator: clause.operator,
+      values: clause.values.filter((value) => value.trim().length > 0),
+    }));
+
+  const rawSortField = schema?.defaultSort?.field;
+  const isSortFieldValid =
+    rawSortField && (schemaFieldKeys.size === 0 || schemaFieldKeys.has(rawSortField));
+  const sortField = isSortFieldValid ? rawSortField : undefined;
 
   return {
     ...(schema?.defaultView ? { view: schema.defaultView } : {}),

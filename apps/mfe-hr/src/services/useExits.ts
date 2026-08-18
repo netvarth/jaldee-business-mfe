@@ -57,6 +57,16 @@ export function useExits({ enabled = true }: { enabled?: boolean } = {}) {
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to load exit requests"); setData([]); }
     finally { setLoading(false); }
   }, [api, enabled]);
+  const getExitDetails = useCallback(async (exitUid: string) => {
+    try {
+      const res = await api.get<Record<string, unknown>>(`/ess/exit-request/${exitUid}`);
+      return normalize(res);
+    } catch {
+      const res = await api.get<Record<string, unknown>>(`/exits/${exitUid}`);
+      return normalize(res);
+    }
+  }, [api]);
+
   useEffect(() => { void load(); }, [load]);
 
   const raise = useCallback(async (payload: {
@@ -100,5 +110,5 @@ export function useExits({ enabled = true }: { enabled?: boolean } = {}) {
     await api.post(`/exits/${uid}/cancel`); await load();
   }, [api, load]);
 
-  return { data, loading, error, reload: load, raise, decide, waiveNotice, undoNoticeWaiver, updateNoticePeriod, saveInterview, updateClearance, cancel };
+  return { data, loading, error, reload: load, getExitDetails, raise, decide, waiveNotice, undoNoticeWaiver, updateNoticePeriod, saveInterview, updateClearance, cancel };
 }

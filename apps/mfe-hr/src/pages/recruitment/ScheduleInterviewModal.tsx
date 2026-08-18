@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogFooter, Button, Input, Select } from "@jaldee/design-system";
+import type React from "react";
+import { Dialog, DialogFooter, Button, Input, Select, DateTimePicker } from "@jaldee/design-system";
 import type { Application, Candidate } from "../../types";
 
 export interface ScheduleInterviewModalProps {
@@ -163,7 +164,14 @@ export function ScheduleInterviewModal({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input id="hr-recruitment-schedule-interview-at" data-testid="hr-recruitment-schedule-interview-at" label="Scheduled At" type="datetime-local" required value={form.scheduledAt} onChange={set("scheduledAt")} />
+          <DateTimePicker
+            id="hr-recruitment-schedule-interview-at"
+            data-testid="hr-recruitment-schedule-interview-at"
+            label="Scheduled At"
+            required
+            value={form.scheduledAt}
+            onChange={(val) => set("scheduledAt")({ target: { value: val } } as React.ChangeEvent<HTMLInputElement>)}
+          />
           <Input id="hr-recruitment-schedule-interview-duration" data-testid="hr-recruitment-schedule-interview-duration" label="Duration (min)" type="number" min={0} value={form.durationMinutes} onChange={set("durationMinutes")} />
         </div>
 

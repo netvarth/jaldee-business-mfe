@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
-import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable } from "@jaldee/design-system";
+import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable, DataTable } from "@jaldee/design-system";
+import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -393,25 +394,38 @@ export default function Leave() {
               </div>
             </div>
             {viewMode === "table" ? (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr><th style={th}>Staff Individual</th><th style={th}>Leave Category</th><th style={th}>Period Range</th><th style={th}>Days</th><th style={th}>Reason</th><th style={{ ...th, textAlign: "right" }}>Clearance</th></tr></thead>
-              <tbody>
-                {pendingLeaves.length === 0 ? (
-                  <tr><td colSpan={6} style={{ ...tdc, textAlign: "center", ...lbl, padding: "32px 16px" }}>Excellent! No pending absence application logs found.</td></tr>
-                ) : pendingLeaves.map((l) => (
-                  <tr key={l.id}>
-                    <td style={{ ...tdc, fontWeight: 700 }}>{empName(l.employeeUid)}<span style={{ display: "block", ...lbl, fontSize: 8 }}>Dept: {empDept(l.employeeUid)}</span></td>
-                    <td style={{ ...tdc, fontWeight: 700 }}>{l.leaveTypeName || l.type}</td>
-                    <td style={{ ...tdc, fontSize: 11, color: "var(--light-text)" }}>{formatLeaveDate(l.startDate)} → {formatLeaveDate(l.endDate)}</td>
-                    <td style={{ ...tdc, fontWeight: 900, color: TEAL }}>{l.isHalfDay ? `0.5d (${l.halfDayType === "SECOND_HALF" ? "Second Half" : "First Half"})` : `${calcDays(l.startDate, l.endDate, false)}d`}</td>
-                    <td style={{ ...tdc, color: "var(--light-text)", fontStyle: "italic", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>“{l.reason}”</td>
-                    <td style={{ ...tdc, textAlign: "right" }}>
+              <DataTable
+                data={pendingLeaves}
+                columns={[
+                  {
+                    key: "employeeUid",
+                    header: "Staff Individual",
+                    width: "25%",
+                    render: (l) => (
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{empName(l.employeeUid)}</div>
+                        <span style={{ display: "block", ...lbl, fontSize: 8 }}>Dept: {empDept(l.employeeUid)}</span>
+                      </div>
+                    ),
+                  },
+                  { key: "leaveTypeName", header: "Leave Category", width: "15%", render: (l) => <span className="font-semibold">{l.leaveTypeName || l.type}</span> },
+                  { key: "startDate", header: "Period Range", width: "22%", render: (l) => <span className="text-xs text-[var(--light-text)]">{formatLeaveDate(l.startDate)} → {formatLeaveDate(l.endDate)}</span> },
+                  { key: "days", header: "Days", width: "12%", render: (l) => <span className="font-black text-[var(--primary-color)]">{l.isHalfDay ? `0.5d (${l.halfDayType === "SECOND_HALF" ? "Second Half" : "First Half"})` : `${calcDays(l.startDate, l.endDate, false)}d`}</span> },
+                  { key: "reason", header: "Reason", width: "18%", render: (l) => <span className="block max-w-[180px] truncate italic text-slate-500" title={l.reason}>“{l.reason}”</span> },
+                  {
+                    key: "actions",
+                    header: "Clearance",
+                    width: "12%",
+                    align: "right",
+                    render: (l) => (
                       <Button id={`hr-leave-pending-inspect-${l.id}`} data-testid={`hr-leave-pending-inspect-${l.id}`} variant="outline" size="sm" icon={<Eye size={14} />} onClick={() => { setSelected(l); setRemarks(""); }} className="!h-8 !rounded-xl !border-[rgba(17,94,89,0.18)] !bg-[rgba(17,94,89,0.05)] !px-3 !text-xs !font-bold !leading-none !text-[var(--color-primary)]">Review</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    ),
+                  },
+                ] as ColumnDef<typeof pendingLeaves[0]>[]}
+                getRowId={(l) => l.id}
+                className="rounded-none border-0 bg-transparent shadow-none"
+                tableClassName="w-full min-w-0"
+              />
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {pendingCards.length > 0 ? pendingCards : <div style={{ ...lbl, textAlign: "center", padding: "24px 16px" }}>Excellent! No pending absence application logs found.</div>}

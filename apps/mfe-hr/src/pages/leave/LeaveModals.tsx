@@ -78,7 +78,8 @@ export function ApplyLeaveModal(props: ApplyModalProps) {
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Combobox
             id="hr-leave-employee-uid"
-            data-testid="hr-leave-employee-uid"
+            data-testid="hr-leave-employee"
+            testId="hr-leave-employee"
             label="Applicant Staff Member"
             value={form.employeeUid}
             onValueChange={(val) => { setForm({ ...form, employeeUid: val, leaveTypeUid: "", type: "" }); setApplyErrors((current) => ({ ...current, employeeUid: undefined })); }}
@@ -89,14 +90,20 @@ export function ApplyLeaveModal(props: ApplyModalProps) {
             loading={employeeOptions.loading}
             hasMore={employeeOptions.hasMore}
             onEndReached={employeeOptions.onLoadMore}
-            options={employeeOptions.data.map((employee) => ({
-              value: employee.id || "",
-              label: employee.name || employee.employeeId || employee.id || "Employee",
-            }))}
+            options={employeeOptions.data.map((employee) => {
+              const name = employee.name || employee.id || "Employee";
+              const empId = employee.employeeId ? ` ${employee.employeeId}` : "";
+              const fullLabel = employee.employeeId && !name.includes(employee.employeeId) ? `${name}${empId}` : name;
+              return {
+                value: employee.id || "",
+                label: fullLabel,
+              };
+            })}
           />
           <Select
             id="hr-leave-type-uid"
-            testId="hr-leave-type-uid"
+            testId="hr-leave-type"
+            data-testid="hr-leave-type"
             label="Leave Type Category"
             value={form.leaveTypeUid}
             onChange={(e) => {
