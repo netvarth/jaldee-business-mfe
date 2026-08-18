@@ -474,6 +474,13 @@ export default function CreateAppointmentDrawer({
 
       const validateAndSet = async (targetStartTime: string) => {
         initialSelectionDoneForSlots.current = slots;
+        
+        if (schedulingMode === "block") {
+          const fallbackSlot = slots.find(s => s.startTime === targetStartTime);
+          if (fallbackSlot) setSelectedSlots([fallbackSlot]);
+          return;
+        }
+        
         try {
           const params = new URLSearchParams({
             calendarUid,
@@ -697,23 +704,14 @@ export default function CreateAppointmentDrawer({
           }
         } else {
           const sortedSlots = [...selectedSlots].sort((a, b) => a.startTime.localeCompare(b.startTime));
-          const groups: Slot[][] = [];
-          for (const s of sortedSlots) {
-            const lastGroup = groups[groups.length - 1];
-            if (lastGroup && lastGroup[lastGroup.length - 1].endTime === s.startTime) {
-              lastGroup.push(s);
-            } else {
-              groups.push([s]);
-            }
-          }
-          await Promise.all(groups.map(async (group) => {
+          await Promise.all(sortedSlots.map(async (slot) => {
             const res = await blockSlot({
               scheduleUid,
               serviceUid: serviceUid || undefined,
               providerUid: doctorUid || undefined,
               date: dateStr,
-              startTime: group[0].startTime,
-              endTime: group[group.length - 1].endTime,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
               notes: blockReason,
             });
             if (res.uid) {
@@ -723,7 +721,7 @@ export default function CreateAppointmentDrawer({
                 serviceId: serviceUid, serviceUid,
                 userId: doctorUid, userUid: doctorUid, providerId: doctorUid,
                 patientName: "Blocked", customerName: "Blocked",
-                startTime: fmtSlot(group[0].startTime), endTime: fmtSlot(group[group.length - 1].endTime), time: fmtSlot(group[0].startTime),
+                startTime: fmtSlot(slot.startTime), endTime: fmtSlot(slot.endTime), time: fmtSlot(slot.startTime),
                 status: "Blocked",
                 bookingDate: dateStr,
               });

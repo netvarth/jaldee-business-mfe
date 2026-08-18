@@ -16,6 +16,8 @@ import { useSlots } from "../../services/useSlots";
 import type { AllowedAction, BookingStatus, Slot, BookingDetails } from "../../types";
 import InvoiceModal from "./InvoiceModal";
 import { buildOffsetDateTime, formatIsoTime } from "../../utils/dateTime";
+import { useToast } from "../../contexts/ToastContext";
+import { useBookingApi } from "../../services/useBookingApi";
 import AttachmentsPanel from "./AttachmentsPanel";
 
 interface Props {
@@ -97,6 +99,8 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     details, timeline, loading, acting, load, act,
     finance, payments, paying, createInvoice, recordPayment, viewInvoice,
   } = useBookingDetails();
+  const { showToast } = useToast();
+  const api = useBookingApi();
   const { preference } = useBookingPreferences();
   const { slots, isHoliday, holidayMessage, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { unblockSlot, submitting: unblocking } = useBlockSlot();
@@ -421,28 +425,65 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                                 <div className="text-xs font-medium text-amber-700 col-span-4 p-4 text-center bg-amber-50 rounded-lg border border-amber-100">No slots available for this date.</div>
                               )
                             ) : (
-                              slots.map((s) => {
-                                const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
-                                const active = newStart === s.startTime;
-                                const fmtSlot = (t: string) => {
-                                  const [hStr, mStr] = t.split(":");
-                                  let h = parseInt(hStr, 10);
-                                  const ampm = h >= 12 ? 'PM' : 'AM';
-                                  h = h % 12;
-                                  if (h === 0) h = 12;
-                                  return `${h}:${mStr} ${ampm}`;
-                                };
-                                return (
-                                  <button
-                                    key={s.startTime}
-                                    type="button"
-                                    disabled={!available}
-                                    onClick={() => { setNewStart(s.startTime); setNewEnd(s.endTime); }}
-                                    className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all shadow-sm ${active ? 'border-[#6C32FF] bg-[#6C32FF] text-white shadow-md' : available ? 'border-slate-200 bg-white text-slate-700 hover:border-[#6C32FF] hover:text-[#6C32FF]' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed shadow-none'}`}
-                                  >
-                                    {fmtSlot(s.startTime)}
-                                  </button>
-                                );
+                                slots.map((s) => {
+                                  const available = s.isAvailable !== false && (s.availableCount ?? 1) > 0;
+                                  const active = newStart && newEnd && s.startTime >= newStart && s.startTime < newEnd;
+                                  const fmtSlot = (t: string) => {
+                                    const [hStr, mStr] = t.split(":");
+                                    let h = parseInt(hStr, 10);
+                                    const ampm = h >= 12 ? 'PM' : 'AM';
+                                    h = h % 12;
+                                    if (h === 0) h = 12;
+                                    return `${h}:${mStr} ${ampm}`;
+                                  };
+                                  return (
+                                    <button
+                                      key={s.startTime}
+                                      type="button"
+                                      disabled={!available}
+                                      onClick={async () => {
+                                        if (!details?.calendarUid || !details?.serviceUid || !newDate) {
+                                          setNewStart(s.startTime);
+                                          setNewEnd(s.endTime);
+                                          return;
+                                        }
+                                        
+                                        try {
+                                          const params = new URLSearchParams({
+                                            calendarUid: details.calendarUid,
+                                            serviceUid: details.serviceUid,
+                                            date: newDate,
+                                            beginningSlot: s.startTime
+                                          });
+                                          if (details.userUid) {
+                                            params.append("tenantUserUid", details.userUid);
+                                          }
+                                          
+                                          const url = `/bookings/availability/validate-slot?${params.toString()}`;
+                                          const res = await api.get(url) as any;
+                                          
+                                          if (res.isAvailable === false) {
+                                            showToast(res.message || "Slot is not available.", "error");
+                                            setNewStart("");
+                                            setNewEnd("");
+                                          } else if (res.slots && res.slots.length > 0) {
+                                            setNewStart(res.slots[0].startTime);
+                                            setNewEnd(res.slots[res.slots.length - 1].endTime);
+                                          } else {
+                                            setNewStart(s.startTime);
+                                            setNewEnd(s.endTime);
+                                          }
+                                        } catch (e: any) {
+                                          showToast(e.message || "Failed to validate slot.", "error");
+                                          setNewStart("");
+                                          setNewEnd("");
+                                        }
+                                      }}
+                                      className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all shadow-sm ${active ? 'border-[#6C32FF] bg-[#6C32FF] text-white shadow-md' : available ? 'border-slate-200 bg-white text-slate-700 hover:border-[#6C32FF] hover:text-[#6C32FF]' : 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed shadow-none'}`}
+                                    >
+                                      {fmtSlot(s.startTime)}
+                                    </button>
+                                  );
                               })
                             )}
                           </div>

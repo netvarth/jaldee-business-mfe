@@ -162,7 +162,13 @@ export default function CalendarWizard() {
     // Step 1 State
     const [name, setName] = useState(ws?.name ?? initialCalendar?.name ?? '');
     const [description, setDescription] = useState(ws?.description ?? initialCalendar?.description ?? '');
-    const [location, setLocation] = useState(ws?.location ?? initialCalendar?.locationName ?? '');
+    const [location, setLocation] = useState(
+        ws?.locationId != null
+            ? String(ws.locationId)
+            : initialCalendar?.locationId != null
+                ? String(initialCalendar.locationId)
+                : ws?.location ?? initialCalendar?.locationName ?? '',
+    );
     const [locations, setLocations] = useState<AccountLocation[]>([]);
     const [channels, setChannels] = useState(ws?.channels ?? {
         online: initialBookingChannels.includes('ONLINE') || initialBookingChannels.length === 0,
@@ -174,15 +180,6 @@ export default function CalendarWizard() {
     // Step 2 State
     const [selectedServices, setSelectedServices] = useState<Service[]>(ws?.selectedServices ?? []);
     const [defaultServiceId, setDefaultServiceId] = useState<string>(ws?.defaultServiceId ?? '');
-    const initializedRef = React.useRef(false);
-    React.useEffect(() => {
-        if (!initializedRef.current && availableServices.length > 0) {
-            initializedRef.current = true;
-            if (!ws?.selectedServices && selectedServices.length === 0 && !initialCalendar) {
-                setSelectedServices([availableServices[0]]);
-            }
-        }
-    }, [availableServices, ws, selectedServices.length, initialCalendar]);
     const [serviceUsers, setServiceUsers] = useState<Record<string, User[]>>(ws?.serviceUsers ?? {});
     
     // Modals State
@@ -213,6 +210,7 @@ export default function CalendarWizard() {
     ]);
 
     const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     React.useEffect(() => {
         let cancelled = false;
@@ -231,9 +229,24 @@ export default function CalendarWizard() {
     }, [getLocations]);
 
     const locationOptions = useMemo(
-        () => locations.map((entry) => ({ value: entry.name, label: entry.name, id: entry.id })),
+        () => locations.map((entry) => ({ value: String(entry.id), label: entry.name, id: entry.id, uid: entry.uid })),
         [locations],
     );
+    const resolvedLocationOption = useMemo(
+        () => locationOptions.find((option) => String(option.id) === location || option.label === location),
+        [locationOptions, location],
+    );
+
+    React.useEffect(() => {
+        if (!location || !locations.length) {
+            return;
+        }
+
+        const matchedLocation = locations.find((entry) => String(entry.id) === location || entry.name === location);
+        if (matchedLocation && String(matchedLocation.id) !== location) {
+            setLocation(String(matchedLocation.id));
+        }
+    }, [location, locations]);
 
     const availableServices = useMemo<Service[]>(
         () => services.map((service) => {
@@ -263,6 +276,15 @@ export default function CalendarWizard() {
             })),
         [users],
     );
+    const initializedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!initializedRef.current && availableServices.length > 0) {
+            initializedRef.current = true;
+            if (!ws?.selectedServices && selectedServices.length === 0 && !initialCalendar) {
+                setSelectedServices([availableServices[0]]);
+            }
+        }
+    }, [availableServices, ws, selectedServices.length, initialCalendar]);
 
     const handleNext = () => setStep(s => Math.min(3, s + 1));
     const handlePrev = () => setStep(s => Math.max(1, s - 1));
@@ -272,6 +294,7 @@ export default function CalendarWizard() {
     const handleNextStep1 = async (e?: React.FormEvent) => {
         e?.preventDefault();
         setValidationError(null);
+        setSubmitError(null);
         if (!name || !name.trim()) {
             setValidationError("Name is required.");
             return;
@@ -281,13 +304,14 @@ export default function CalendarWizard() {
             return;
         }
         setSubmitting(true);
-        const locationOption = locationOptions.find((option) => option.value === location);
         const bookingChannels = toBookingChannels(channels);
+        const resolvedLocationId = resolvedLocationOption?.id ?? Number(location || 0);
         const payload: CreateCalendarPayload = {
             name: name || "Draft Calendar",
             description,
-            locationId: locationOption?.id ?? 0,
-            locationName: locationOption?.label ?? location,
+            locationId: Number.isFinite(resolvedLocationId) ? resolvedLocationId : 0,
+            locationUid: resolvedLocationOption?.uid,
+            locationName: resolvedLocationOption?.label ?? location,
             services: [],
             users: [],
             channel: bookingChannels[0] ?? 'ONLINE',
@@ -310,23 +334,26 @@ export default function CalendarWizard() {
             handleNext();
         } catch (e) {
             console.error("Failed to save draft", e);
+            setSubmitError(e instanceof Error ? e.message : "Failed to create calendar.");
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleNextStep2 = async () => {
+        setSubmitError(null);
         if (!draftUid) return handleNext();
         setSubmitting(true);
-        const locationOption = locationOptions.find((option) => option.value === location);
         const bookingChannels = toBookingChannels(channels);
+        const resolvedLocationId = resolvedLocationOption?.id ?? Number(location || 0);
         
         const payload: CreateCalendarPayload = {
             uid: draftUid,
             name: name || "Draft Calendar",
             description,
-            locationId: locationOption?.id ?? 0,
-            locationName: locationOption?.label ?? location,
+            locationId: Number.isFinite(resolvedLocationId) ? resolvedLocationId : 0,
+            locationUid: resolvedLocationOption?.uid,
+            locationName: resolvedLocationOption?.label ?? location,
             services: buildServicesPayload(selectedServices, serviceUsers),
             users: [],
             channel: bookingChannels[0] ?? 'ONLINE',
@@ -345,6 +372,7 @@ export default function CalendarWizard() {
             handleNext();
         } catch (e) {
             console.error("Failed to save services", e);
+            setSubmitError(e instanceof Error ? e.message : "Failed to save calendar services.");
         } finally {
             setSubmitting(false);
         }
@@ -360,15 +388,17 @@ export default function CalendarWizard() {
             return;
         }
         setSubmitting(true);
+        setSubmitError(null);
         try {
-            const locationOption = locationOptions.find((option) => option.value === location);
             const bookingChannels = toBookingChannels(channels);
+            const resolvedLocationId = resolvedLocationOption?.id ?? Number(location || 0);
             await updateCalendar(draftUid, {
                 uid: draftUid,
                 name,
                 description,
-                locationId: locationOption?.id ?? 0,
-                locationName: locationOption?.label ?? location,
+                locationId: Number.isFinite(resolvedLocationId) ? resolvedLocationId : 0,
+                locationUid: resolvedLocationOption?.uid,
+                locationName: resolvedLocationOption?.label ?? location,
                 services: buildServicesPayload(selectedServices, serviceUsers),
                 users: [],
                 channel: bookingChannels[0] ?? 'ONLINE',
@@ -391,10 +421,6 @@ export default function CalendarWizard() {
                     calendarName: name,
                     startDate: schedule.startDate,
                     endDate: schedule.endDate || undefined,
-                    slotCapacity: Math.max(
-                        ...schedule.timeWindows.map((timeWindow: any) => Number(timeWindow.capacity) || 0),
-                        0,
-                    ),
                     qrLinkRequired: true,
                     timeWindows: schedule.timeWindows.map((timeWindow: any) => ({
                         calendarUid: draftUid,
@@ -404,7 +430,6 @@ export default function CalendarWizard() {
                         startTime: withSeconds(timeWindow.startTime),
                         endTime: withSeconds(timeWindow.endTime),
                         slotDuration: Number(timeWindow.duration) || 0,
-                        slotCapacity: Number(timeWindow.capacity) || 0,
                         channel: bookingChannels[0] ?? 'ONLINE',
                         label: [],
                         qrLinkRequired: true,
@@ -415,6 +440,7 @@ export default function CalendarWizard() {
             navigate(returnTo);
         } catch (error) {
             console.error(error);
+            setSubmitError(error instanceof Error ? error.message : "Failed to publish calendar.");
         } finally {
             setSubmitting(false);
         }
@@ -529,7 +555,7 @@ export default function CalendarWizard() {
                                     className="custom-select"
                                     value={location}
                                     placeholder="Select Location"
-                                    options={locationOptions}
+                                    options={locationOptions.map((option) => ({ value: String(option.id), label: option.label }))}
                                     onChange={(e) => setLocation(e.target.value)}
                                 />
                             </div>
@@ -613,8 +639,12 @@ export default function CalendarWizard() {
                                     {validationError}
                                 </div>
                             )}
+                            {submitError && (
+                                <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-800 border border-red-200">
+                                    {submitError}
+                                </div>
+                            )}
                             <div className="wizard-footer-actions">
-                                <Button type="button" variant="secondary" className="btn-wizard-discard" onClick={() => navigate(returnTo)}>Discard</Button>
                                 <Button type="submit" loading={submitting}>{submitting ? 'Saving...' : 'Continue'}</Button>
                             </div>
                         </form>
@@ -658,6 +688,11 @@ export default function CalendarWizard() {
                                 )}
                             </div>
                         </div>
+                        {submitError && (
+                            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">
+                                {submitError}
+                            </div>
+                        )}
 
                         <div className="wizard-footer-actions mt-8">
                             <Button variant="secondary" className="btn-wizard-back" onClick={handlePrev}>Back</Button>
@@ -838,13 +873,13 @@ export default function CalendarWizard() {
                                                                         type="number" 
                                                                         label="Duration (m)"
                                                                         value={tw.duration} 
-                                                                        min="5"
+                                                                        min="1"
                                                                         onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }}
                                                                         onBlur={(e) => {
                                                                             const val = Number(e.target.value);
-                                                                            if (val < 5 || isNaN(val)) {
+                                                                            if (val < 1 || isNaN(val)) {
                                                                                 const newSch = [...schedules];
-                                                                                newSch[sIdx].timeWindows[twIdx].duration = 5;
+                                                                                newSch[sIdx].timeWindows[twIdx].duration = 1;
                                                                                 setSchedules(newSch);
                                                                             }
                                                                         }}
@@ -885,7 +920,6 @@ export default function CalendarWizard() {
                             </div>
 
                             <div className="mt-6 flex w-full gap-4 md:mt-8 md:justify-end">
-                                <Button type="button" variant="secondary" className="flex-1 md:flex-none" onClick={() => navigate(returnTo)}>Discard</Button>
                                 <Button type="button" variant="outline" className="flex-1 md:flex-none border-slate-300" onClick={handlePrev}>Back</Button>
                                 <Button variant="primary" className="flex-1 bg-[#4C1D95] hover:bg-[#3B0764] md:flex-none" onClick={handlePublish} loading={submitting} disabled={Boolean(publishBlockedReason)}>
                                     {submitting ? 'Creating...' : 'Create'}
@@ -894,6 +928,11 @@ export default function CalendarWizard() {
                             {publishBlockedReason ? (
                                 <p className="mt-2 text-center text-sm text-amber-700 md:text-right">{publishBlockedReason}</p>
                             ) : null}
+                            {submitError && (
+                                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">
+                                    {submitError}
+                                </div>
+                            )}
                         </div>
                     </div>
                     </div>
