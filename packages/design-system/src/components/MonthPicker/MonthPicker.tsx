@@ -9,6 +9,7 @@ export interface MonthPickerProps extends Omit<InputHTMLAttributes<HTMLInputElem
   hint?: string;
   fullWidth?: boolean;
   containerClassName?: string;
+  "data-testid"?: string;
 }
 
 const MONTH_LABELS = [
