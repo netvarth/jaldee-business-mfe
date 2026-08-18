@@ -314,9 +314,11 @@ async function run() {
     if (await el.isVisible({ timeout: 10000 }).catch(() => false)) {
       if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
         await el.click();
-        const option = page.locator('[role="option"]:visible').first();
+        const comboTestId = await el.getAttribute("data-testid");
+        if (!comboTestId) throw new Error(`${labelName || "Combobox"} requires a data-testid for automation`);
+        const option = page.locator(`[data-testid^="${comboTestId}-option-"]:visible`).first();
         await option.waitFor({ state: "visible", timeout: 10000 });
-        await option.click();
+        await option.dispatchEvent("click");
         await page.waitForTimeout(250);
         return true;
       }
@@ -690,7 +692,7 @@ async function run() {
   await slowType('[data-testid="hr-settings-company-industry"]', "Information Technology & Enterprise Software", "Industry");
   await slowType('[data-testid="hr-settings-company-email"]', `corporate.${suffix}.test@jaldee.com`, "Contact Email");
   await slowType('[data-testid="hr-settings-company-phone-number"]', "5555000000", "Phone");
-  await page.locator('[data-testid="hr-settings-company-logourl"]').setInputFiles({
+  await page.locator('[data-testid="hr-settings-company-logourl"] input[type="file"]').setInputFiles({
     name: "hr-company-logo.png",
     mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),

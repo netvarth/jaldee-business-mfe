@@ -181,7 +181,7 @@ async function run() {
         if (!comboTestId) throw new Error(`${labelName || "Combobox"} requires a data-testid for automation`);
         const option = page.locator(`[data-testid^="${comboTestId}-option-"]:visible`).first();
         await option.waitFor({ state: "visible", timeout: 10000 });
-        await option.click();
+        await option.dispatchEvent("click");
         await page.waitForTimeout(interactionDelay);
         return true;
       }
@@ -556,7 +556,7 @@ async function run() {
   await slowType('[data-testid="hr-settings-company-industry"]', "Information Technology & Enterprise Software", "Industry");
   await slowType('[data-testid="hr-settings-company-email"]', `corporate.${suffix}.test@jaldee.com`, "Contact Email");
   await slowType('[data-testid="hr-settings-company-phone-number"]', "5555000000", "Phone");
-  await page.locator('[data-testid="hr-settings-company-logourl"]').setInputFiles({
+  await page.locator('[data-testid="hr-settings-company-logourl"] input[type="file"]').setInputFiles({
     name: "hr-company-logo.png",
     mimeType: "image/png",
     buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
@@ -1390,7 +1390,7 @@ async function run() {
     const method = response.request().method();
     const path = new URL(response.url()).pathname;
     return (method === "POST" && /\/attendance\/?$/.test(path))
-      || (method === "PUT" && /\/attendance\/[^/]+\/punch-out$/.test(path));
+      || (method === "PUT" && /\/attendance\/[^/]+$/.test(path));
   }, { timeout: 45000 }).catch(() => null);
   await slowClick('[data-testid="hr-attendance-punch-button"]', "Clock In / Clock Out");
   const punchMessage = page.locator('[data-testid="hr-attendance-punch-message"]');

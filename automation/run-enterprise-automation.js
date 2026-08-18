@@ -216,9 +216,11 @@ async function run() {
     if (visible) {
       if (await el.evaluate((node) => node.tagName.toLowerCase()) !== "select") {
         await el.click();
-        const option = page.locator('[role="option"]:visible').first();
+        const comboTestId = await el.getAttribute("data-testid");
+        if (!comboTestId) throw new Error(`${labelName || "Combobox"} requires a data-testid for automation`);
+        const option = page.locator(`[data-testid^="${comboTestId}-option-"]:visible`).first();
         await option.waitFor({ state: "visible", timeout: 10000 });
-        await option.click();
+        await option.dispatchEvent("click");
         await page.waitForTimeout(250);
         return true;
       }
@@ -659,7 +661,7 @@ async function run() {
     await slowType('[data-testid="hr-settings-company-industry"]', "Enterprise Software, AI, Cloud & FinTech", "Industry");
     await slowType('[data-testid="hr-settings-company-email"]', testEmail(`corporate.${suffix}`), "Contact Email");
     await slowType('[data-testid="hr-settings-company-phone-number"]', ENTERPRISE_PHONE, "Phone");
-    await page.locator('[data-testid="hr-settings-company-logourl"]').setInputFiles({
+    await page.locator('[data-testid="hr-settings-company-logourl"] input[type="file"]').setInputFiles({
       name: "hr-company-logo.png",
       mimeType: "image/png",
       buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),

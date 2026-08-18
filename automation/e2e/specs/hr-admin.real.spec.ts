@@ -284,7 +284,7 @@ test.describe("HR & Admin IT Enterprise Suite", () => {
       await fillByTestId(page, "hr-settings-company-industry", "Information Technology & Enterprise Software");
       await fillByTestId(page, "hr-settings-company-email", `corporate.${suffix}.test@jaldee.com`);
       await fillPhoneInput(page, "hr-settings-company-phone", "5555000000");
-      await page.getByTestId("hr-settings-company-logourl").setInputFiles({
+      await page.getByTestId("hr-settings-company-logourl").locator('input[type="file"]').setInputFiles({
         name: "hr-company-logo.png",
         mimeType: "image/png",
         buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
