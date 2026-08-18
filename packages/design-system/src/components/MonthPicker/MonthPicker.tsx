@@ -67,6 +67,7 @@ const MonthPicker = forwardRef<HTMLInputElement, MonthPickerProps>(
       required,
       disabled,
       placeholder = "Select month",
+      "data-testid": dataTestId,
       ...props
     },
     ref
@@ -147,7 +148,7 @@ const MonthPicker = forwardRef<HTMLInputElement, MonthPickerProps>(
 
         <div ref={fieldRef} className={cn("relative", fullWidth && "w-full")}>
           <input
-            data-testid={props["data-testid"] ? `${props["data-testid"]}-display` : inputId ? `${inputId}-display` : "month-picker-display"}
+            data-testid={dataTestId ? `${dataTestId}-display` : inputId ? `${inputId}-display` : "month-picker-display"}
             value={selectedDate ? formatDisplayValue(selectedDate) : ""}
             readOnly
             disabled={disabled}
