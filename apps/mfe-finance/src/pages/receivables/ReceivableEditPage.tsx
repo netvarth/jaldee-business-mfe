@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import {
@@ -7,7 +6,7 @@ import {
   DatePicker,
   Dialog,
   DialogFooter,
-  Icon,
+  FileUpload,
   Input,
   Popover,
   SectionCard,
@@ -16,6 +15,37 @@ import {
 } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
+
+type UploadedRevenueFileItem = {
+  name: string;
+  size: number;
+  status: "uploading" | "success" | "error";
+  error?: string;
+  attachmentData?: {
+    action: null;
+    caption: string;
+    contextType: "REVENUE";
+    contextUid: null;
+    driveId: null;
+    featureModuleName: "FINANCE_PAYMENT";
+    featureServiceName: "FINANCE";
+    fileName: string;
+    filePath: string;
+    fileSize: number;
+    fileType: string;
+    fileUid: string;
+    jaldeeDriveId: string | null;
+    owner: string;
+    ownerName: string;
+    ownerType: "TenantUser";
+    sharedTo: null;
+    sharedType: "secureShare";
+    shortUrl: string | null;
+    tenantUid: string;
+    uploadedBy: string;
+    uploadedByName: string;
+  };
+};
 
 function toFinanceRoute(routePath: string) {
   const normalized = String(routePath || "").trim();
@@ -28,6 +58,109 @@ function toIsoDateTime(value: string) {
   if (!value) return undefined;
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function resolveUploadFileType(file: File) {
+  if (file.type.includes("/")) {
+    return file.type.split("/")[1] || "file";
+  }
+  const segments = file.name.split(".");
+  return segments.length > 1 ? segments.pop() || "file" : "file";
+}
+
+async function uploadRevenueAttachment(
+  file: File,
+  input: {
+    api: { post: <T = unknown>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }>; patch: <T = unknown>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }> } | null | undefined;
+    tenantUid: string;
+    userId: string;
+    userName: string;
+  }
+) {
+  if (!input.api) {
+    throw new Error("Revenue upload is unavailable in this shell.");
+  }
+
+  const fileType = file.type || resolveUploadFileType(file);
+  const response = await input.api.post<{
+    fileUid?: string;
+    uploadUrl?: string;
+    filePath?: string;
+    shortUrl?: string;
+    jaldeeDriveId?: string | null;
+  }>(
+    "/platform-service/v1/api/drive/initiate-upload",
+    {
+      action: "ADD",
+      caption: file.name,
+      contextType: "REVENUE",
+      featureModuleName: "FINANCE_PAYMENT",
+      featureServiceName: "FINANCE",
+      fileName: file.name,
+      fileSize: file.size,
+      fileType,
+      owner: input.userId,
+      ownerName: input.userName,
+      ownerType: "TenantUser",
+      sharedType: "secureShare",
+      tenantUid: input.tenantUid,
+      uploadedBy: input.userId,
+      uploadedByName: input.userName,
+    },
+    { _skipLocationParam: true } as any,
+  );
+
+  const target = response?.data ?? null;
+  const fileUid = String(target?.fileUid ?? "").trim();
+  const uploadUrl = String(target?.uploadUrl ?? "").trim();
+  const filePath = String(target?.filePath ?? "").trim();
+  const shortUrl = String(target?.shortUrl ?? "").trim();
+  const jaldeeDriveId = target?.jaldeeDriveId == null ? null : String(target.jaldeeDriveId);
+
+  if (!fileUid || !uploadUrl) {
+    throw new Error(`Upload target was not returned for ${file.name}.`);
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: file.type ? { "Content-Type": file.type } : undefined,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Unable to upload ${file.name}.`);
+  }
+
+  await input.api.patch(
+    `/platform-service/v1/api/drive/${fileUid}/status?status=COMPLETE`,
+    null,
+    { _skipLocationParam: true } as any,
+  );
+
+  return {
+    action: null,
+    caption: file.name,
+    contextType: "REVENUE" as const,
+    contextUid: null,
+    driveId: null,
+    featureModuleName: "FINANCE_PAYMENT" as const,
+    featureServiceName: "FINANCE" as const,
+    fileName: file.name,
+    filePath: filePath || uploadUrl.split("?")[0],
+    fileSize: file.size,
+    fileType: file.type || "",
+    fileUid,
+    jaldeeDriveId,
+    owner: input.userId,
+    ownerName: input.userName,
+    ownerType: "TenantUser" as const,
+    sharedTo: null,
+    sharedType: "secureShare" as const,
+    shortUrl: shortUrl || null,
+    tenantUid: input.tenantUid,
+    uploadedBy: input.userId,
+    uploadedByName: input.userName,
+  };
 }
 
 export default function ReceivableEditPage() {
@@ -58,7 +191,7 @@ export default function ReceivableEditPage() {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
-  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedRevenueFileItem[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -317,6 +450,14 @@ export default function ReceivableEditPage() {
       setFormError("Amount must be greater than zero.");
       return;
     }
+    if (uploadedFiles.some((file) => file.status === "uploading")) {
+      setFormError("Please wait for document uploads to finish.");
+      return;
+    }
+    if (uploadedFiles.some((file) => file.status === "error")) {
+      setFormError("Remove or reupload failed documents before saving.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -338,7 +479,11 @@ export default function ReceivableEditPage() {
         description: description.trim() || undefined,
         paymentMode: paymentMode || undefined,
         receivedDate,
+        uploadedDocuments: uploadedFiles
+          .filter((file) => file.status === "success" && file.attachmentData)
+          .map((file) => file.attachmentData),
       });
+
       mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
         title: "Update Revenue",
@@ -359,8 +504,35 @@ export default function ReceivableEditPage() {
     }
   }
 
-  function handleAttachmentChange(event: React.ChangeEvent<HTMLInputElement>) {
-    setSelectedAttachments(Array.from(event.target.files ?? []));
+  function handleAttachmentSelection(files: File[]) {
+    setSelectedAttachments(files);
+    setUploadedFiles(files.map((file) => ({
+      name: file.name,
+      size: file.size,
+      status: "uploading",
+    })));
+
+    files.forEach((file) => {
+      void uploadRevenueAttachment(file, {
+        api: mfeProps.api,
+        tenantUid: String(mfeProps.account?.id ?? mfeProps.account?.tenantUid ?? "").trim(),
+        userId: String(mfeProps.user?.id ?? "").trim(),
+        userName: String(mfeProps.user?.name ?? mfeProps.user?.fullName ?? "").trim() || "User",
+      }).then((attachmentData) => {
+        setUploadedFiles((current) => current.map((item) => (
+          item.name === file.name && item.size === file.size
+            ? { ...item, status: "success", error: undefined, attachmentData }
+            : item
+        )));
+      }).catch((error) => {
+        console.error("[mfe-finance] Failed to upload revenue attachment", error);
+        setUploadedFiles((current) => current.map((item) => (
+          item.name === file.name && item.size === file.size
+            ? { ...item, status: "error", error: error instanceof Error ? error.message : "Upload failed." }
+            : item
+        )));
+      });
+    });
   }
 
   return (
@@ -498,34 +670,26 @@ export default function ReceivableEditPage() {
 
           <div className="grid gap-3">
             <div className="text-sm font-semibold text-slate-700">Upload file/Attachment</div>
-            <input
-              ref={attachmentInputRef}
-              type="file"
-              className="hidden"
+            <FileUpload
+              label="Upload Document"
               multiple
-              onChange={handleAttachmentChange}
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+              onUpload={handleAttachmentSelection}
+              id="finance-receivable-edit-file-upload"
+              testId="finance-receivable-edit-file-upload"
             />
-            <div className="flex flex-wrap items-start gap-3">
-              <button
-                type="button"
-                onClick={() => attachmentInputRef.current?.click()}
-                className="flex min-h-[132px] w-[104px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-slate-300 hover:bg-slate-100"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                  <Icon name="folder" className="h-6 w-6" />
-                </div>
-                <span className="text-sm font-semibold text-violet-700">Upload File</span>
-              </button>
-              {selectedAttachments.length ? (
-                <div className="grid gap-2">
-                  {selectedAttachments.map((file) => (
-                    <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {file.name}
+            {uploadedFiles.length ? (
+              <div className="grid gap-2">
+                {uploadedFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                    <div>{file.name}</div>
+                    <div className="text-xs text-slate-500">
+                      {file.status === "uploading" ? "Uploading..." : file.status === "success" ? "Uploaded" : file.error || "Upload failed"}
                     </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {formError ? (

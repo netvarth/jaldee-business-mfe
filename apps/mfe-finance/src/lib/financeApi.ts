@@ -134,6 +134,12 @@ function createCrudApi(basePath: string) {
     changeStatus<T = unknown>(id: string, status: string) {
       return put<T>(`${basePath}/${id}/${status}`);
     },
+    uploadDocument<T = unknown>(id: string, data: unknown) {
+      return post<T>(`${basePath}/${id}/document`, data);
+    },
+    uploadDocuments<T = unknown>(id: string, data: unknown) {
+      return post<T>(`${basePath}/${id}/documents`, data);
+    },
   };
 }
 function buildTenantApiUrl(path: string) {
