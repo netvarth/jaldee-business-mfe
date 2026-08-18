@@ -1,11 +1,34 @@
-import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
-import { Button, DatePicker, Dialog, DialogFooter, Icon, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import {
+  Button,
+  DatePicker,
+  Dialog,
+  DialogFooter,
+  FileUpload,
+  Input,
+  Popover,
+  SectionCard,
+  Select,
+  Textarea,
+} from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
-function toFinanceRoute(routePath:string){const n=String(routePath||"").trim();if(!n)return "/";return n.replace(/^\/finance(?=\/|$)/,"")||"/";}
+
+type UploadedPayableFileItem = {
+  name: string;
+  size: number;
+  status: "uploading" | "success" | "error";
+  error?: string;
+  attachmentData?: any;
+};
+
+function toFinanceRoute(routePath: string) {
+  const n = String(routePath || "").trim();
+  if (!n) return "/";
+  return n.replace(/^\/finance(?=\/|$)/, "") || "/";
+}
 
 const EMPTY_UUID = "00000000-0000-0000-0000-000000000000";
 
@@ -13,6 +36,109 @@ function toIsoDateTime(value: string) {
   if (!value) return undefined;
   const parsed = new Date(`${value}T00:00:00`);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+function resolveUploadFileType(file: File) {
+  if (file.type.includes("/")) {
+    return file.type.split("/")[1] || "file";
+  }
+  const segments = file.name.split(".");
+  return segments.length > 1 ? segments.pop() || "file" : "file";
+}
+
+async function uploadPayableAttachments(
+  file: File,
+  input: {
+    api: { post: <T = unknown>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }>; patch: <T = unknown>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }> } | null | undefined;
+    tenantUid: string;
+    userId: string;
+    userName: string;
+  }
+) {
+  if (!input.api) {
+    throw new Error("Payable document upload is unavailable in this shell.");
+  }
+
+  const fileType = file.type || resolveUploadFileType(file);
+  const response = await input.api.post<{
+    fileUid?: string;
+    uploadUrl?: string;
+    filePath?: string;
+    shortUrl?: string;
+    jaldeeDriveId?: string | number | null;
+  }>(
+    "/platform-service/v1/api/drive/initiate-upload",
+    {
+      action: "ADD",
+      caption: file.name,
+      contextType: "PAYABLE",
+      featureModuleName: "FINANCE_PAYMENT",
+      featureServiceName: "FINANCE",
+      fileName: file.name,
+      fileSize: file.size,
+      fileType,
+      owner: input.userId,
+      ownerName: input.userName,
+      ownerType: "TenantUser",
+      sharedType: "secureShare",
+      tenantUid: input.tenantUid,
+      uploadedBy: input.userId,
+      uploadedByName: input.userName,
+    },
+    { _skipLocationParam: true } as any,
+  );
+
+  const target = response?.data ?? null;
+  const fileUid = String(target?.fileUid ?? "").trim();
+  const uploadUrl = String(target?.uploadUrl ?? "").trim();
+  const filePath = String(target?.filePath ?? "").trim();
+  const shortUrl = String(target?.shortUrl ?? "").trim();
+  const jaldeeDriveId = target?.jaldeeDriveId == null ? null : String(target.jaldeeDriveId);
+
+  if (!fileUid || !uploadUrl) {
+    throw new Error(`Upload target was not returned for ${file.name}.`);
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: file.type ? { "Content-Type": file.type } : undefined,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Unable to upload ${file.name}.`);
+  }
+
+  await input.api.patch(
+    `/platform-service/v1/api/drive/${fileUid}/status?status=COMPLETE`,
+    null,
+    { _skipLocationParam: true } as any,
+  );
+
+  return {
+    action: null,
+    caption: file.name,
+    contextType: "PAYABLE" as const,
+    contextUid: null,
+    driveId: null,
+    featureModuleName: "FINANCE_PAYMENT" as const,
+    featureServiceName: "FINANCE" as const,
+    fileName: file.name,
+    filePath: filePath || uploadUrl.split("?")[0],
+    fileSize: file.size,
+    fileType: file.type || "",
+    fileUid,
+    jaldeeDriveId,
+    owner: input.userId,
+    ownerName: input.userName,
+    ownerType: "TenantUser" as const,
+    sharedTo: null,
+    sharedType: "secureShare" as const,
+    shortUrl,
+    tenantUid: input.tenantUid,
+    uploadedBy: input.userId,
+    uploadedByName: input.userName,
+  };
 }
 
 export default function PayableEditPage() {
@@ -42,8 +168,7 @@ export default function PayableEditPage() {
   const [creatingStatus, setCreatingStatus] = useState(false);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
-  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedPayableFileItem[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -174,6 +299,16 @@ export default function PayableEditPage() {
       setAmount(String(detail.amount ?? ""));
       setPaymentMode(String(detail.mode ?? "Cash"));
       setDescription(String(detail.description ?? ""));
+
+      const existingDocs = Array.isArray(detail.uploadedDocuments) ? detail.uploadedDocuments : [];
+      setUploadedFiles(
+        existingDocs.map((doc: any) => ({
+          name: String(doc.fileName ?? doc.caption ?? "Document"),
+          size: Number(doc.fileSize ?? 0),
+          status: "success" as const,
+          attachmentData: doc,
+        }))
+      );
     }
 
     void loadFormData();
@@ -304,6 +439,14 @@ export default function PayableEditPage() {
       setFormError("Amount must be greater than zero.");
       return;
     }
+    if (uploadedFiles.some((file) => file.status === "uploading")) {
+      setFormError("Please wait for document uploads to finish.");
+      return;
+    }
+    if (uploadedFiles.some((file) => file.status === "error")) {
+      setFormError("Remove or reupload failed documents before saving.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -327,6 +470,9 @@ export default function PayableEditPage() {
         paymentFor: "VERIFY",
         purpose: "REVENUE",
         isPaymentsIn: false,
+        uploadedDocuments: uploadedFiles
+          .filter((file) => file.status === "success" && file.attachmentData)
+          .map((file) => file.attachmentData),
       });
       mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
@@ -348,8 +494,40 @@ export default function PayableEditPage() {
     }
   }
 
-  function handleAttachmentChange(event: React.ChangeEvent<HTMLInputElement>) {
-    setSelectedAttachments(Array.from(event.target.files ?? []));
+  function handleAttachmentSelection(files: File[]) {
+    const newItems: UploadedPayableFileItem[] = files.map((file) => ({
+      name: file.name,
+      size: file.size,
+      status: "uploading",
+    }));
+
+    setUploadedFiles((current) => [...current, ...newItems]);
+
+    files.forEach((file) => {
+      void uploadPayableAttachments(file, {
+        api: mfeProps.api,
+        tenantUid: String(mfeProps.account?.id ?? mfeProps.account?.tenantUid ?? "").trim(),
+        userId: String(mfeProps.user?.id ?? "").trim(),
+        userName: String(mfeProps.user?.name ?? mfeProps.user?.fullName ?? "").trim() || "User",
+      }).then((attachmentData) => {
+        setUploadedFiles((current) => current.map((item) => (
+          item.name === file.name && item.size === file.size
+            ? { ...item, status: "success", error: undefined, attachmentData }
+            : item
+        )));
+      }).catch((error) => {
+        console.error("[mfe-finance] Failed to upload payout attachment", error);
+        setUploadedFiles((current) => current.map((item) => (
+          item.name === file.name && item.size === file.size
+            ? { ...item, status: "error", error: error instanceof Error ? error.message : "Upload failed." }
+            : item
+        )));
+      });
+    });
+  }
+
+  function handleRemoveAttachment(fileName: string, fileSize: number) {
+    setUploadedFiles((current) => current.filter((file) => !(file.name === fileName && file.size === fileSize)));
   }
 
   return (
@@ -402,7 +580,6 @@ export default function PayableEditPage() {
       <SectionCard className="border-slate-200 shadow-sm">
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
-            <Input label="Product" value="Finance" readOnly />
             <Select
               label="Location *"
               value={locationUid}
@@ -410,26 +587,18 @@ export default function PayableEditPage() {
               placeholder="Select location"
               options={locationOptions}
             />
+            <div />
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Payout Category *</label>
               <div className="flex items-center">
-                <Select
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                  containerClassName="flex-1"
-                  className="rounded-r-none border-r-0"
-                  placeholder="Select payout category"
-                  options={categoryOptions}
-                />
-                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
-                  +
-                </Button>
+                <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" placeholder="Select payout category" options={categoryOptions} />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>+</Button>
               </div>
             </div>
             <div />
             <Input label="Payout for" value={label} onChange={(event) => setLabel(event.target.value)} />
-            <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} />
-            <Input label="Amount(₹) *" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />
+            <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Reference Number" />
+            <Input label="Amount(₹) *" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount" />
             <Select
               label="Payment Mode"
               value={paymentMode}
@@ -445,33 +614,15 @@ export default function PayableEditPage() {
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Vendor</label>
               <div className="flex items-center">
-                <Select
-                  value={vendorUid}
-                  onChange={(event) => setVendorUid(event.target.value)}
-                  containerClassName="flex-1"
-                  className="rounded-r-none border-r-0"
-                  placeholder="Choose vendor"
-                  options={vendorOptions}
-                />
-                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
-                  +
-                </Button>
+                <Select value={vendorUid} onChange={(event) => setVendorUid(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" placeholder="Choose vendor" options={vendorOptions} />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>+</Button>
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700">Status</label>
               <div className="flex items-center">
-                <Select
-                  value={statusId}
-                  onChange={(event) => setStatusId(event.target.value)}
-                  containerClassName="flex-1"
-                  className="rounded-r-none border-r-0"
-                  placeholder="Select status"
-                  options={statusOptions}
-                />
-                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>
-                  +
-                </Button>
+                <Select value={statusId} onChange={(event) => setStatusId(event.target.value)} containerClassName="flex-1" className="rounded-r-none border-r-0" placeholder="Select status" options={statusOptions} />
+                <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowStatusDialog(true)}>+</Button>
               </div>
             </div>
             <DatePicker label="Payout Date *" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} required />
@@ -487,34 +638,36 @@ export default function PayableEditPage() {
 
           <div className="grid gap-3">
             <div className="text-sm font-semibold text-slate-700">Upload file/Attachment</div>
-            <input
-              ref={attachmentInputRef}
-              type="file"
-              className="hidden"
+            <FileUpload
+              label=""
               multiple
-              onChange={handleAttachmentChange}
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+              onUpload={handleAttachmentSelection}
+              id="finance-payable-edit-file-upload"
+              testId="finance-payable-edit-file-upload"
             />
-            <div className="flex flex-wrap items-start gap-3">
-              <button
-                type="button"
-                onClick={() => attachmentInputRef.current?.click()}
-                className="flex min-h-[132px] w-[104px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-slate-300 hover:bg-slate-100"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                  <Icon name="folder" className="h-6 w-6" />
-                </div>
-                <span className="text-sm font-semibold text-violet-700">Upload File</span>
-              </button>
-              {selectedAttachments.length ? (
-                <div className="grid gap-2">
-                  {selectedAttachments.map((file) => (
-                    <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {file.name}
+            {uploadedFiles.length ? (
+              <div className="grid gap-2">
+                {uploadedFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{file.name}</div>
+                      <div className="text-xs text-slate-500">
+                        {file.status === "uploading" ? "Uploading..." : file.status === "success" ? "Uploaded" : file.error || "Upload failed"}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAttachment(file.name, file.size)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">{formError}</div> : null}
@@ -524,7 +677,7 @@ export default function PayableEditPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : "Update"}
+              {submitting ? "Updating..." : "Save"}
             </Button>
           </div>
         </form>

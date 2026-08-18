@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import {
@@ -7,9 +6,8 @@ import {
   DatePicker,
   Dialog,
   DialogFooter,
-  Icon,
+  FileUpload,
   Input,
-  PageHeader,
   Popover,
   SectionCard,
   Select,
@@ -17,6 +15,32 @@ import {
 } from "@jaldee/design-system";
 import { financeApi } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
+
+type SelectOption = { value: string; label: string };
+type LocationOption = SelectOption & {
+  storeUid?: string;
+  storeName?: string;
+  departmentUid?: string;
+  departmentName?: string;
+};
+
+type UploadedExpenseFileItem = {
+  name: string;
+  size: number;
+  status: "uploading" | "success" | "error";
+  error?: string;
+  attachmentData?: any;
+};
+
+const PAYMENT_MODE_OPTIONS: SelectOption[] = [
+  { value: "Cash", label: "Cash" },
+  { value: "CC", label: "Credit Card" },
+  { value: "DC", label: "Debit Card" },
+  { value: "NB", label: "Net banking" },
+  { value: "UPI", label: "UPI" },
+  { value: "BANK_TRANSFER", label: "Bank Transfer" },
+  { value: "Other", label: "Other" },
+];
 
 function toFinanceRoute(routePath: string) {
   const n = String(routePath || "").trim();
@@ -30,28 +54,112 @@ function toIsoDateTime(value: string) {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
-type SelectOption = { value: string; label: string };
-type LocationOption = SelectOption & {
-  storeUid?: string;
-  storeName?: string;
-  departmentUid?: string;
-  departmentName?: string;
-};
+function resolveUploadFileType(file: File) {
+  if (file.type.includes("/")) {
+    return file.type.split("/")[1] || "file";
+  }
+  const segments = file.name.split(".");
+  return segments.length > 1 ? segments.pop() || "file" : "file";
+}
 
-const PAYMENT_MODE_OPTIONS: SelectOption[] = [
-  { value: "Cash", label: "Cash" },
-  { value: "CC", label: "Credit Card" },
-  { value: "DC", label: "Debit Card" },
-  { value: "NB", label: "Net banking" },
-  { value: "UPI", label: "UPI" },
-  { value: "BANK_TRANSFER", label: "Bank Transfer" },
-  { value: "Other", label: "Other" },
-];
+async function uploadExpenseAttachments(
+  file: File,
+  input: {
+    api: { post: <T = unknown>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }>; patch: <T = unknown>(url: string, data?: unknown, config?: unknown) => Promise<{ data: T }> } | null | undefined;
+    tenantUid: string;
+    userId: string;
+    userName: string;
+  }
+) {
+  if (!input.api) {
+    throw new Error("Expense upload is unavailable in this shell.");
+  }
+
+  const fileType = file.type || resolveUploadFileType(file);
+  const response = await input.api.post<{
+    fileUid?: string;
+    uploadUrl?: string;
+    filePath?: string;
+    shortUrl?: string;
+    jaldeeDriveId?: string | number | null;
+  }>(
+    "/platform-service/v1/api/drive/initiate-upload",
+    {
+      action: "ADD",
+      caption: file.name,
+      contextType: "EXPENSE",
+      featureModuleName: "FINANCE_EXPENSE",
+      featureServiceName: "FINANCE",
+      fileName: file.name,
+      fileSize: file.size,
+      fileType,
+      owner: input.userId,
+      ownerName: input.userName,
+      ownerType: "TenantUser",
+      sharedType: "secureShare",
+      tenantUid: input.tenantUid,
+      uploadedBy: input.userId,
+      uploadedByName: input.userName,
+    },
+    { _skipLocationParam: true } as any,
+  );
+
+  const target = response?.data ?? null;
+  const fileUid = String(target?.fileUid ?? "").trim();
+  const uploadUrl = String(target?.uploadUrl ?? "").trim();
+  const filePath = String(target?.filePath ?? "").trim();
+  const shortUrl = String(target?.shortUrl ?? "").trim();
+  const jaldeeDriveId = target?.jaldeeDriveId == null ? null : String(target.jaldeeDriveId);
+
+  if (!fileUid || !uploadUrl) {
+    throw new Error(`Upload target was not returned for ${file.name}.`);
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: file.type ? { "Content-Type": file.type } : undefined,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Unable to upload ${file.name}.`);
+  }
+
+  await input.api.patch(
+    `/platform-service/v1/api/drive/${fileUid}/status?status=COMPLETE`,
+    null,
+    { _skipLocationParam: true } as any,
+  );
+
+  return {
+    action: null,
+    caption: file.name,
+    contextType: "EXPENSE" as const,
+    contextUid: null,
+    driveId: null,
+    featureModuleName: "FINANCE_EXPENSE" as const,
+    featureServiceName: "FINANCE" as const,
+    fileName: file.name,
+    filePath: filePath || uploadUrl.split("?")[0],
+    fileSize: file.size,
+    fileType: file.type || "",
+    fileUid,
+    jaldeeDriveId,
+    owner: input.userId,
+    ownerName: input.userName,
+    ownerType: "TenantUser" as const,
+    sharedTo: null,
+    sharedType: "secureShare" as const,
+    shortUrl,
+    tenantUid: input.tenantUid,
+    uploadedBy: input.userId,
+    uploadedByName: input.userName,
+  };
+}
 
 export default function ExpenseCreatePage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
-  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -73,7 +181,7 @@ export default function ExpenseCreatePage() {
   const [newStatusName, setNewStatusName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [creatingStatus, setCreatingStatus] = useState(false);
-  const [selectedAttachments, setSelectedAttachments] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedExpenseFileItem[]>([]);
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -201,7 +309,7 @@ export default function ExpenseCreatePage() {
         filters: { field: "categoryType", operator: "IN", values: ["Expense"] },
         view: "SUMMARY",
       });
-      const categories = Array.isArray(categoriesResponse.data?.content) ? categoriesResponse.data.content : [];
+      const categories = extractRecords(categoriesResponse.data);
       const filteredCategories = categories.filter((item: any) => {
         const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
         const status = String(item?.status ?? "").toLowerCase();
@@ -247,7 +355,7 @@ export default function ExpenseCreatePage() {
         filters: { field: "categoryType", operator: "IN", values: ["Expense"] },
         view: "SUMMARY",
       });
-      const statuses = Array.isArray(statusesResponse.data?.content) ? statusesResponse.data.content : [];
+      const statuses = extractRecords(statusesResponse.data);
       const filteredStatuses = statuses.filter((item: any) => {
         const type = String(item?.categoryType ?? item?.type ?? "").toLowerCase();
         const status = String(item?.status ?? "").toLowerCase();
@@ -267,29 +375,33 @@ export default function ExpenseCreatePage() {
     }
   }
 
-  function handleAttachmentChange(event: React.ChangeEvent<HTMLInputElement>) {
-    setSelectedAttachments(Array.from(event.target.files ?? []));
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
 
     const parsedAmount = Number(amount);
-    if (!locationUid) {
-      setFormError("Location is required.");
+    if (!title.trim()) {
+      setFormError("Expense for is required.");
       return;
     }
     if (!categoryId) {
       setFormError("Category is required.");
       return;
     }
-    if (!title.trim()) {
-      setFormError("Expense for is required.");
+    if (!locationUid) {
+      setFormError("Location is required.");
       return;
     }
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       setFormError("Amount must be greater than zero.");
+      return;
+    }
+    if (uploadedFiles.some((file) => file.status === "uploading")) {
+      setFormError("Please wait for document uploads to finish.");
+      return;
+    }
+    if (uploadedFiles.some((file) => file.status === "error")) {
+      setFormError("Remove or reupload failed documents before saving.");
       return;
     }
 
@@ -315,7 +427,9 @@ export default function ExpenseCreatePage() {
         storeName: selectedLocation?.storeName || undefined,
         departmentUid: selectedLocation?.departmentUid || undefined,
         departmentName: selectedLocation?.departmentName || undefined,
-        uploadedDocuments: [],
+        uploadedDocuments: uploadedFiles
+          .filter((file) => file.status === "success" && file.attachmentData)
+          .map((file) => file.attachmentData),
       });
       mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
@@ -335,6 +449,40 @@ export default function ExpenseCreatePage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleAttachmentSelection(files: File[]) {
+    setUploadedFiles(files.map((file) => ({
+      name: file.name,
+      size: file.size,
+      status: "uploading",
+    })));
+
+    files.forEach((file) => {
+      void uploadExpenseAttachments(file, {
+        api: mfeProps.api,
+        tenantUid: String(mfeProps.account?.id ?? mfeProps.account?.tenantUid ?? "").trim(),
+        userId: String(mfeProps.user?.id ?? "").trim(),
+        userName: String(mfeProps.user?.name ?? mfeProps.user?.fullName ?? "").trim() || "User",
+      }).then((attachmentData) => {
+        setUploadedFiles((current) => current.map((item) => (
+          item.name === file.name && item.size === file.size
+            ? { ...item, status: "success", error: undefined, attachmentData }
+            : item
+        )));
+      }).catch((error) => {
+        console.error("[mfe-finance] Failed to upload expense attachment", error);
+        setUploadedFiles((current) => current.map((item) => (
+          item.name === file.name && item.size === file.size
+            ? { ...item, status: "error", error: error instanceof Error ? error.message : "Upload failed." }
+            : item
+        )));
+      });
+    });
+  }
+
+  function handleRemoveAttachment(fileName: string, fileSize: number) {
+    setUploadedFiles((current) => current.filter((file) => !(file.name === fileName && file.size === fileSize)));
   }
 
   return (
@@ -444,34 +592,42 @@ export default function ExpenseCreatePage() {
 
           <div className="grid gap-3">
             <div className="text-sm font-semibold text-slate-700">Upload file/Attachment</div>
-            <input ref={attachmentInputRef} type="file" className="hidden" multiple onChange={handleAttachmentChange} />
-            <div className="flex flex-wrap items-start gap-3">
-              <button
-                type="button"
-                onClick={() => attachmentInputRef.current?.click()}
-                className="flex min-h-[132px] w-[104px] flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5 text-center transition hover:border-slate-300 hover:bg-slate-100"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                  <Icon name="folder" className="h-6 w-6" />
-                </div>
-                <span className="text-sm font-semibold text-violet-700">Upload File</span>
-              </button>
-              {selectedAttachments.length ? (
-                <div className="grid gap-2">
-                  {selectedAttachments.map((file) => (
-                    <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {file.name}
+            <FileUpload
+              label=""
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+              onUpload={handleAttachmentSelection}
+              id="finance-expense-create-file-upload"
+              testId="finance-expense-create-file-upload"
+            />
+            {uploadedFiles.length ? (
+              <div className="grid gap-2">
+                {uploadedFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{file.name}</div>
+                      <div className="text-xs text-slate-500">
+                        {file.status === "uploading" ? "Uploading..." : file.status === "success" ? "Uploaded" : file.error || "Upload failed"}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAttachment(file.name, file.size)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           {formError ? <div className="rounded-[var(--radius-control)] bg-red-50 px-3 py-2 text-[length:var(--text-sm)] font-medium text-red-700">{formError}</div> : null}
 
           <div className="flex justify-start gap-2">
-            <Button type="button" variant="outline" onClick={() => navigate(toFinanceRoute("/finance/expense"))}>
+            <Button type="button" variant="outline" onClick={() => navigate("/finance/expense")}>
               Cancel
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -485,7 +641,9 @@ export default function ExpenseCreatePage() {
         <div className="space-y-5 pt-2">
           <Input label="Category Name" placeholder="Enter Category Name" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowCategoryDialog(false)}>Close</Button>
+            <Button type="button" variant="outline" onClick={() => setShowCategoryDialog(false)}>
+              Close
+            </Button>
             <Button type="button" onClick={() => void handleCreateCategory()} disabled={creatingCategory || !newCategoryName.trim()}>
               {creatingCategory ? "Saving..." : "Save"}
             </Button>
@@ -497,7 +655,9 @@ export default function ExpenseCreatePage() {
         <div className="space-y-5 pt-2">
           <Input label="Status Name" placeholder="Enter Status Name" value={newStatusName} onChange={(event) => setNewStatusName(event.target.value)} />
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setShowStatusDialog(false)}>Close</Button>
+            <Button type="button" variant="outline" onClick={() => setShowStatusDialog(false)}>
+              Close
+            </Button>
             <Button type="button" onClick={() => void handleCreateStatus()} disabled={creatingStatus || !newStatusName.trim()}>
               {creatingStatus ? "Saving..." : "Save"}
             </Button>

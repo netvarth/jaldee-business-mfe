@@ -531,6 +531,10 @@ export default function ReceivableCreatePage() {
     });
   }
 
+  function handleRemoveAttachment(fileName: string, fileSize: number) {
+    setUploadedFiles((current) => current.filter((file) => !(file.name === fileName && file.size === fileSize)));
+  }
+
   return (
     <PageShell
       title="Create Revenue"
@@ -588,15 +592,16 @@ export default function ReceivableCreatePage() {
               placeholder="Select location"
               options={locationOptions}
             />
+            <div />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">Category *</label>
+              <label className="text-sm font-semibold text-slate-700">Revenue Category *</label>
               <div className="flex items-center">
                 <Select
                   value={categoryId}
                   onChange={(event) => setCategoryId(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  placeholder="Select category"
+                  placeholder="Select revenue category"
                   options={categoryOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => setShowCategoryDialog(true)}>
@@ -604,18 +609,19 @@ export default function ReceivableCreatePage() {
                 </Button>
               </div>
             </div>
-            <Input label="Revenue From" value={label} onChange={(event) => setLabel(event.target.value)} required />
-            <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} />
-            <Input label="Amount(₹) *" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+            <div />
+            <Input label="Revenue for *" value={label} onChange={(event) => setLabel(event.target.value)} required />
+            <Input label="Reference No." value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Reference Number" />
+            <Input label="Amount(₹) *" type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Amount" required />
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-semibold text-slate-700">Vendor</label>
+              <label className="text-sm font-semibold text-slate-700">Customer / Vendor</label>
               <div className="flex items-center">
                 <Select
                   value={vendorUid}
                   onChange={(event) => setVendorUid(event.target.value)}
                   containerClassName="flex-1"
                   className="rounded-r-none border-r-0"
-                  placeholder="Choose vendor"
+                  placeholder="Choose customer/vendor"
                   options={vendorOptions}
                 />
                 <Button type="button" className="h-[38px] rounded-l-none px-3" onClick={() => navigate(toFinanceRoute("/finance/vendors/create"))}>
@@ -639,7 +645,7 @@ export default function ReceivableCreatePage() {
                 </Button>
               </div>
             </div>
-            <DatePicker label="Date " value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} required />
+            <DatePicker label="Received Date *" value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} required />
             <Select
               label="Payment Mode"
               value={paymentMode}
@@ -675,11 +681,21 @@ export default function ReceivableCreatePage() {
             {uploadedFiles.length ? (
               <div className="grid gap-2">
                 {uploadedFiles.map((file) => (
-                  <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                    <div>{file.name}</div>
-                    <div className="text-xs text-slate-500">
-                      {file.status === "uploading" ? "Uploading..." : file.status === "success" ? "Uploaded" : file.error || "Upload failed"}
+                  <div key={`${file.name}-${file.size}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{file.name}</div>
+                      <div className="text-xs text-slate-500">
+                        {file.status === "uploading" ? "Uploading..." : file.status === "success" ? "Uploaded" : file.error || "Upload failed"}
+                      </div>
                     </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAttachment(file.name, file.size)}
+                    >
+                      Remove
+                    </Button>
                   </div>
                 ))}
               </div>

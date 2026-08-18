@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Badge, Button, Dialog, DialogFooter, EmptyState, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { formatCurrency, getStatusVariant } from "../../lib/financeData";
 import { financeApi, sanitizeFinancePayload } from "../../lib/financeApi";
 import { PageShell } from "../../components/FinancePageLayout";
 import MasterInvoiceDialogs from "./MasterInvoiceDialogs";
+import { generateInvoicePdfFile, shareInvoicePdfAttachment, triggerInvoicePdfPrint, uploadInvoicePdfAttachment } from "./invoicePdf";
 
 function MasterInvoicePage() {
+  const { eventBus, account, user } = useMFEProps();
   const { uid = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,6 +40,10 @@ function MasterInvoicePage() {
   const [editPaymentTransactionId, setEditPaymentTransactionId] = useState("");
   const [editPaymentError, setEditPaymentError] = useState("");
   const [editPaymentSubmitting, setEditPaymentSubmitting] = useState(false);
+  const [sharePdfDialogOpen, setSharePdfDialogOpen] = useState(false);
+  const [sharePdfSubmitting, setSharePdfSubmitting] = useState(false);
+  const [sharePdfError, setSharePdfError] = useState("");
+  const [invoicePdfBusy, setInvoicePdfBusy] = useState(false);
 
   function normalizePaymentEntries(payload: any) {
     const rawEntries = Array.isArray(payload)
@@ -330,77 +337,78 @@ function MasterInvoicePage() {
   }
 
   function handlePrintInvoice() {
-    const invoiceContent = document.getElementById("finance-invoice-print");
-    if (!invoiceContent) {
-      window.print();
+    if (invoicePdfBusy) {
       return;
     }
 
-    const printWindow = window.open("", "_blank", "width=1024,height=768");
-    if (!printWindow) {
-      window.print();
+    setInvoicePdfBusy(true);
+    void (async () => {
+      try {
+        const invoiceContent = document.getElementById("finance-invoice-print");
+        const pdfFile = await generateInvoicePdfFile(invoiceContent, { invoiceNumber: `invoice-${invoice?.invoiceNum || "invoice"}` });
+        if (!pdfFile) {
+          throw new Error("Could not generate invoice PDF.");
+        }
+        triggerInvoicePdfPrint(pdfFile);
+      } catch (error) {
+        console.error("Failed to print invoice", error);
+        eventBus?.emit(SHELL_TOAST_EVENT, {
+          intent: "error",
+          title: "Print Invoice",
+          message: error instanceof Error ? error.message : "Could not print invoice PDF.",
+        });
+      } finally {
+        setInvoicePdfBusy(false);
+      }
+    })();
+  }
+
+  function closeSharePdfDialog() {
+    if (sharePdfSubmitting) {
+      return;
+    }
+    setSharePdfDialogOpen(false);
+    setSharePdfError("");
+  }
+
+  async function submitSharePdf() {
+    if (!invoice?.uid || sharePdfSubmitting || invoicePdfBusy) {
       return;
     }
 
-    const invoiceTitle = `Invoice-${invoice.invoiceNum}`;
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="utf-8" />
-          <title>${invoiceTitle}</title>
-          <style>
-            body {
-              margin: 0;
-              padding: 24px;
-              background: #ffffff;
-              color: #0f172a;
-              font-family: Arial, sans-serif;
-            }
-            * {
-              box-sizing: border-box;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th, td {
-              padding: 12px 16px;
-              border-bottom: 1px solid #e2e8f0;
-              text-align: left;
-              vertical-align: top;
-            }
-            th.text-right, td.text-right {
-              text-align: right;
-            }
-            .rounded-xl, .rounded-lg {
-              border-radius: 0;
-            }
-            .shadow-sm, .shadow, .drop-shadow, .border-slate-200 {
-              box-shadow: none !important;
-            }
-            .bg-slate-50, .bg-slate-100, .bg-slate-100\\/70 {
-              background: #ffffff !important;
-            }
-            button {
-              display: none !important;
-            }
-            @media print {
-              body {
-                padding: 0;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          ${invoiceContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    setSharePdfError("");
+    setSharePdfSubmitting(true);
+    setInvoicePdfBusy(true);
+    try {
+      const invoiceContent = document.getElementById("finance-invoice-print");
+      const pdfFile = await generateInvoicePdfFile(invoiceContent, { invoiceNumber: `invoice-${invoice?.invoiceNum || "invoice"}` });
+      if (!pdfFile) {
+        throw new Error("Could not generate invoice PDF.");
+      }
+      const attachment = await uploadInvoicePdfAttachment({
+        tenantUid: String(account?.tenantUid || account?.id || invoice.accountId || invoice.uid),
+        userId: String(user?.id || ""),
+        userName: String(user?.name || "").trim() || undefined,
+      }, pdfFile);
+      await shareInvoicePdfAttachment(invoice.uid, attachment, {
+        email: shareEmail,
+        mobile: shareMobile,
+        smsCountryCode: "91",
+        whatsappCountryCode: "91",
+      });
+      setSharePdfDialogOpen(false);
+      eventBus?.emit(SHELL_TOAST_EVENT, {
+        intent: "success",
+        title: "Share Invoice PDF",
+        message: "Invoice PDF shared successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to share invoice PDF", error);
+      setSharePdfError(error instanceof Error ? error.message : "Could not share invoice PDF.");
+    } finally {
+      setSharePdfSubmitting(false);
+      setInvoicePdfBusy(false);
+    }
   }
 
   async function submitPaymentAction() {
@@ -524,8 +532,8 @@ function MasterInvoicePage() {
       back={{ label: "Back to Invoices", href: backHref }}
       actions={
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => window.print()}>Share PDF</Button>
-          <Button variant="outline" onClick={handlePrintInvoice}>Print</Button>
+          <Button variant="outline" onClick={() => setSharePdfDialogOpen(true)} disabled={sharePdfSubmitting || invoicePdfBusy}>Share PDF</Button>
+          <Button variant="outline" onClick={handlePrintInvoice} disabled={invoicePdfBusy}>{invoicePdfBusy ? "Generating PDF..." : "Print"}</Button>
           <Button variant="outline" onClick={() => navigate(`/invoice/edit/${uid}`)}>Edit</Button>
           <Button variant="outline" disabled>Log</Button>
         </div>
@@ -767,6 +775,11 @@ function MasterInvoicePage() {
         editPaymentError={editPaymentError}
         editPaymentSubmitting={editPaymentSubmitting}
         submitEditedPayment={submitEditedPayment}
+        sharePdfDialogOpen={sharePdfDialogOpen}
+        closeSharePdfDialog={closeSharePdfDialog}
+        sharePdfError={sharePdfError}
+        sharePdfSubmitting={sharePdfSubmitting}
+        submitSharePdf={submitSharePdf}
       />
     </PageShell>
   );

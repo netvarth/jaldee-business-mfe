@@ -350,6 +350,33 @@ export default function PayableDetailPage() {
               </div>
             </SectionCard>
           )}
+
+          {/* Uploaded Documents Card */}
+          {Array.isArray(detail.uploadedDocuments) && detail.uploadedDocuments.length > 0 ? (
+            <SectionCard title="Uploaded Documents / Attachments" className="border-slate-200 shadow-sm">
+              <div className="grid gap-2">
+                {detail.uploadedDocuments.map((attachment: any, index: number) => {
+                  const title = String(attachment?.fileName || attachment?.caption || `Attachment ${index + 1}`);
+                  const fileUrl = String(attachment?.shortUrl || attachment?.filePath || attachment?.url || "").trim();
+                  return (
+                    <div key={attachment?.fileUid || `${title}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold uppercase text-xs">
+                          {title.split(".").pop()?.slice(0, 4) || "FILE"}
+                        </div>
+                        <div className="truncate font-medium text-slate-800">{title}</div>
+                      </div>
+                      {fileUrl && (
+                        <a href={fileUrl} target="_blank" rel="noreferrer" className="shrink-0 font-semibold text-indigo-600 hover:text-indigo-800 text-xs">
+                          View / Download
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+          ) : null}
         </div>
       </div>
     </PageShell>
