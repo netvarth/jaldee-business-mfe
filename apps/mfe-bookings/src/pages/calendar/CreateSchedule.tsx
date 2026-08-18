@@ -109,7 +109,6 @@ function formatTimeWindowPayload(
     startTime: timeWindow.startTime,
     endTime: timeWindow.endTime,
     slotDuration: Number(timeWindow.slotDuration) || 0,
-    slotCapacity: Number(timeWindow.slotCapacity) || 1,
     channel: "WALK_IN",
     label: [],
     qrLinkRequired: timeWindow.qrLinkRequired,
@@ -281,7 +280,6 @@ export default function CreateSchedule() {
         calendarName: calendar.name,
         startDate,
         endDate: endDate || undefined,
-        slotCapacity: 1,
         qrLinkRequired: true,
         timeWindows: timeWindows.map((timeWindow) => formatTimeWindowPayload(calendar, "", scheduleName.trim(), timeWindow)),
       };

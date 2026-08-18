@@ -34,7 +34,7 @@ export interface Calendar {
   name: string;
   description: string;
   status: CalendarStatus;
-  locationId?: number;
+  locationId?: number | string;
   color?: string;
   locationName?: string;
   services?: Array<

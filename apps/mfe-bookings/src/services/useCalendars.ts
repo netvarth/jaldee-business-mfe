@@ -28,7 +28,8 @@ export interface CreateCalendarPayload {
   uid?: string;
   name: string;
   description: string;
-  locationId: number;
+  locationId: string | number;
+  locationUid?: string;
   locationName: string;
   services: Array<{
     serviceUid: string;
@@ -59,7 +60,7 @@ export interface CreateTimeWindowPayload {
   startTime: string;
   endTime: string;
   slotDuration: number;
-  slotCapacity: number;
+  slotCapacity?: number;
   channel: string;
   label: string[];
   qrLinkRequired: boolean;
@@ -73,7 +74,7 @@ export interface CreateSchedulePayload {
   calendarName: string;
   startDate: string;
   endDate?: string;
-  slotCapacity: number;
+  slotCapacity?: number;
   qrLinkRequired: boolean;
   timeWindows: CreateTimeWindowPayload[];
 }
@@ -148,11 +149,20 @@ function normalizeCalendar(calendar: Calendar): Calendar {
 }
 
 function normalizeLocation(raw: Record<string, unknown>): AccountLocation {
-  const idValue = raw.id ?? raw.locationId ?? raw.uid ?? raw.encId;
-  const numericId = typeof idValue === "number" ? idValue : Number(idValue);
+  const idValue = raw.id ?? raw.locationId;
+  const normalizedId =
+    typeof idValue === "number"
+      ? idValue
+      : typeof idValue === "string" && idValue.trim()
+        ? Number(idValue)
+        : 0;
   return {
-    id: Number.isFinite(numericId) ? numericId : 0,
-    uid: typeof raw.uid === "string" ? raw.uid : typeof raw.encId === "string" ? raw.encId : undefined,
+    id: normalizedId,
+    uid:
+      (typeof raw.uid === "string" && raw.uid) ||
+      (typeof raw.locationUid === "string" && raw.locationUid) ||
+      (typeof raw.encId === "string" && raw.encId) ||
+      undefined,
     name:
       (typeof raw.place === "string" && raw.place) ||
       (typeof raw.name === "string" && raw.name) ||
