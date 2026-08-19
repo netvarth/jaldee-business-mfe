@@ -79,6 +79,41 @@ function toTenantSearchBody(
     defaultView?: string;
   },
 ) {
+  const normalizeFilterNode = (rawFilters: unknown) => {
+    if (!Array.isArray(rawFilters)) {
+      return rawFilters;
+    }
+
+    const conditions = rawFilters
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return null;
+        }
+
+        const record = entry as Record<string, unknown>;
+        const field = typeof record.field === "string" ? record.field : "";
+        const operator = typeof record.operator === "string" ? record.operator : "";
+        const values = Array.isArray(record.values)
+          ? record.values.filter((value) => value !== undefined && value !== null && String(value).trim() !== "")
+          : record.value !== undefined && record.value !== null && String(record.value).trim() !== ""
+            ? [record.value]
+            : [];
+
+        if (!field || !operator || values.length === 0) {
+          return null;
+        }
+
+        return {
+          field,
+          operator,
+          values,
+        };
+      })
+      .filter(Boolean);
+
+    return conditions.length ? { logic: "AND", conditions } : null;
+  };
+
   const resolvedSize = Number(filter.size ?? filter.count ?? 10);
   const resolvedPage = filter.page !== undefined
     ? Number(filter.page)
@@ -100,7 +135,7 @@ function toTenantSearchBody(
     body.sort = sort;
   }
   if (filter.filters) {
-    body.filters = filter.filters;
+    body.filters = normalizeFilterNode(filter.filters);
   } else if (filter.consumerUid) {
     body.consumerUid = String(filter.consumerUid);
     body.filters = {

@@ -59,6 +59,13 @@ function MasterInvoiceViewPage() {
   const [sharePdfSubmitting, setSharePdfSubmitting] = useState(false);
   const [sharePdfError, setSharePdfError] = useState("");
   const [invoicePdfBusy, setInvoicePdfBusy] = useState(false);
+  const [auditLogEntries, setAuditLogEntries] = useState<any[]>([]);
+  const [auditLogLoading, setAuditLogLoading] = useState(false);
+  const [auditLogError, setAuditLogError] = useState("");
+  const [auditLogDialogOpen, setAuditLogDialogOpen] = useState(false);
+  const [auditLogPage, setAuditLogPage] = useState(0);
+  const [auditLogPageSize, setAuditLogPageSize] = useState(10);
+  const [auditLogTotal, setAuditLogTotal] = useState(0);
 
   function normalizePaymentEntries(payload: any) {
     const rawEntries = Array.isArray(payload)
@@ -104,6 +111,64 @@ function MasterInvoiceViewPage() {
         paymentTimeLabel: parsedDate && !Number.isNaN(parsedDate.getTime())
           ? parsedDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
           : "",
+      };
+    });
+  }
+
+  function normalizeAuditEntries(payload: any) {
+    const rawEntries = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.content)
+        ? payload.content
+        : Array.isArray(payload?.data?.content)
+          ? payload.data.content
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+
+    return rawEntries.map((item: any, index: number) => {
+      const createdAtValue = item?.createdAt ?? item?.createdDate ?? item?.updatedAt ?? "";
+      const parsedDate = createdAtValue ? new Date(createdAtValue) : null;
+      const actor = String(
+        item?.createdByName
+        ?? item?.createdBy
+        ?? item?.userName
+        ?? item?.actorName
+        ?? item?.actor
+        ?? "System",
+      );
+      const action = String(
+        item?.action
+        ?? item?.auditAction
+        ?? item?.eventName
+        ?? item?.activityType
+        ?? "Updated",
+      );
+      const description = String(
+        item?.remarks
+        ?? item?.description
+        ?? item?.message
+        ?? item?.details
+        ?? "",
+      ).trim();
+
+      return {
+        id: String(item?.uid ?? item?.id ?? `audit-log-${index}`),
+        actor,
+        action,
+        description,
+        type: String(item?.auditLogContext ?? item?.auditlogContext ?? item?.context ?? "Invoice"),
+        timestampLabel: parsedDate && !Number.isNaN(parsedDate.getTime())
+          ? parsedDate.toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+          })
+          : "-",
       };
     });
   }
@@ -265,6 +330,62 @@ function MasterInvoiceViewPage() {
     setShareEmail(String(invoice.consumerEmail || ""));
     setShareMobile(String(invoice.consumerPhone || ""));
   }, [invoice]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAuditLogs() {
+      if (!uid || !auditLogDialogOpen) {
+        return;
+      }
+
+      setAuditLogLoading(true);
+      setAuditLogError("");
+      try {
+        const response = await financeApi.activity.list<any>({
+          filters: [
+            { field: "auditLogContext", operator: "EQ", values: ["INVOICE"] },
+            { field: "entityUid", operator: "EQ", values: [uid] },
+          ],
+          sort: [{ field: "createdAt", direction: "DESC" }],
+          page: auditLogPage,
+          size: auditLogPageSize,
+        });
+
+        if (!active) {
+          return;
+        }
+
+        const payload = response.data;
+        setAuditLogEntries(normalizeAuditEntries(payload));
+        setAuditLogTotal(
+          Number(
+            payload?.totalElements
+            ?? payload?.data?.totalElements
+            ?? payload?.page?.totalElements
+            ?? normalizeAuditEntries(payload).length,
+          ) || 0,
+        );
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+
+        console.error("Failed to load invoice audit logs", error);
+        setAuditLogError(error instanceof Error ? error.message : "Could not load invoice audit logs.");
+      } finally {
+        if (active) {
+          setAuditLogLoading(false);
+        }
+      }
+    }
+
+    void loadAuditLogs();
+
+    return () => {
+      active = false;
+    };
+  }, [uid, auditLogDialogOpen, auditLogPage, auditLogPageSize]);
 
   async function handleInvoiceStatusUpdate(nextStatus: "Settled" | "Cancel") {
     if (!invoice?.uid || statusUpdating) {
@@ -669,6 +790,9 @@ function MasterInvoiceViewPage() {
   const displayGstin = matchGstin ? matchGstin[0].toUpperCase() : "32AAAAA0000A1ZS";
 
   const backHref = location.state?.from || "/invoice";
+  const auditLogTotalPages = Math.max(1, Math.ceil(auditLogTotal / auditLogPageSize));
+  const auditLogStart = auditLogTotal === 0 ? 0 : auditLogPage * auditLogPageSize + 1;
+  const auditLogEnd = Math.min((auditLogPage + 1) * auditLogPageSize, auditLogTotal);
 
   return (
     <PageShell
@@ -680,6 +804,15 @@ function MasterInvoiceViewPage() {
           <Button variant="outline" onClick={() => setSharePdfDialogOpen(true)} disabled={sharePdfSubmitting || invoicePdfBusy}>Share PDF</Button>
           <Button variant="outline" onClick={() => void handlePrintInvoice()} disabled={invoicePdfBusy}>{invoicePdfBusy ? "Generating PDF..." : "Print"}</Button>
           <Button variant="outline" onClick={() => navigate(`/invoice/edit/${invoice.uid}`)}>Edit</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setAuditLogPage(0);
+              setAuditLogDialogOpen(true);
+            }}
+          >
+            Log
+          </Button>
         </div>
       }
     >
@@ -953,6 +1086,80 @@ function MasterInvoiceViewPage() {
           </Button>
         </div>
       ) : null}
+
+      <Dialog
+        open={auditLogDialogOpen}
+        onClose={() => setAuditLogDialogOpen(false)}
+        title="Logs"
+        size="fullscreen"
+        contentClassName="w-[92vw] max-w-[1536px] max-sm:w-screen max-sm:max-w-none"
+      >
+        <div className="space-y-4">
+          {auditLogError ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+              {auditLogError}
+            </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-lg border border-slate-200">
+            <div className="grid grid-cols-[2.4fr_1fr_1fr_2.2fr_1.5fr] gap-4 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
+              <div>Date</div>
+              <div>Action</div>
+              <div>Type</div>
+              <div>Description</div>
+              <div>User</div>
+            </div>
+
+            {auditLogLoading ? (
+              <div className="px-4 py-8 text-sm text-slate-500">Loading logs...</div>
+            ) : auditLogEntries.length === 0 ? (
+              <div className="px-4 py-8 text-sm text-slate-500">No logs found.</div>
+            ) : (
+              auditLogEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="grid grid-cols-[2.4fr_1fr_1fr_2.2fr_1.5fr] gap-4 border-t border-slate-200 px-4 py-4 text-sm text-slate-700"
+                >
+                  <div>{entry.timestampLabel}</div>
+                  <div>{entry.action}</div>
+                  <div>{entry.type}</div>
+                  <div>{entry.description || "-"}</div>
+                  <div>{entry.actor}</div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-slate-500">
+              Showing {auditLogStart} to {auditLogEnd} of {auditLogTotal} Logs
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setAuditLogPage(0)} disabled={auditLogPage === 0 || auditLogLoading}>«</Button>
+                <Button variant="ghost" size="sm" onClick={() => setAuditLogPage((current) => Math.max(0, current - 1))} disabled={auditLogPage === 0 || auditLogLoading}>‹</Button>
+                <div className="flex h-10 min-w-10 items-center justify-center rounded-full bg-indigo-100 px-3 text-sm font-semibold text-indigo-700">
+                  {auditLogPage + 1}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setAuditLogPage((current) => Math.min(auditLogTotalPages - 1, current + 1))} disabled={auditLogPage >= auditLogTotalPages - 1 || auditLogLoading}>›</Button>
+                <Button variant="ghost" size="sm" onClick={() => setAuditLogPage(auditLogTotalPages - 1)} disabled={auditLogPage >= auditLogTotalPages - 1 || auditLogLoading}>»</Button>
+              </div>
+              <select
+                className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none"
+                value={auditLogPageSize}
+                onChange={(event) => {
+                  setAuditLogPage(0);
+                  setAuditLogPageSize(Number(event.target.value));
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Link Invoices Dialog */}
       <Dialog
