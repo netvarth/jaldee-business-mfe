@@ -83,6 +83,7 @@ const TaxEditPage = lazy(() => import("./pages/taxes/TaxPages").then(m => ({ def
 const ItemsPage = lazy(() => import("./pages/items/ItemPages").then(m => ({ default: m.ItemsPage })));
 const ItemsCreatePage = lazy(() => import("./pages/items/ItemPages").then(m => ({ default: m.ItemsCreatePage })));
 const ItemsEditPage = lazy(() => import("./pages/items/ItemPages").then(m => ({ default: m.ItemsEditPage })));
+const HsnCodesPage = lazy(() => import("./pages/hsn/HsnPages").then(m => ({ default: m.HsnCodesPage })));
 const SequenceTemplatesPage = lazy(() => import("./pages/sequences/SequenceTemplatePages").then(m => ({ default: m.SequenceTemplatesPage })));
 const SequenceTemplateCreatePage = lazy(() => import("./pages/sequences/SequenceTemplatePages").then(m => ({ default: m.SequenceTemplateCreatePage })));
 const SequenceTemplateEditPage = lazy(() => import("./pages/sequences/SequenceTemplatePages").then(m => ({ default: m.SequenceTemplateEditPage })));
@@ -292,6 +293,7 @@ export default function App() {
         <Route path="items" element={withBoundary(<ItemsPage />)} />
         <Route path="items/create" element={withBoundary(<ItemsCreatePage />)} />
         <Route path="items/edit/:id" element={withBoundary(<ItemsEditPage />)} />
+        <Route path="hsn-codes" element={withBoundary(<HsnCodesPage />)} />
         <Route path="category" element={withBoundary(<CategoryPage />)} />
         <Route path="category/create" element={withBoundary(<CategoryCreatePage />)} />
         <Route path="status" element={withBoundary(<StatusPage />)} />

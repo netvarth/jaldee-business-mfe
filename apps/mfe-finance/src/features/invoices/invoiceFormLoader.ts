@@ -76,8 +76,18 @@ export async function loadInvoiceFormOptions(
       );
       if (!uid || !label) return null;
       const phone = readString(
-        item.consumerPhone, item.mobile, item.mobileNo, item.phoneNo,
-        item.phone, item.primaryPhone,
+        item.phoneE164,
+        item.whatsAppE164,
+        item.consumerPhone,
+        item.mobile,
+        item.mobileNo,
+        item.phoneNo,
+        item.phone,
+        item.primaryPhone,
+        item.phoneNumber?.fullNumber,
+        item.phoneNumber?.e164,
+        [item.phoneNumber?.countryCode, item.phoneNumber?.number].filter(Boolean).join(""),
+        item.consumerSnapshot?.phoneE164,
       );
       const email = readString(item.consumerEmail, item.email, item.primaryEmail);
       return {
@@ -111,6 +121,9 @@ export async function loadInvoiceFormOptions(
         itemType: "FINANCE_ITEM",
         discountApplicable: item.discountApplicable !== undefined
           ? Boolean(item.discountApplicable)
+          : true,
+        rateEditable: item.rateEditable !== undefined
+          ? Boolean(item.rateEditable)
           : true,
       };
     })

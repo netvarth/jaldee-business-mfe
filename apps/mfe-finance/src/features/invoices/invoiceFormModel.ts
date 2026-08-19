@@ -21,6 +21,7 @@ export interface InvoiceItem {
   taxAmount?: number;
   totalAmount?: number;
   discountApplicable?: boolean;
+  rateEditable?: boolean;
   couponId?: string;
   couponName?: string;
   couponCode?: string;
@@ -33,6 +34,7 @@ export interface FinanceCatalogOption extends ComboboxOption {
   itemType?: "FINANCE_ITEM";
   price?: number;
   discountApplicable?: boolean;
+  rateEditable?: boolean;
 }
 
 export interface LocationOption {
@@ -44,6 +46,7 @@ export interface SequenceDetailOption {
   value: string;
   label: string;
   isDefault?: boolean;
+  sequenceSettingUid?: string;
 }
 
 export interface DiscountOption {
@@ -281,6 +284,7 @@ export function mapInvoiceItem(item: any, index: number): InvoiceItem {
     taxAmount,
     totalAmount: Number(item.total ?? item.netTotal ?? afterDiscount + taxAmount),
     discountApplicable: item.discountApplicable !== undefined ? Boolean(item.discountApplicable) : undefined,
+    rateEditable: item.rateEditable !== undefined ? Boolean(item.rateEditable) : undefined,
     couponId: readString(appliedCoupon?.id, appliedCoupon?.uid, item.couponId, item.couponUid) || undefined,
     couponName: readString(appliedCoupon?.name, item.couponName) || undefined,
     couponCode: readString(appliedCoupon?.code, appliedCoupon?.couponCode, item.couponCode) || undefined,

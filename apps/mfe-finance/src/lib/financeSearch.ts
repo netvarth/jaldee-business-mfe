@@ -340,6 +340,36 @@ export function useItemsSearchSchema(enabled = true) {
   return { schema, loading, error, refresh: load };
 }
 
+export function useHsnSearchSchema(enabled = true) {
+  const [schema, setSchema] = useState<SearchSchema | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await financeApi.hsn.searchSchema<SearchSchema>();
+      setSchema(normalizeSearchSchema(response.data));
+    } catch (loadError) {
+      setSchema(null);
+      setError(loadError instanceof Error ? loadError.message : "Failed to load HSN search schema.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { schema, loading, error, refresh: load };
+}
+
 export function useAuditLogsSearchSchema(enabled = true) {
   const [schema, setSchema] = useState<SearchSchema | null>(null);
   const [loading, setLoading] = useState(enabled);
@@ -369,7 +399,6 @@ export function useAuditLogsSearchSchema(enabled = true) {
 
   return { schema, loading, error, refresh: load };
 }
-
 
 
 

@@ -29,6 +29,7 @@ export function saveInvoiceItem(current: InvoiceItem[], input: ItemBuilderInput)
         price: input.price,
         date: input.date,
         discountApplicable: selected?.discountApplicable ?? item.discountApplicable,
+        rateEditable: selected?.rateEditable ?? item.rateEditable,
         afterDiscount,
         totalAmount: afterDiscount + (item.taxAmount ?? 0),
       };
@@ -72,6 +73,7 @@ export function saveInvoiceItem(current: InvoiceItem[], input: ItemBuilderInput)
       afterDiscount: total,
       totalAmount: total,
       discountApplicable: selected?.discountApplicable,
+      rateEditable: selected?.rateEditable,
     },
   ];
 }

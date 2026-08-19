@@ -195,7 +195,7 @@ const TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOIN
 const TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/cashReserve`; const TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/search`;
 const TENANT_PAYMENTS_IN_CASH_RESERVE_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/count`;
 const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice"); const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`; const TENANT_INVOICE_SEARCH_SCHEMA_ENDPOINT = `${TENANT_INVOICE_SEARCH_ENDPOINT}/schema`;
-const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates"); const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
+const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates"); const TENANT_INVOICE_TEMPLATE_REMOVE_DETAIL_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates/remove/detail"); const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
 const TENANT_SEQUENCE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/template"); const TENANT_SEQUENCE_TEMPLATE_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/search`;
 const TENANT_SEQUENCE_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/settings"); const TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/search`;
 const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/expenses"); const TENANT_EXPENSES_SEARCH_ENDPOINT = `${TENANT_EXPENSES_ENDPOINT}/search`;
@@ -205,6 +205,7 @@ const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tena
 const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts"); const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`; const TENANT_DISCOUNTS_SEARCH_SCHEMA_ENDPOINT = `${TENANT_DISCOUNTS_SEARCH_ENDPOINT}/schema`;
 const TENANT_COUPONS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/coupons"); const TENANT_COUPONS_SEARCH_ENDPOINT = `${TENANT_COUPONS_ENDPOINT}/search`;
 const TENANT_TAX_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/tax"); const TENANT_TAX_SEARCH_ENDPOINT = `${TENANT_TAX_ENDPOINT}/search`;
+const TENANT_HSNCODE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/hsncode"); const TENANT_HSNCODE_SEARCH_ENDPOINT = `${TENANT_HSNCODE_ENDPOINT}/search`; const TENANT_HSNCODE_SEARCH_SCHEMA_ENDPOINT = `${TENANT_HSNCODE_SEARCH_ENDPOINT}/schema`;
 const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
 export { sanitizeFinancePayload, setFiltersFromPrimeTable } from "./financeApiUtils";
 const vendors = createCrudApi("provider/vendor");
@@ -569,6 +570,9 @@ export const financeApi = {
     deleteTemplate<T = unknown>(uid: string) {
       return invoiceTemplates.changeStatus<T>(uid, "INACTIVE");
     },
+    deleteTemplateDetail<T = unknown>(detailUid: string) {
+      return del<T>(`${TENANT_INVOICE_TEMPLATE_REMOVE_DETAIL_ENDPOINT}/${detailUid}`);
+    },
     createOfflinePayment<T = unknown>(data: unknown) {
       return post<T>(`${TENANT_INVOICE_PAYMENT_ENDPOINT}/offline`, data);
     },
@@ -756,6 +760,23 @@ export const financeApi = {
       return patch<T>(`/platform-service/v1/api/drive/${fileUid}/status`, null, { status: "COMPLETE" });
     },
   },
+  hsn: {
+    list<T = unknown>(filter: ApiFilter = {}) {
+      return post<T>(TENANT_HSNCODE_SEARCH_ENDPOINT, filter);
+    },
+    count<T = unknown>(filter: ApiFilter = {}) {
+      return get<T>("provider/spitem/settings/hsn/count", filter);
+    },
+    create<T = unknown>(data: unknown) {
+      return post<T>(TENANT_HSNCODE_ENDPOINT, data);
+    },
+    update<T = unknown>(uid: string, data: unknown) {
+      return put<T>(`${TENANT_HSNCODE_ENDPOINT}/${uid}`, data);
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(TENANT_HSNCODE_SEARCH_SCHEMA_ENDPOINT);
+    },
+  },
   services: {
     list<T = unknown>() {
       return get<T>("/v1/api/provider/services");
@@ -810,10 +831,17 @@ export const financeApi = {
   sequenceSettings: {
     list<T = unknown>(filter: ApiFilter = {}) {
       const location = String(filter.location ?? filter.locationUid ?? filter.locationId ?? "").trim();
+      const searchBody = {
+        filters: {
+          field: "financeModule",
+          operator: "EQ",
+          values: ["FINANCE_INVOICE"],
+        },
+      };
       if (location) {
-        return postWithParams<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, {}, { location });
+        return postWithParams<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, searchBody, { location });
       }
-      return post<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, filter);
+      return post<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, searchBody);
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/${uid}`);

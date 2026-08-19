@@ -229,6 +229,19 @@ function SettingsPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => navigate("../hsn-codes")}
+                  className="flex items-start gap-3 rounded-2xl border border-[var(--color-primary-muted)] bg-white px-4 py-4 text-left transition hover:bg-[var(--color-primary-subtle)]"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-subtle)] text-[var(--color-primary)]">
+                    <Icon name="database" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">HSN Codes</div>
+                    <div className="mt-1 text-sm text-slate-500">Maintain HSN codes used in finance records.</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
                   onClick={() => navigate("../sequence-template")}
                   className="flex items-start gap-3 rounded-2xl border border-[var(--color-primary-muted)] bg-white px-4 py-4 text-left transition hover:bg-[var(--color-primary-subtle)]"
                 >

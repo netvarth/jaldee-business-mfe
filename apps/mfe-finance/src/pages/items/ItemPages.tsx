@@ -36,6 +36,19 @@ function readTaxPercentage(item: any) {
   ) || 0;
 }
 
+function readHsnCodeOption(item: any, index: number) {
+  const uid = String(item?.uid ?? item?.id ?? item?.hsnId ?? `hsn-${index}`).trim();
+  const code = String(item?.hsncode ?? item?.hsnCode ?? item?.code ?? item?.name ?? "").trim();
+  const description = String(item?.description ?? item?.desc ?? item?.hsnDescription ?? "").trim();
+  if (!uid || !code) {
+    return null;
+  }
+  return {
+    value: uid,
+    label: description ? `${code} - ${description}` : code,
+  };
+}
+
 function ItemsPage() {
   const mfeProps = useMFEProps();
   const navigate = useNavigate();
@@ -297,6 +310,7 @@ function ItemsCreatePage() {
   const [amountVal, setAmountVal] = useState("");
   const [taxPreference, setTaxPreference] = useState("");
   const [selectedTaxUid, setSelectedTaxUid] = useState("");
+  const [selectedHsnUid, setSelectedHsnUid] = useState("");
   const [status, setStatus] = useState("Enabled");
   const [itemDesc, setItemDesc] = useState("");
   const [rateEditable, setRateEditable] = useState(true);
@@ -304,6 +318,7 @@ function ItemsCreatePage() {
   const [discountApplicable, setDiscountApplicable] = useState(true);
   const [couponApplicable, setCouponApplicable] = useState(true);
   const [taxOptions, setTaxOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [hsnOptions, setHsnOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -311,34 +326,48 @@ function ItemsCreatePage() {
   useEffect(() => {
     let active = true;
 
-    async function loadTaxes() {
+    async function loadLookups() {
       try {
-        const response = await financeApi.taxes.byFilter<any>({ taxType: "GST" });
-        const records = Array.isArray(response.data?.content)
-          ? response.data.content
-          : Array.isArray(response.data)
-            ? response.data
+        const [taxResponse, hsnResponse] = await Promise.all([
+          financeApi.taxes.byFilter<any>({ taxType: "GST" }),
+          financeApi.hsn.list<any>({ page: 0, size: 200 }),
+        ]);
+        const taxRecords = Array.isArray(taxResponse.data?.content)
+          ? taxResponse.data.content
+          : Array.isArray(taxResponse.data)
+            ? taxResponse.data
+            : [];
+        const hsnRecords = Array.isArray(hsnResponse.data?.content)
+          ? hsnResponse.data.content
+          : Array.isArray(hsnResponse.data)
+            ? hsnResponse.data
             : [];
         if (!active) {
           return;
         }
         setTaxOptions(
-          records
+          taxRecords
             .map((item: any, index: number) => ({
               value: String(item.uid ?? item.id ?? `tax-${index}`),
               label: `GST ${readTaxPercentage(item)}%`,
             }))
             .filter((item: { value: string; label: string }) => item.value && item.label.trim())
         );
+        setHsnOptions(
+          hsnRecords
+            .map((item: any, index: number) => readHsnCodeOption(item, index))
+            .filter(Boolean) as Array<{ value: string; label: string }>
+        );
       } catch (error) {
-        console.error("[mfe-finance] Failed to load taxes", error);
+        console.error("[mfe-finance] Failed to load item lookups", error);
         if (active) {
           setTaxOptions([]);
+          setHsnOptions([]);
         }
       }
     }
 
-    void loadTaxes();
+    void loadLookups();
     return () => {
       active = false;
     };
@@ -354,6 +383,10 @@ function ItemsCreatePage() {
     }
     if (selectedTaxUid && taxPreference !== "TAXABLE") {
       setFormError("Tax Preference mandatory.");
+      return;
+    }
+    if ((selectedTaxUid || taxPreference === "TAXABLE") && !selectedHsnUid) {
+      setFormError("HSN code is required when tax is added.");
       return;
     }
 
@@ -376,6 +409,7 @@ function ItemsCreatePage() {
         couponApplicable,
         displayOrder: 0,
         taxList: selectedTaxUid ? [selectedTaxUid] : [],
+        hsnCode: selectedHsnUid || undefined,
       });
       mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
@@ -427,6 +461,14 @@ function ItemsCreatePage() {
               onChange={(e) => setSelectedTaxUid(e.target.value)}
               placeholder="Select tax"
               options={taxOptions}
+            />
+
+            <Select
+              label={(selectedTaxUid || taxPreference === "TAXABLE") ? "HSN Code *" : "HSN Code"}
+              value={selectedHsnUid}
+              onChange={(e) => setSelectedHsnUid(e.target.value)}
+              placeholder="Select HSN code"
+              options={hsnOptions}
             />
 
             <Select
@@ -507,12 +549,16 @@ function ItemsEditPage() {
   const [itemCode, setItemCode] = useState("");
   const [amountVal, setAmountVal] = useState("");
   const [taxPreference, setTaxPreference] = useState("NON_TAXABLE");
+  const [selectedTaxUid, setSelectedTaxUid] = useState("");
+  const [selectedHsnUid, setSelectedHsnUid] = useState("");
   const [status, setStatus] = useState("Enabled");
   const [itemDesc, setItemDesc] = useState("");
   const [rateEditable, setRateEditable] = useState(true);
   const [taxInclude, setTaxInclude] = useState(true);
   const [discountApplicable, setDiscountApplicable] = useState(true);
   const [couponApplicable, setCouponApplicable] = useState(true);
+  const [taxOptions, setTaxOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [hsnOptions, setHsnOptions] = useState<Array<{ value: string; label: string }>>([]);
 
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -520,6 +566,44 @@ function ItemsEditPage() {
 
   useEffect(() => {
     let active = true;
+    async function loadLookups() {
+      try {
+        const [taxResponse, hsnResponse] = await Promise.all([
+          financeApi.taxes.byFilter<any>({ taxType: "GST" }),
+          financeApi.hsn.list<any>({ page: 0, size: 200 }),
+        ]);
+        if (!active) return;
+        const taxRecords = Array.isArray(taxResponse.data?.content)
+          ? taxResponse.data.content
+          : Array.isArray(taxResponse.data)
+            ? taxResponse.data
+            : [];
+        const hsnRecords = Array.isArray(hsnResponse.data?.content)
+          ? hsnResponse.data.content
+          : Array.isArray(hsnResponse.data)
+            ? hsnResponse.data
+            : [];
+        setTaxOptions(
+          taxRecords
+            .map((item: any, index: number) => ({
+              value: String(item.uid ?? item.id ?? `tax-${index}`),
+              label: `GST ${readTaxPercentage(item)}%`,
+            }))
+            .filter((item: { value: string; label: string }) => item.value && item.label.trim())
+        );
+        setHsnOptions(
+          hsnRecords
+            .map((item: any, index: number) => readHsnCodeOption(item, index))
+            .filter(Boolean) as Array<{ value: string; label: string }>
+        );
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load item edit lookups", error);
+        if (active) {
+          setTaxOptions([]);
+          setHsnOptions([]);
+        }
+      }
+    }
     async function loadItem() {
       if (!id) return;
       try {
@@ -537,6 +621,8 @@ function ItemsEditPage() {
           setTaxInclude(Boolean(data.taxInclude));
           setDiscountApplicable(Boolean(data.discountApplicable));
           setCouponApplicable(Boolean(data.couponApplicable));
+          setSelectedTaxUid(String(data.taxList?.[0] ?? data.taxes?.[0]?.uid ?? data.taxUid ?? ""));
+          setSelectedHsnUid(String(data.hsnCodeUid ?? data.hsnUid ?? data.hsnCodeId ?? data.hsnCode ?? ""));
         }
       } catch (error) {
         console.error("Failed to load item detail", error);
@@ -544,7 +630,8 @@ function ItemsEditPage() {
         if (active) setLoading(false);
       }
     }
-    loadItem();
+    void loadLookups();
+    void loadItem();
     return () => { active = false; };
   }, [id]);
 
@@ -554,6 +641,10 @@ function ItemsEditPage() {
 
     if (!itemName.trim()) {
       setFormError("Item Name is required.");
+      return;
+    }
+    if ((selectedTaxUid || taxPreference === "TAXABLE") && !selectedHsnUid) {
+      setFormError("HSN code is required when tax is added.");
       return;
     }
 
@@ -576,7 +667,8 @@ function ItemsEditPage() {
         discountApplicable,
         couponApplicable,
         displayOrder: 0,
-        taxList: [],
+        taxList: selectedTaxUid ? [selectedTaxUid] : [],
+        hsnCode: selectedHsnUid || undefined,
       });
       mfeProps.eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "success",
@@ -626,6 +718,22 @@ function ItemsEditPage() {
             <Input label="Item Code" value={itemCode} onChange={(e) => setItemCode(e.target.value)} />
             <Input label="Amount (₹) *" type="number" min="0" step="0.01" value={amountVal} onChange={(e) => setAmountVal(e.target.value)} required />
             
+            <Select
+              label="Tax"
+              value={selectedTaxUid}
+              onChange={(e) => setSelectedTaxUid(e.target.value)}
+              placeholder="Select tax"
+              options={taxOptions}
+            />
+
+            <Select
+              label={(selectedTaxUid || taxPreference === "TAXABLE") ? "HSN Code *" : "HSN Code"}
+              value={selectedHsnUid}
+              onChange={(e) => setSelectedHsnUid(e.target.value)}
+              placeholder="Select HSN code"
+              options={hsnOptions}
+            />
+
             <Select
               label="Tax Preference"
               value={taxPreference}

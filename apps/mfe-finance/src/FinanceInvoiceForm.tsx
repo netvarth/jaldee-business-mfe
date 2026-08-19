@@ -65,7 +65,7 @@ export default function FinanceInvoiceForm() {
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
     handleConfirmSaveTemplate, openEditTemplateDialog, closeEditTemplateDialog, addTemplateEditItem, removeTemplateEditItem, handleUpdateTemplate, openDeleteTemplateDialog, resetDeleteTemplateDialog, handleDeleteTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
     invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
-    handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
+    handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon, handleSequenceDetailFieldFocus,
   } = useFinanceInvoiceFormController();
   const [templateChooserPage, setTemplateChooserPage] = useState(1);
   const [templateDraftMode, setTemplateDraftMode] = useState<"idle" | "add" | "edit">("idle");
@@ -100,6 +100,22 @@ export default function FinanceInvoiceForm() {
   const selectedTemplateDraftOption = useMemo(
     () => financeCatalogOptions.find((option) => option.value === templateDraftCatalogValue),
     [financeCatalogOptions, templateDraftCatalogValue]
+  );
+  const selectedEditingInvoiceItem = useMemo(
+    () => items.find((item) => item.id === editingItemId) || null,
+    [items, editingItemId]
+  );
+  const canEditSelectedItemRate = useMemo(
+    () => selectedCatalogOption?.rateEditable ?? selectedEditingInvoiceItem?.rateEditable ?? true,
+    [selectedCatalogOption, selectedEditingInvoiceItem]
+  );
+  const selectedTemplateDraftEditingItem = useMemo(
+    () => templateEditItems.find((item) => item.id === templateDraftEditingItemId) || null,
+    [templateEditItems, templateDraftEditingItemId]
+  );
+  const canEditTemplateDraftRate = useMemo(
+    () => selectedTemplateDraftOption?.rateEditable ?? selectedTemplateDraftEditingItem?.rateEditable ?? true,
+    [selectedTemplateDraftOption, selectedTemplateDraftEditingItem]
   );
   const financeCatalogNameOptions = useMemo(
     () => financeCatalogOptions.map((option) => ({
@@ -191,7 +207,6 @@ export default function FinanceInvoiceForm() {
                     setConsumerPhone(option.phone || "");
                     setBilledToAddress(option.address || "");
                   }}
-                  hint={selectedConsumerOption?.description ?? "Select a finance consumer to auto-fill customer details."}
                 />
               </div>
               <Input label="Customer Name *" value={consumerName} onChange={(event) => setConsumerName(event.target.value)} required />
@@ -252,6 +267,9 @@ export default function FinanceInvoiceForm() {
               <Select
                 label="Sequence Detail"
                 value={selectedSequenceDetailUid}
+                onFocus={() => {
+                  void handleSequenceDetailFieldFocus();
+                }}
                 onChange={(event) => {
                   setSelectedSequenceDetailUid(event.target.value);
                   if (!isEditing) {
@@ -267,7 +285,14 @@ export default function FinanceInvoiceForm() {
                 ]}
               />
 
-              <Input label="Invoice#" value={invoiceNum} onChange={(event) => setInvoiceNum(event.target.value)} />
+              <Input
+                label="Invoice#"
+                value={invoiceNum}
+                onFocus={() => {
+                  void handleSequenceDetailFieldFocus();
+                }}
+                onChange={(event) => setInvoiceNum(event.target.value)}
+              />
               <Input label="Referral Number" value={referenceNo} onChange={(event) => setReferenceNo(event.target.value)} placeholder="Referral Number" />
 
               <Input label="Invoice Date" type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} required />
@@ -599,13 +624,20 @@ export default function FinanceInvoiceForm() {
                         setNewItemName(option.label);
                         setNewItemPrice(option.price ?? 0);
                       }}
-                      hint={selectedCatalogOption?.description ?? "Choose a finance item to auto-fill price."}
                       id="invoice-item-picker"
                     />
                   </div>
 
                   <Input label="Qty" type="number" min="1" value={newItemQty} onChange={(event) => setNewItemQty(Number(event.target.value) || 1)} />
-                  <Input label="Price (INR)" type="number" min="0" step="0.01" value={newItemPrice} onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)} />
+                  <Input
+                    label="Price (INR)"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newItemPrice}
+                    disabled={!canEditSelectedItemRate}
+                    onChange={(event) => setNewItemPrice(Number(event.target.value) || 0)}
+                  />
                   <Input label="Date" type="date" value={newItemDate} onChange={(event) => setNewItemDate(event.target.value)} />
 
                   <div className="flex gap-2 xl:self-start xl:pt-[29px]">
@@ -1261,6 +1293,7 @@ export default function FinanceInvoiceForm() {
                           step="0.01"
                           className="text-center"
                           value={String(templateDraftPrice)}
+                          disabled={!canEditTemplateDraftRate}
                           onChange={(event) => setTemplateDraftPrice(Math.max(Number(event.target.value) || 0, 0))}
                         />
                       </div>
@@ -1390,7 +1423,9 @@ export default function FinanceInvoiceForm() {
                                   variant="ghost"
                                   size="sm"
                                   className="justify-start font-normal text-slate-700"
-                                  onClick={() => removeTemplateEditItem(item.id)}
+                                  onClick={() => {
+                                    void removeTemplateEditItem(item.id);
+                                  }}
                                   icon={<Icon name="trash" className="h-4 w-4 text-slate-500" />}
                                 >
                                   Delete Item

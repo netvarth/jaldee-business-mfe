@@ -14,7 +14,8 @@ export function mapTemplateItems(template: any): InvoiceItem[] {
       : [];
 
   return detailList.map((detail: any, index: number) => ({
-    id: `template-item-${Date.now()}-${index}`,
+    id: String(detail.uid ?? detail.detailUid ?? `template-item-${Date.now()}-${index}`),
+    detailUid: detail.uid ? String(detail.uid) : detail.detailUid ? String(detail.detailUid) : undefined,
     itemUid: detail.itemUid ? String(detail.itemUid) : detail.itemId ? String(detail.itemId) : undefined,
     itemType:
       detail.itemType === "FINANCE_ITEM"

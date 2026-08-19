@@ -39,6 +39,7 @@ function readArrayPayload(value: any): any[] {
   if (Array.isArray(value?.data?.content)) return value.data.content;
   if (Array.isArray(value?.data)) return value.data;
   if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") return [value];
   return [];
 }
 
@@ -71,6 +72,7 @@ function mapSequenceDetailOptions(payload: any, locationUid: string): SequenceDe
         value: uid,
         label: financeModule || "Invoice Sequence",
         isDefault: invoiceSettings.length === 1,
+        sequenceSettingUid: String(item.uid ?? "").trim() || uid,
       }];
     }
 
@@ -80,16 +82,20 @@ function mapSequenceDetailOptions(payload: any, locationUid: string): SequenceDe
         if (!uid) {
           return null;
         }
+        const sequenceTemplateName = String(detail.sequenceTemplateName ?? detail.templateName ?? "").trim();
         const prefix = String(detail.prefix ?? "").trim();
         const suffix = String(detail.suffix ?? "").trim();
         const isDefault = Boolean(detail.isDefault);
         const parts = [prefix, suffix].filter(Boolean);
-        const baseLabel = parts.length ? parts.join(" / ") : `Sequence ${index + 1}`;
+        const baseLabel =
+          sequenceTemplateName ||
+          (parts.length ? parts.join(" / ") : `Sequence ${index + 1}`);
 
         return {
           value: uid,
           label: isDefault ? `${baseLabel} (Default)` : baseLabel,
           isDefault,
+          sequenceSettingUid: String(detail.settingUid ?? item.uid ?? "").trim() || uid,
         };
       })
       .filter(Boolean) as SequenceDetailOption[];
@@ -255,6 +261,10 @@ export function useFinanceInvoiceFormController() {
   const selectedCatalogOption = useMemo(
     () => financeCatalogOptions.find((option) => option.value === newItemCatalogValue),
     [financeCatalogOptions, newItemCatalogValue]
+  );
+  const selectedSequenceDetailOption = useMemo(
+    () => sequenceDetailOptions.find((option) => option.value === selectedSequenceDetailUid) || null,
+    [sequenceDetailOptions, selectedSequenceDetailUid]
   );
   const selectedConsumerOption = useMemo(
     () => consumerOptions.find((option) => option.value === consumerUid),
@@ -569,7 +579,24 @@ export function useFinanceInvoiceFormController() {
     }));
   }
 
-  function removeTemplateEditItem(itemId: string) {
+  async function removeTemplateEditItem(itemId: string) {
+    const targetItem = templateEditItems.find((item) => item.id === itemId);
+    if (!targetItem) {
+      return;
+    }
+
+    clearFormError();
+
+    if (targetItem.detailUid) {
+      try {
+        await financeApi.invoices.deleteTemplateDetail(targetItem.detailUid);
+      } catch (error) {
+        console.error("[mfe-finance] Failed to delete invoice template detail", error);
+        reportFormError(toFinanceErrorMessage(error, "Could not delete invoice template item."));
+        return;
+      }
+    }
+
     setTemplateEditItems((current) => current.filter((item) => item.id !== itemId));
   }
 
@@ -802,7 +829,21 @@ export function useFinanceInvoiceFormController() {
             const res = await financeApi.customers.detail<any>(preselectedConsumerUid);
             const customerObj = res.data;
             if (customerObj) {
-              const phone = String(customerObj.consumerPhone || customerObj.mobile || customerObj.mobileNo || customerObj.phoneNo || customerObj.phone || customerObj.primaryPhone || "");
+              const phone = String(
+                customerObj.phoneE164 ||
+                customerObj.whatsAppE164 ||
+                customerObj.consumerPhone ||
+                customerObj.mobile ||
+                customerObj.mobileNo ||
+                customerObj.phoneNo ||
+                customerObj.phone ||
+                customerObj.primaryPhone ||
+                customerObj.phoneNumber?.fullNumber ||
+                customerObj.phoneNumber?.e164 ||
+                [customerObj.phoneNumber?.countryCode, customerObj.phoneNumber?.number].filter(Boolean).join("") ||
+                customerObj.consumerSnapshot?.phoneE164 ||
+                ""
+              );
               const email = String(customerObj.consumerEmail || customerObj.email || customerObj.primaryEmail || "");
               const label = String(customerObj.name || customerObj.consumerName || [customerObj.firstName, customerObj.lastName].filter(Boolean).join(" ") || customerObj.displayName || "Selected Consumer");
               const extraOption = {
@@ -873,13 +914,28 @@ export function useFinanceInvoiceFormController() {
         });
         if (!active) return;
         const nextOptions = mapSequenceDetailOptions(response.data, locationId);
+        const resolvedCurrent =
+          (selectedSequenceDetailUid && nextOptions.some((option) => option.value === selectedSequenceDetailUid))
+            ? selectedSequenceDetailUid
+            : "";
+        const defaultOption = nextOptions.find((option) => option.isDefault) ?? (nextOptions.length === 1 ? nextOptions[0] : null);
+        const resolvedDetailUid = resolvedCurrent || defaultOption?.value || "";
+        const resolvedSettingUid =
+          nextOptions.find((option) => option.value === resolvedDetailUid)?.sequenceSettingUid ||
+          defaultOption?.sequenceSettingUid ||
+          nextOptions[0]?.sequenceSettingUid ||
+          "";
+
         setSequenceDetailOptions(nextOptions);
         setSelectedSequenceDetailUid((current) => {
           if (current && nextOptions.some((option) => option.value === current)) {
             return current;
           }
-          const defaultOption = nextOptions.find((option) => option.isDefault) ?? (nextOptions.length === 1 ? nextOptions[0] : null);
-          return defaultOption?.value || "";
+          const resolvedDefaultOption =
+            nextOptions.find((option) => option.value === resolvedDetailUid) ||
+            nextOptions.find((option) => option.isDefault) ||
+            (nextOptions.length === 1 ? nextOptions[0] : null);
+          return resolvedDefaultOption?.value || "";
         });
       } catch (error) {
         if (!active) return;
@@ -894,6 +950,34 @@ export function useFinanceInvoiceFormController() {
       active = false;
     };
   }, [locationId]);
+
+  async function handleSequenceDetailFieldFocus() {
+    if (!locationId) {
+      return;
+    }
+
+    if (sequenceDetailOptions.length === 0) {
+      try {
+        const response = await financeApi.sequenceSettings.list<any>({
+          location: locationId,
+        });
+        const nextOptions = mapSequenceDetailOptions(response.data, locationId);
+        setSequenceDetailOptions(nextOptions);
+        let resolvedDetailUid = "";
+        setSelectedSequenceDetailUid((current) => {
+          if (current && nextOptions.some((option) => option.value === current)) {
+            resolvedDetailUid = current;
+            return current;
+          }
+          const defaultOption = nextOptions.find((option) => option.isDefault) ?? (nextOptions.length === 1 ? nextOptions[0] : null);
+          resolvedDetailUid = defaultOption?.value || "";
+          return resolvedDetailUid;
+        });
+      } catch (error) {
+        console.error("[mfe-finance] Failed to load invoice sequence details on field focus", error);
+      }
+    }
+  }
 
   useEffect(() => {
     if (!selectedConsumerOption) {
@@ -1398,6 +1482,6 @@ export function useFinanceInvoiceFormController() {
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
     handleConfirmSaveTemplate, openEditTemplateDialog, closeEditTemplateDialog, addTemplateEditItem, updateTemplateEditItem, removeTemplateEditItem, handleUpdateTemplate, openDeleteTemplateDialog, resetDeleteTemplateDialog, handleDeleteTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
     invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
-    handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
+    handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon, handleSequenceDetailFieldFocus,
   };
 }
