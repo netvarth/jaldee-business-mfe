@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useBookingApi } from "../services/useBookingApi";
 import type { Slot } from "../types";
 
@@ -26,6 +26,7 @@ export function useSlots() {
   const [holidayMessage, setHolidayMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRequestRef = useRef<string | null>(null);
 
   const fetchSlots = useCallback(
     async ({ scheduleUid, serviceUid, calendarUid, date, startDate, endDate, providerUid }: SlotQuery) => {
@@ -49,6 +50,10 @@ export function useSlots() {
         }
         
         const url = `/bookings/availability?${params.toString()}`;
+        if (inFlightRequestRef.current === url) {
+          return;
+        }
+        inFlightRequestRef.current = url;
         const body = await api.get<unknown>(url);
         // Real availability only — no generated sample slots. An empty result
         // correctly means "no slots", never fabricated openings.
@@ -63,6 +68,7 @@ export function useSlots() {
         setIsHoliday(false);
         setHolidayMessage(null);
       } finally {
+        inFlightRequestRef.current = null;
         setLoading(false);
       }
     },

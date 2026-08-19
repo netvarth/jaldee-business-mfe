@@ -47,6 +47,14 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
     d.patient ||
     "Walk-in";
 
+  const derivedUserName =
+    (d as any).userName ||
+    (d as any).providerName ||
+    (d as any).user?.name ||
+    (d as any).user?.firstName ||
+    (d as any).provider?.name ||
+    (d as any).provider?.firstName;
+
   return {
     id: d.uid,
     uid: d.uid,
@@ -58,6 +66,7 @@ function toCalendarBooking(d: BookingDto, timeZone?: string | null) {
     userId: d.userUid,
     userUid: d.userUid,
     providerId: d.userUid,
+    userName: derivedUserName,
     patientName: derivedCustomerName,
     customerName: derivedCustomerName,
     bookingDate: d.bookingDate,

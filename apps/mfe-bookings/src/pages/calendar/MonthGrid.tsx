@@ -89,7 +89,7 @@ export default function MonthGrid({ date, viewBy, users, calendars, bookings, se
                                 {viewBy === 'doctors' ? (
                                     (function() {
                                         const userGroups = Object.entries(dayBookings.reduce((acc: any, bk: any) => {
-                                            const uid = bk.providerId || bk.userUid || 'unknown';
+                                            const uid = bk.providerId || bk.userUid || 'unassigned';
                                             if (!acc[uid]) acc[uid] = [];
                                             acc[uid].push(bk);
                                             return acc;

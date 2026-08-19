@@ -31,16 +31,41 @@ function resolveQueryParams(query: string) {
     return null;
   }
 
+  let field = "firstName";
+  let operator = "CONTAINS";
+
   if (trimmed.includes("@")) {
-    return { email: trimmed };
+    field = "email";
+    operator = "EQ";
+  } else {
+    const digitCount = trimmed.replace(/\D/g, "").length;
+    if (digitCount >= 3 && digitCount >= Math.max(1, trimmed.length - 2)) {
+      field = "primaryPhoneNumber";
+      operator = "EQ";
+    }
   }
 
-  const digitCount = trimmed.replace(/\D/g, "").length;
-  if (digitCount >= 3 && digitCount >= Math.max(1, trimmed.length - 2)) {
-    return { phone: trimmed };
-  }
-
-  return { name: trimmed };
+  return {
+    view: "default",
+    filters: {
+      logic: "AND",
+      conditions: [
+        {
+          field,
+          operator,
+          values: [trimmed],
+        },
+      ],
+    },
+    sort: [
+      {
+        field: "createdAt",
+        direction: "DESC",
+      },
+    ],
+    page: 0,
+    size: 100,
+  };
 }
 
 export function useCustomerSearch() {
@@ -70,7 +95,6 @@ export function useCustomerSearch() {
           "/customers/search",
           resolvedParams,
           {
-            params: { page: 0, size: 10 },
             signal,
           },
         );

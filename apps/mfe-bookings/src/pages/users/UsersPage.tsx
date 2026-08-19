@@ -126,7 +126,7 @@ export default function UsersPage() {
               align="end"
               portal
             >
-              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
+              <div className="flex min-w-[150px] flex-col whitespace-nowrap py-1">
                 <button
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   onClick={(event) => {

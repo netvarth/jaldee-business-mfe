@@ -176,7 +176,7 @@ export default function ServicesPage() {
               align="end"
               portal
             >
-              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
+              <div className="flex min-w-[150px] flex-col whitespace-nowrap py-1">
                 <button
                   id={`bookings-service-edit-${service.id}`}
                   data-testid={`bookings-service-edit-${service.id}`}

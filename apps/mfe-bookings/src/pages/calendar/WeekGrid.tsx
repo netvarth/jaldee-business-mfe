@@ -148,7 +148,7 @@ export default function WeekGrid({ date, viewBy, users, calendars, bookings, ser
                                                                     };
 
                                                                     const userGroups = Object.entries(slotBookings.reduce((acc: any, bk: any) => {
-                                                                        const uid = bk.providerId || bk.userUid || 'unknown';
+                                                                        const uid = bk.providerId || bk.userUid || 'unassigned';
                                                                         if (!acc[uid]) acc[uid] = [];
                                                                         acc[uid].push(bk);
                                                                         return acc;
