@@ -24,6 +24,7 @@ const KartyMFE = lazy(() => import("./mfes/KartyMFE").then(m => ({ default: m.Ka
 const LendingMFE = lazy(() => import("./mfes/LendingMFE").then(m => ({ default: m.LendingMFE })));
 const HrMFE = lazy(() => import("./mfes/HrMFE").then(m => ({ default: m.HrMFE })));
 const PublicCareersMFE = lazy(() => import("./mfes/PublicCareersMFE").then(m => ({ default: m.PublicCareersMFE })));
+const PublicPayPage = lazy(() => import("./pages/PublicPayPage"));
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ShellLayout from "./layout/ShellLayout";
 import { useShellStore } from "./store/shellStore";
@@ -97,6 +98,14 @@ export default function App() {
         element={
           <Suspense fallback={<PageLoadingSkeleton />}>
             <PublicCareersMFE />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/pay/*"
+        element={
+          <Suspense fallback={<PageLoadingSkeleton />}>
+            <PublicPayPage />
           </Suspense>
         }
       />
