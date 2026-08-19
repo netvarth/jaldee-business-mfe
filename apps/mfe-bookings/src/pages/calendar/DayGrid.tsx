@@ -96,7 +96,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                 const status = col.status || 'active';
 
                                 const colBookings = bookings.filter((b: any) => 
-                                    (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id) : (b.calendarId === id || b.calendarUid === id))
+                                    (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id || (!b.providerId && !b.userUid && id === 'unassigned')) : (b.calendarId === id || b.calendarUid === id || (!b.calendarId && !b.calendarUid && id === 'unassigned')))
                                 );
 
                                 return (
@@ -140,7 +140,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                             
                                             // Filter bookings for this slot and column
                                             const slotBookings = bookings.filter((b: any) => {
-                                                const matchesCol = (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id) : (b.calendarId === id || b.calendarUid === id));
+                                                const matchesCol = (viewBy === 'doctors' ? (b.providerId === id || b.userUid === id || (!b.providerId && !b.userUid && id === 'unassigned')) : (b.calendarId === id || b.calendarUid === id || (!b.calendarId && !b.calendarUid && id === 'unassigned')));
                                                 if (!matchesCol) return false;
                                                 
                                                 const bDate = new Date(b.bookingDate || b.date);
@@ -179,7 +179,7 @@ export default function DayGrid({ date, viewBy, users, calendars, bookings, serv
                                                                 // Group bookings by User (Doctor)
                                                                 (function() {
                                                                     const userGroups = Object.entries(slotBookings.reduce((acc: any, bk: any) => {
-                                                                        const uid = bk.providerId || bk.userUid || 'unknown';
+                                                                        const uid = bk.providerId || bk.userUid || 'unassigned';
                                                                         if (!acc[uid]) acc[uid] = [];
                                                                         acc[uid].push(bk);
                                                                         return acc;

@@ -41,7 +41,7 @@ const STATUS_STYLE: Record<BookingStatus, { bg: string; text: string; label: str
 
 const ACTION_META: Record<AllowedAction, { label: string; icon: typeof Play; tone: string }> = {
   CONFIRM:         { label: "Confirm",        icon: CheckCircle, tone: "emerald" },
-  CHECK_IN:        { label: "Check In",       icon: Play,        tone: "emerald" },
+  CHECK_IN:        { label: "Check In",       icon: CheckCircle, tone: "emerald" },
   MOVE_TO_WAITING: { label: "Move to Waiting",icon: Clock,       tone: "amber" },
   START:           { label: "Start",          icon: Play,        tone: "indigo" },
   COMPLETE:        { label: "Complete",       icon: CheckCircle, tone: "green" },
@@ -94,6 +94,13 @@ function testToken(value?: string): string {
   return token || "item";
 }
 
+function formatChannel(c?: string): string {
+  if (!c) return '—';
+  if (c.toUpperCase() === 'WALK_IN' || c.toUpperCase() === 'WALKIN') return 'Walk-in';
+  if (c.toUpperCase() === 'ONLINE') return 'Online';
+  return c.charAt(0).toUpperCase() + c.slice(1).toLowerCase().replace(/_/g, ' ');
+}
+
 export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Props) {
   const {
     details, timeline, loading, acting, load, act,
@@ -119,6 +126,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const [rescheduleSeries, setRescheduleSeries] = useState(false);
   const [viewFullDetails, setViewFullDetails] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -131,6 +139,7 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
       setPayMode("Cash");
       setPayNote("");
       setPayTxn("");
+      setShowMobileActions(false);
       load(bookingId);
     }
   }, [bookingId, load]);
@@ -268,137 +277,136 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6C32FF]" />
             </div>
         ) : (
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center justify-between border-b border-[#e7edf7] bg-[#fbfcff] px-6 py-3">
-                    <span className={cn("inline-flex min-w-[106px] items-center justify-center rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em]", st?.bg, st?.text)}>
-                        {st?.label || details.status}
-                    </span>
-                    <span className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-[#4c37b6]">
-                        Booking ID : {details.encId ? `#${details.encId.substring(0,6)}` : "#1"}
-                    </span>
-                </div>
-                <div className="space-y-5 px-6 py-4">
-                {/* Customer Information */}
-                <div className="rounded-[20px] border border-[#dfe6f4] bg-[#fbfcff] p-4">
-                    <h4 className="mb-4 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Customer Information</h4>
-                    <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Customer Name</p>
-                                <p className="font-bold text-[13px] text-slate-900">{details.customerName || '—'}</p>
-                            </div>
-                        </div>
-                        {((details as any).customerDetails?.primaryNumber || (details as any).consumer?.phoneNumber) && (
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Phone Number</p>
-                                <p className="font-bold text-[13px] text-slate-900">{(details as any).customerDetails?.primaryNumber || (details as any).consumer?.phoneNumber}</p>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                {/* PARTICIPANT DETAILS */}
+                <div className="rounded-[16px] border border-slate-200 bg-white overflow-hidden">
+                    <div className="bg-[#f8fafc] px-4 py-3 border-b border-slate-200">
+                        <h4 className="text-[12px] font-bold tracking-[0.05em] text-[#1e293b]">PARTICIPANT DETAILS</h4>
+                    </div>
+                    <div className="flex flex-col sm:flex-row">
+                        <div className="flex-1 p-4 sm:border-r border-slate-200">
+                            <h5 className="hidden sm:block text-[12px] font-bold tracking-[0.05em] text-[#0f172a] mb-4">CUSTOMER INFORMATION</h5>
+                            <div className="space-y-4 sm:space-y-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                                        <User size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">CUSTOMER NAME</p>
+                                        <p className="text-[14px] font-bold text-slate-900">{details.customerName || '—'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                                        <Calendar size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">CUSTOMER ID</p>
+                                        <p className="text-[14px] font-bold text-slate-900">{details.customerReferenceNumber || '—'}</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        )}
-                        {((details as any).customerDetails?.email || (details as any).consumer?.email) && (
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Email</p>
-                                <p className="font-bold text-[13px] text-slate-900 truncate max-w-[140px]" title={(details as any).customerDetails?.email || (details as any).consumer?.email}>{(details as any).customerDetails?.email || (details as any).consumer?.email}</p>
-                            </div>
-                        </div>
-                        )}
-                        {details.customerReferenceNumber && (
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Customer ID</p>
-                                <p className="font-bold text-[13px] text-slate-900">{details.customerReferenceNumber}</p>
+                        <div className="flex-1 p-4 pt-1 sm:pt-4">
+                            <h5 className="hidden sm:block text-[12px] font-bold tracking-[0.05em] text-[#0f172a] mb-4">STAFF INFORMATION</h5>
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5b3df5] text-white font-bold text-[14px]">
+                                    {initials(details.userName)}
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">STAFF NAME</p>
+                                    <p className="text-[14px] font-bold text-slate-900">{details.userName || '—'}</p>
+                                </div>
                             </div>
                         </div>
-                        )}
                     </div>
                 </div>
 
-                {/* Details Section */}
-                <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                {/* BOOKING DETAILS */}
+                <div className="rounded-[16px] border border-slate-200 bg-white overflow-hidden">
+                    <div className="flex items-center justify-between bg-[#f8fafc] px-4 py-3 border-b border-slate-200">
+                        <h4 className="text-[12px] font-bold tracking-[0.05em] text-[#1e293b]">BOOKING DETAILS</h4>
+                        {st && (
+                            <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", st.bg, st.text)}>
+                                {st.label || details?.status}
+                            </span>
+                        )}
+                    </div>
+                    <div className="p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+                            <div className="flex gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-500">
+                                    <FileText size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">BOOKING ID</p>
+                                    <p className="text-[14px] font-bold text-[#4c37b6]">{details?.encId ? `#${String(details.encId).substring(0,6)}` : "#1"}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Date</p>
-                                <p className="font-bold text-[13px] text-slate-900">{fmtDate(details.bookingDate)}</p>
+                            <div className="flex gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-500">
+                                    <Calendar size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">DATE</p>
+                                    <p className="text-[14px] font-bold text-slate-900">{fmtDate(details?.bookingDate)}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-500">
+                                    <Clock size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">TIME</p>
+                                    <p className="text-[14px] font-bold text-slate-900">{formatIsoTime(details?.startTime, preference?.timezone, "—")}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-500">
+                                    <FileText size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">SERVICE TYPE</p>
+                                    <p className="text-[14px] font-bold text-slate-900">{details?.serviceName || '—'}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-500">
+                                    <Calendar size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">CALENDAR</p>
+                                    <p className="flex items-center gap-1.5 text-[14px] font-bold text-slate-900">
+                                        <span className="block h-3 w-3 rounded-[4px] bg-[#12bce2]"></span>
+                                        {details?.calendarName || '—'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 border border-slate-100 text-slate-500">
+                                    <FileText size={18} />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-bold tracking-[0.05em] text-slate-500 mb-0.5">BOOKING CHANNEL</p>
+                                    <p className="text-[14px] font-bold text-slate-900">{formatChannel(details?.bookingChannel)}</p>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Time</p>
-                                <p className="font-bold text-[13px] text-slate-900">{formatIsoTime(details.startTime, preference?.timezone, "—")}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Service Type</p>
-                                <p className="font-bold text-[13px] text-slate-900">{details.serviceName || '—'}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                            </div>
-                            <div>
-                                <p className="mb-0.5 text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#91a4c2]">Calendar</p>
-                                <p className="font-bold text-[13px] text-slate-900 flex items-center gap-1.5">
-                                    <span className="block h-3 w-3 rounded-[4px] bg-[#12bce2]"></span>
-                                    {details.calendarName || '—'}
-                                </p>
-                            </div>
-                        </div>
+                    </div>
                 </div>
 
-                {/* User Section */}
-                <div className="rounded-[18px] border border-[#e7dcff] bg-[#fbf9ff] p-4">
-                    <h4 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">User</h4>
-                    <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#5b3df5] text-[15px] font-extrabold text-white">
-                            {initials(details.userName)}
-                        </div>
+                {/* NOTES & ATTACHMENTS */}
+                <div className="rounded-[16px] border border-slate-200 bg-white p-4 flex flex-col gap-6">
+                    {Array.isArray(details?.consumerNotes) && details.consumerNotes.filter(n => n && n.trim()).length > 0 && (
                         <div>
-                            <p className="font-bold text-[15px] text-slate-900">{details.userName || '—'}</p>
-                            <p className="text-[12px] font-medium text-[#9aa8bf]">Doctor</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Notes & Attachments Card */}
-                <div className="mx-6 mb-4 rounded-[18px] border border-[#dfe6f4] bg-[#fbfcff] p-4">
-                    {/* Notes Section */}
-                    {details.consumerNotes && details.consumerNotes.length > 0 && (
-                        <div className="mb-6">
-                            <h4 className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#91a4c2]">Notes</h4>
-                            <div className="space-y-3 text-[13px] leading-7 text-[#42526d]">
-                                {details.consumerNotes.map((note, idx) => (
+                            <h4 className="mb-3 text-[12px] font-bold tracking-[0.05em] text-[#1e293b]">NOTES</h4>
+                            <div className="space-y-2 text-[13px] text-slate-600">
+                                {details.consumerNotes.filter(n => n && n.trim()).map((note, idx) => (
                                     <p key={idx}>{note}</p>
                                 ))}
                             </div>
                         </div>
                     )}
-
-                    {/* Attachments Section */}
                     <div>
                         <AttachmentsPanel bookingUid={bookingId} />
                     </div>
@@ -519,7 +527,6 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   </div>
                 )}
 
-                </div>
             </div>
         )}
 
@@ -537,42 +544,91 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                   </Button>
                 )}
                 {!reschedOpen && !cancelOpen && !cancelSeries && !rescheduleSeries && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {actionsToShow.filter((action) => action !== "START").map((action) => {
-                    const meta = ACTION_META[action];
-                    const Icon = meta?.icon || Play;
-                    const isBusy = acting === action;
-                    let disabled = !!acting;
+                <div className="relative">
+                  <div className="sm:hidden mb-2 relative">
+                    <Button 
+                      variant="outline" 
+                      className="w-full flex items-center justify-center gap-2 border-[#5b3df5] text-[#5b3df5] font-bold h-11 rounded-[14px]"
+                      onClick={() => setShowMobileActions(!showMobileActions)}
+                    >
+                      Actions <span className="font-bold">...</span>
+                    </Button>
                     
-                    if (action === "COMPLETE" && details.startTime) {
-                        if (details.status !== "IN_PROGRESS") {
-                            const now = new Date();
-                            const start = new Date(details.startTime);
-                            if (start > now) disabled = true;
-                        }
-                    }
-                    
-                    return (
-                        <Button
-                            key={action}
-                            variant="outline"
-                            size="sm"
-                            className={cn(
-                              "min-h-[44px] h-full rounded-[14px] border px-2 text-[12px] font-bold shadow-none flex-col items-center justify-center py-2",
-                              action === "CANCEL"
-                                ? "border-[#fecaca] bg-white text-[#ff2b2b] hover:bg-[#fff5f5]"
-                                : "border-[#d8e0ee] bg-white text-[#334155] hover:bg-slate-50",
-                            )}
-                            onClick={() => handleAction(action)}
-                            disabled={disabled}
-                        >
-                            <div className="flex items-center gap-1.5">
-                                {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
-                                <span>{meta?.label || action}</span>
-                            </div>
-                        </Button>
-                    );
-                })}
+                    {/* Mobile Dropdown List */}
+                    {showMobileActions && (
+                      <div className="absolute bottom-[100%] left-0 w-full mb-2 bg-white border border-slate-200 rounded-[14px] shadow-lg flex flex-col overflow-hidden z-50">
+                        {actionsToShow.filter((action) => action !== "START").map((action) => {
+                            const meta = ACTION_META[action];
+                            const Icon = meta?.icon || Play;
+                            const isBusy = acting === action;
+                            let disabled = !!acting;
+                            
+                            if (action === "COMPLETE" && details.startTime) {
+                                if (details.status !== "IN_PROGRESS") {
+                                    const now = new Date();
+                                    const start = new Date(details.startTime);
+                                    if (start > now) disabled = true;
+                                }
+                            }
+                            
+                            return (
+                                <button
+                                    key={action}
+                                    onClick={() => { handleAction(action); setShowMobileActions(false); }}
+                                    disabled={disabled}
+                                    className={cn(
+                                        "flex items-center gap-3 px-4 py-3 text-[13px] font-bold text-left border-b border-slate-100 last:border-0 hover:bg-slate-50",
+                                        action === "CANCEL" ? "text-red-600" : "text-slate-700",
+                                        disabled && "opacity-50 cursor-not-allowed"
+                                    )}
+                                >
+                                    {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={16} />}
+                                    {meta?.label || action}
+                                </button>
+                            );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Desktop Grid */}
+                  <div className="hidden sm:grid sm:grid-cols-4 gap-2">
+                  {actionsToShow.filter((action) => action !== "START").map((action) => {
+                      const meta = ACTION_META[action];
+                      const Icon = meta?.icon || Play;
+                      const isBusy = acting === action;
+                      let disabled = !!acting;
+                      
+                      if (action === "COMPLETE" && details.startTime) {
+                          if (details.status !== "IN_PROGRESS") {
+                              const now = new Date();
+                              const start = new Date(details.startTime);
+                              if (start > now) disabled = true;
+                          }
+                      }
+                      
+                      return (
+                          <Button
+                              key={action}
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                "min-h-[44px] h-full rounded-[14px] border px-2 text-[12px] font-bold shadow-none flex-col items-center justify-center py-2",
+                                action === "CANCEL"
+                                  ? "border-[#fecaca] bg-white text-[#ff2b2b] hover:bg-[#fff5f5]"
+                                  : "border-[#d8e0ee] bg-white text-[#334155] hover:bg-slate-50",
+                              )}
+                              onClick={() => handleAction(action)}
+                              disabled={disabled}
+                          >
+                              <div className="flex items-center gap-1.5">
+                                  {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
+                                  <span>{meta?.label || action}</span>
+                              </div>
+                          </Button>
+                      );
+                  })}
+                  </div>
                 </div>
                 )}
                 {details.status === "BLOCKED" && !details.allowedActions.includes("UNBLOCK") && (
@@ -580,11 +636,6 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                         Unblock slot
                     </Button>
                 )}
-                <div className="pt-4 text-center">
-                  <button type="button" onClick={() => setViewFullDetails((value) => !value)} className="text-[12px] font-bold text-[#8ca0bf] hover:text-[#5f3aa8]">
-                    {viewFullDetails ? "Hide Additional Details" : "View Additional Details →"}
-                  </button>
-                </div>
             </div>
         )}
 

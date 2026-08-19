@@ -232,7 +232,7 @@ export default function CreateAppointmentDrawer({
           });
       }
     }
-  }, [initialProviderUid, isFromCell, initialDate, initialTime, getUserCalendarsAvailability, calendarUid]);
+  }, [initialProviderUid, isFromCell, initialDate, initialTime, getUserCalendarsAvailability]);
 
   useEffect(() => {
     const list = availableCalendars ?? calendars;
@@ -443,16 +443,21 @@ export default function CreateAppointmentDrawer({
   useEffect(() => {
     if (serviceUid && !serviceOptions.some((service) => service.value === serviceUid)) {
       setServiceUid(serviceOptions[0]?.value ?? "");
-      setDoctorUid("");
+      if (!(isFromCell && initialProviderUid)) {
+        setDoctorUid("");
+      }
       setSelectedSlots([]);
       clearSlots();
     } else if (!serviceUid && serviceOptions.length > 0) {
       setServiceUid(serviceOptions[0].value);
     }
-  }, [clearSlots, serviceOptions, serviceUid]);
+  }, [clearSlots, serviceOptions, serviceUid, isFromCell, initialProviderUid]);
 
   useEffect(() => {
-    if (isFromCell && initialProviderUid && doctorUid === initialProviderUid) {
+    if (isFromCell && initialProviderUid) {
+      if (doctorUid !== initialProviderUid) {
+        setDoctorUid(initialProviderUid);
+      }
       return;
     }
     if (doctorUid && !providerOptions.some((provider) => provider.value === doctorUid)) {
@@ -465,6 +470,7 @@ export default function CreateAppointmentDrawer({
   }, [clearSlots, providerOptions, doctorUid, isFromCell, initialProviderUid]);
 
   const initialSelectionDoneForSlots = useRef<Slot[]>([]);
+  const validateSlotInFlightRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (slots.length > 0 && calendarUid && serviceUid && selectedDate) {
@@ -480,6 +486,11 @@ export default function CreateAppointmentDrawer({
           if (fallbackSlot) setSelectedSlots([fallbackSlot]);
           return;
         }
+        
+        if (validateSlotInFlightRef.current === targetStartTime) {
+          return;
+        }
+        validateSlotInFlightRef.current = targetStartTime;
         
         try {
           const params = new URLSearchParams({
@@ -502,6 +513,8 @@ export default function CreateAppointmentDrawer({
         } catch (e) {
           const fallbackSlot = slots.find(s => s.startTime === targetStartTime);
           if (fallbackSlot) setSelectedSlots([fallbackSlot]);
+        } finally {
+          validateSlotInFlightRef.current = null;
         }
       };
 

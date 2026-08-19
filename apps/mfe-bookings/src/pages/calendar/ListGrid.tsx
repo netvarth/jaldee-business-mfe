@@ -65,7 +65,7 @@ export default function ListGrid({ bookings, calendars, services, users, onBooki
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {dayBookings.map((bk: any, i: number) => {
-                                    const provider = users.find(u => u.uid === bk.providerId || u.uid === bk.userUid);
+                                    const provider = users.find(u => (u.userUid || u.uid || u.id) === bk.providerId || (u.userUid || u.uid || u.id) === bk.userUid) || (!bk.providerId && !bk.userUid ? users.find(u => (u.userUid || u.uid || u.id) === 'unassigned') : undefined);
                                     const providerColor = provider?.color || '#9333EA';
                                     const timeStr = bk.time || bk.startTime;
                                     const service = services.find(s => s.uid === bk.serviceId || s.uid === bk.serviceUid) || { name: bk.serviceName || 'Consultation' };
@@ -87,12 +87,12 @@ export default function ListGrid({ bookings, calendars, services, users, onBooki
                                                 <div className="text-xs text-slate-500 mb-3 truncate">
                                                     Service: {service.name}
                                                 </div>
-                                                {provider && (
+                                                {(provider || bk.userName || bk.providerName) && (
                                                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
                                                         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-slate-300 shadow-sm" style={{ backgroundColor: providerColor }}>
-                                                            {provider.code || provider.name?.substring(0, 2)?.toUpperCase()}
+                                                            {provider?.code || (provider?.userDisplayName || provider?.displayName || provider?.name || bk.userName || bk.providerName)?.substring(0, 2)?.toUpperCase()}
                                                         </div>
-                                                        <span className="text-xs font-medium text-slate-600 truncate">{provider.name}</span>
+                                                        <span className="text-xs font-medium text-slate-600 truncate">{provider?.userDisplayName || provider?.displayName || provider?.name || bk.userName || bk.providerName}</span>
                                                     </div>
                                                 )}
                                             </div>

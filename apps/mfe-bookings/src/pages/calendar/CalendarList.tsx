@@ -249,7 +249,7 @@ export default function CalendarList() {
               align="end"
               portal
             >
-              <div className="flex min-w-[150px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg whitespace-nowrap">
+              <div className="flex min-w-[150px] flex-col whitespace-nowrap py-1">
                 <button
                   id={`bookings-calendar-edit-${calendar.uid}`}
                   data-testid={`bookings-calendar-edit-${calendar.uid}`}
