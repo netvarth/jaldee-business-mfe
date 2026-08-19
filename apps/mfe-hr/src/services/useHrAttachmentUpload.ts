@@ -13,14 +13,20 @@ interface UploadTarget {
 export function useHrAttachmentUpload() {
   const { api, account, user } = useMFEProps();
 
-  return useCallback(async (file: File, contextType: "HELPDESK" | "ANNOUNCEMENT") => {
+  return useCallback(async (file: File, contextType: "HELPDESK" | "ANNOUNCEMENT" | "EXPENSE") => {
     if (!api) throw new Error("Attachment upload is unavailable in this shell.");
     const ownerName = user.name || "User";
+    const featureModuleName =
+      contextType === "HELPDESK"
+        ? "HR_HELPDESK"
+        : contextType === "EXPENSE"
+        ? "HR_EXPENSE"
+        : "HR_ANNOUNCEMENT";
     const metadata = {
       action: "ADD",
       caption: file.name,
       contextType,
-      featureModuleName: contextType === "HELPDESK" ? "HR_HELPDESK" : "HR_ANNOUNCEMENT",
+      featureModuleName,
       featureServiceName: "HR",
       fileName: file.name,
       fileType: file.type.includes("/") ? file.type.split("/")[1] : "file",

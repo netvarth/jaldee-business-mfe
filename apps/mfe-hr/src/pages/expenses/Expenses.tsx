@@ -16,6 +16,7 @@ import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions"
 import { useExpenses, type ExpenseClaim } from "../../services/useExpenses";
 import { useExpenseSearchSchema } from "../../services/useHrSearchSchema";
 import { useMyProfile } from "../../services/useEss";
+import { useHrAttachmentUpload } from "../../services/useHrAttachmentUpload";
 import { formatCurrency, formatDate } from "../../lib/utils";
 
 type Tab = "ledger" | "approvals";
@@ -169,6 +170,7 @@ export default function Expenses() {
   const { data: employees } = useEmployees({ enabled: !isEmployeeView });
   const expenses = useExpenses(advancedFilters, expenseSchema, { scope: isEmployeeView ? "ess" : "admin" });
   const { data: myProfile } = useMyProfile({ enabled: isEmployeeView });
+  const uploadAttachment = useHrAttachmentUpload();
 
   useEffect(() => {
     if (expenses.error) {
@@ -344,13 +346,32 @@ export default function Expenses() {
     if (!employeeUid || !form.amount) { setMsg("Employee and amount are required."); return; }
     setSaving(true); setMsg(null);
     try {
+      let receiptUrl: string | null = editingClaim?.receiptUrl || null;
+      let attachmentObj: Record<string, unknown> | null = null;
+      if (receiptFile) {
+        const uploaded = await uploadAttachment(receiptFile, "EXPENSE");
+        receiptUrl = uploaded.url;
+        attachmentObj = uploaded.attachment;
+      }
       const payload: Record<string, unknown> = {
-        employeeUid, amount: Number(form.amount), category: form.category,
-        notes: form.notes || null, date: form.date, status: "Pending",
+        employeeUid,
+        amount: Number(form.amount),
+        category: form.category,
+        notes: form.notes || null,
+        date: form.date,
+        status: editingClaim ? editingClaim.status : "Pending",
+        receiptUrl,
       };
-      if (form.category === "Travel") { payload.kms = form.kms ? Number(form.kms) : null; payload.modeOfTransport = form.modeOfTransport || null; }
-      if (editingClaim) await expenses.update(editingClaim.id, { ...payload, status: editingClaim.status });
-      else await expenses.create(payload, receiptFile);
+      if (attachmentObj) {
+        payload.attachment = attachmentObj;
+        payload.attachments = [attachmentObj];
+      }
+      if (form.category === "Travel") {
+        payload.kms = form.kms ? Number(form.kms) : null;
+        payload.modeOfTransport = form.modeOfTransport || null;
+      }
+      if (editingClaim) await expenses.update(editingClaim.id, payload);
+      else await expenses.create(payload);
       setForm({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
       setReceiptFile(null);
       setAddOpen(false);
@@ -388,7 +409,11 @@ export default function Expenses() {
           : kind === "reimburse"
             ? "Reimbursed"
             : "Paid";
-      setSelected((current) => current ? { ...current, status: nextStatus } : current);
+      if (kind === "pay") {
+        setSelected(null);
+      } else {
+        setSelected((current) => current ? { ...current, status: nextStatus } : current);
+      }
       const success = kind === "approve"
         ? { title: "Expense claim approved", message: "The expense claim was approved successfully." }
         : kind === "reject"
@@ -815,7 +840,6 @@ export default function Expenses() {
               )}
               {!isEmployeeView && selected.status?.toLowerCase() === "approved" && (
                 <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 10, paddingTop: 4 }}>
-                  <Button id={`hr-expenses-reimburse-${selected.id}`} data-testid={`hr-expenses-reimburse-${selected.id}`} data-state={actingKind === "reimburse" ? "acting" : "idle"} variant="outline" onClick={() => act("reimburse")} disabled={acting} loading={actingKind === "reimburse"}>Mark as Reimbursed</Button>
                   <Button id={`hr-expenses-pay-${selected.id}`} data-testid={`hr-expenses-pay-${selected.id}`} data-state={actingKind === "pay" ? "acting" : "idle"} variant="primary" onClick={() => act("pay")} disabled={acting} loading={actingKind === "pay"}>Mark as Paid</Button>
                 </div>
               )}

@@ -48,15 +48,8 @@ export function useExpenses(
   }, [api, basePath, filters, schema]);
   useEffect(() => { void load(); }, [load]);
 
-  const create = useCallback(async (payload: Record<string, unknown>, receipt?: File | null) => {
-    if (receipt) {
-      const multipart = new FormData();
-      multipart.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-      multipart.append("file", receipt);
-      await api.post(basePath, multipart);
-    } else {
-      await api.post(basePath, payload);
-    }
+  const create = useCallback(async (payload: Record<string, unknown>) => {
+    await api.post(basePath, payload);
     await load();
   }, [api, basePath, load]);
   const approve = useCallback(async (uid: string) => {
@@ -69,8 +62,8 @@ export function useExpenses(
     await api.post(`/expenses/${uid}/pay`); await load();
   }, [api, load]);
   const update = useCallback(async (uid: string, payload: Record<string, unknown>) => {
-    await api.put(`/expenses/${uid}`, payload); await load();
-  }, [api, load]);
+    await api.put(`${basePath}/${uid}`, payload); await load();
+  }, [api, basePath, load]);
 
   return { data, loading, error, reload: load, create, approve, reimburse, pay, update };
 }
