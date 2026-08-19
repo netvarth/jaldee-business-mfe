@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Table as Rows3, LayoutGrid, Filter } from "lucide-react";
+import { Plus, Clock, CheckCircle2, Receipt, Search, Eye, Car, User, AlertCircle, Loader2, X, Table as Rows3, LayoutGrid, Filter, Paperclip } from "lucide-react";
 import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, DataTable, EmptyState, SkeletonTable, DataTablePagination, Drawer, FileUpload, SectionCard } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
@@ -231,11 +231,17 @@ export default function Expenses() {
     const activeTab = isEmployeeView ? "ledger" : tab;
     const base = activeTab === "approvals" ? scopedExpenses.filter((e) => e.status === "Pending") : scopedExpenses;
     const q = search.trim().toLowerCase();
-    return base.filter((e) => {
+    const filtered = base.filter((e) => {
       const matchesCategory = categoryFilter === "all" || e.category === categoryFilter;
       const matchesStatus = statusFilter === "all" || e.status === statusFilter;
       const matchesQ = !q || (e.category || "").toLowerCase().includes(q) || (e.notes || "").toLowerCase().includes(q) || empName(e.employeeUid).toLowerCase().includes(q);
       return matchesCategory && matchesStatus && matchesQ;
+    });
+
+    return [...filtered].sort((a, b) => {
+      const timeA = new Date(a.date || a.submittedAt || 0).getTime();
+      const timeB = new Date(b.date || b.submittedAt || 0).getTime();
+      return timeB - timeA;
     });
   }, [categoryFilter, empMap, isEmployeeView, scopedExpenses, search, statusFilter, tab]);
 
@@ -344,7 +350,7 @@ export default function Expenses() {
       };
       if (form.category === "Travel") { payload.kms = form.kms ? Number(form.kms) : null; payload.modeOfTransport = form.modeOfTransport || null; }
       if (editingClaim) await expenses.update(editingClaim.id, { ...payload, status: editingClaim.status });
-      else await expenses.create(payload, isEmployeeView ? receiptFile : null);
+      else await expenses.create(payload, receiptFile);
       setForm({ employeeUid: "", amount: "", category: "Food", kms: "", modeOfTransport: "", notes: "", date: new Date().toISOString().slice(0, 10) });
       setReceiptFile(null);
       setAddOpen(false);
@@ -726,19 +732,17 @@ export default function Expenses() {
               rows={4}
             />
           </div>
-          {isEmployeeView ? (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <FileUpload
-                id="hr-expenses-receipt"
-                testId="hr-expenses-receipt"
-                label="Receipt (Optional)"
-                accept="image/*,application/pdf"
-                multiple={false}
-                maxSize={10 * 1024 * 1024}
-                onUpload={(files) => setReceiptFile(files[0] ?? null)}
-              />
-            </div>
-          ) : null}
+          <div style={{ gridColumn: "1 / -1" }}>
+            <FileUpload
+              id="hr-expenses-receipt"
+              testId="hr-expenses-receipt"
+              label="Bills / Receipts / Supporting Documents (Optional)"
+              accept="image/*,application/pdf,.doc,.docx"
+              multiple={false}
+              maxSize={10 * 1024 * 1024}
+              onUpload={(files) => setReceiptFile(files[0] ?? null)}
+            />
+          </div>
         </div>
         {msg && <div style={{ margin: "0 28px", ...errorBar }}>{msg}</div>}
         <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "20px 28px", background: "var(--app-bg)", borderTop: `1px solid ${BORDER}`, display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
@@ -773,6 +777,24 @@ export default function Expenses() {
                 <span style={{ ...lbl, fontSize: 10 }}>Notes / Description</span>
                 <p style={{ fontSize: 15, fontWeight: 600, color: "var(--dark-text)", fontStyle: "italic", margin: "8px 0 0" }}>“{selected.notes || "No description provided."}”</p>
               </div>
+
+              {selected.receiptUrl && (
+                <div style={{ background: "rgba(17,94,89,0.04)", border: "1px solid rgba(17,94,89,0.15)", borderRadius: 16, padding: 14 }} className="flex items-center justify-between">
+                  <div>
+                    <span style={{ ...lbl, fontSize: 10 }}>Supporting Document</span>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: TEAL, margin: "4px 0 0" }}>Receipt / Bill Attachment</p>
+                  </div>
+                  <a
+                    href={selected.receiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-700 text-white hover:bg-teal-800 transition-colors no-underline"
+                  >
+                    <Paperclip size={13} /> View Document
+                  </a>
+                </div>
+              )}
+
               <div style={infoBox}><span style={{ ...lbl, fontSize: 10 }}><User size={11} style={{ display: "inline", verticalAlign: "-1px" }} /> Claimant</span><span style={{ fontSize: 14, fontWeight: 800, display: "block", marginTop: 4 }}>{empName(selected.employeeUid)} — {empDept(selected.employeeUid)}</span></div>
 
               {(selected.status === "Pending" || selected.status === "Rejected") && (

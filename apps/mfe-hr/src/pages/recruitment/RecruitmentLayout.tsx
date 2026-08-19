@@ -11,7 +11,7 @@ import {
   MoreHorizontal,
   Home,
 } from "lucide-react";
-import { Popover, Tabs } from "@jaldee/design-system";
+import { Popover } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { useTelemetry } from "../../services/useTelemetry";
 
@@ -56,15 +56,47 @@ export default function RecruitmentLayout({ title, subtitle, children }: Recruit
     >
       <PageHeader title={title} subtitle={subtitle} />
 
-      <Tabs
-        className="attendance-tabs-desktop mb-6"
-        value={activeTab}
-        items={TABS.map(({ value, label }) => ({ value, label }))}
-        onValueChange={(value) => {
-          const next = TABS.find((tab) => tab.value === value);
-          if (next) navigate(next.path);
+      {/* DESKTOP PILL TABS */}
+      <div
+        className="hidden md:inline-flex flex-wrap w-full md:w-auto gap-1 mb-6"
+        style={{
+          background: "rgba(100,116,139,0.08)",
+          padding: 4,
+          borderRadius: 12,
         }}
-      />
+      >
+        {TABS.map((t) => {
+          const isActive = activeTab === t.value;
+          return (
+            <button
+              key={t.value}
+              id={`hr-recruitment-tab-${t.value}`}
+              data-testid={`hr-recruitment-tab-${t.value}`}
+              data-active={isActive ? "true" : "false"}
+              onClick={() => navigate(t.path)}
+              className="min-w-0 px-3 py-2 md:px-5 transition-all"
+              style={{
+                minHeight: 42,
+                borderRadius: 10,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 10,
+                fontWeight: 800,
+                lineHeight: 1.2,
+                letterSpacing: "0.04em",
+                textAlign: "center",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+                background: isActive ? "white" : "transparent",
+                color: isActive ? "var(--dark-text)" : "var(--light-text)",
+                boxShadow: isActive ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
       {/* MOBILE BOTTOM FOOTER NAV */}
       <nav

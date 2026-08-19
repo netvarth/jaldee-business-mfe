@@ -23,6 +23,9 @@ const PoshGrievance = lazy(() =>
 const Reports = lazy(() => import("./pages/reports/Reports"));
 const AuditLogs = lazy(() => import("./pages/audit/AuditLogs"));
 const WarningMemosAdmin = lazy(() => import("./pages/enforcement/WarningMemosAdmin"));
+const HrUserManagement = lazy(() =>
+  import("./pages/settings/HrUserManagement").then((m) => ({ default: m.HrUserManagement }))
+);
 const Settings = lazy(() => import("./pages/settings/Settings"));
 const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
 const EssPortal = lazy(() => import("./pages/ess/EssPortal"));
@@ -101,6 +104,8 @@ export default function App() {
               <Route path="/careers/:companySlug/:jobSlug" element={<PublicJobRoute />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/users" element={<HrUserManagement />} />
+              <Route path="/users/*" element={<HrUserManagement />} />
               <Route path="/enforcement" element={<WarningMemosAdmin />} />
               <Route path="/enforcement/*" element={<WarningMemosAdmin />} />
               <Route path="/settings" element={<Settings />} />

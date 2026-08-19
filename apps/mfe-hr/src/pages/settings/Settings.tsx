@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Building2, FolderTree, TrendingUp, BadgeCheck, Sliders, Clock, GitBranch, Palmtree, CalendarDays, Fingerprint, Banknote, MoreHorizontal, LayoutDashboard } from "lucide-react";
+import { Building2, FolderTree, TrendingUp, BadgeCheck, Sliders, Clock, GitBranch, Palmtree, CalendarDays, Fingerprint, Banknote, MoreHorizontal, LayoutDashboard, UserCheck } from "lucide-react";
 import { Popover } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import { TEAL, card } from "./SettingsComponents";

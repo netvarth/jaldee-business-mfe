@@ -87,14 +87,18 @@ export function AutomationTestIdBoundary({ children }: { children: ReactNode }) 
     if (!boundary) return undefined;
 
     const scan = (root: ParentNode) => {
-      if (root instanceof HTMLElement && root.matches(INTERACTIVE_SELECTOR)) assignTestId(root, boundary);
-      root.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR).forEach((element) => assignTestId(element, boundary));
+      if (root && root.nodeType === 1 && (root as HTMLElement).matches && (root as HTMLElement).matches(INTERACTIVE_SELECTOR)) {
+        assignTestId(root as HTMLElement, boundary);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR).forEach((element) => assignTestId(element, boundary));
+      }
     };
 
     scan(boundary);
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
-        if (node instanceof HTMLElement) scan(node);
+        if (node && node.nodeType === 1) scan(node as HTMLElement);
       }));
     });
     observer.observe(boundary, { childList: true, subtree: true });

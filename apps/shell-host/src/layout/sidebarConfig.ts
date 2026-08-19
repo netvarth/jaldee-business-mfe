@@ -10,6 +10,7 @@ import {
   Settings,
   UserSearch,
   Users,
+  UserCheck,
   Wrench,
   FileText,
 } from "lucide-react";
@@ -329,12 +330,14 @@ export const SIDEBAR_CONFIG: Partial<Record<ProductKey, SidebarSection[]>> = {
     { id: "hr-payroll", label: "Payroll", icon: sidebarIcon(CreditCard), path: "/hr/payroll" },
     { id: "hr-expenses", label: "Expenses", icon: sidebarIcon(DollarSign), path: "/hr/expenses" },
     { id: "hr-staffspace", label: "StaffSpace", icon: sidebarIcon(Megaphone), path: "/hr/announcements" },
+    { id: "hr-enforcement", label: "Warning Memos", icon: sidebarIcon(FileText), path: "/hr/enforcement" },
     { id: "hr-helpdesk", label: "Helpdesk", icon: sidebarIcon(HelpCircle), path: "/hr/tickets" },
     { id: "hr-audit-logs", label: "Audit Log", icon: "\u{1F4DD}", path: "/hr/audit-logs" },
     // Keep routes/pages in place; hide these admin links for now.
     // { id: "hr-grievances", label: "Grievances", icon: "\u{1F512}", path: "/hr/grievances" },
     // { id: "hr-posh", label: "POSH", icon: "\u{1F6E1}", path: "/hr/posh" },
     { id: "hr-reports", label: "Reports", icon: sidebarIcon(BarChart3), path: "/hr/reports" },
+    { id: "hr-users", label: "Users", icon: sidebarIcon(UserCheck), path: "/hr/users" },
     { id: "hr-settings", label: "Settings", icon: sidebarIcon(Settings), path: "/hr/settings" },
   ],
   ai: [

@@ -19,6 +19,7 @@ const NAV = [
   { to: "/announcements", label: "StaffSpace", iconName: "alert" },
   { to: "/payroll", label: "Payroll", iconName: "database" },
   { to: "/expenses", label: "Expenses", iconName: "cart" },
+  { to: "/enforcement", label: "Warning Memos", iconName: "alert" },
   { to: "/tickets", label: "Helpdesk", iconName: "alert" },
   { to: "/audit-logs", label: "Audit Log", iconName: "history" },
   // Keep routes/pages in place; hide these admin links for now.
@@ -27,6 +28,7 @@ const NAV = [
   { to: "/recruitment", label: "Recruitment", iconName: "search" },
   { to: "/recruitment/careers", label: "Careers", iconName: "globe" },
   { to: "/reports", label: "Reports", iconName: "chart" },
+  { to: "/users", label: "Users", iconName: "user" },
   { to: "/settings", label: "Settings", iconName: "filter" },
 ];
 

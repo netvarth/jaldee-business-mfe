@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from "react";
-import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Table as Rows3, ScanFace, Timer, XCircle } from "lucide-react";
-import { Combobox, Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState } from "@jaldee/design-system";
+import { CheckCircle2, Clock, Filter, History, LayoutGrid, Loader2, MapPin, MoreVertical, Table as Rows3, ScanFace, Timer, XCircle, ShieldAlert, Download, AlertTriangle } from "lucide-react";
+import { Combobox, Popover, Select, SkeletonTable, Drawer, Button, DataTable, DataTablePagination, EmptyState, Dialog } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import type { ColumnDef } from "@jaldee/design-system";
 import {
@@ -17,6 +17,7 @@ import { useEmployees } from "../../services/useEmployees";
 import { usePagedEmployeeOptions } from "../../services/usePagedEmployeeOptions";
 import { useBranches } from "../../services/useBranches";
 import { useAttendance, useOnDuty, useCompOffs, useLocationLogs, type AttendanceRecord } from "../../services/useAttendanceData";
+import { useAnnouncements, type Announcement } from "../../services/useEngagement";
 import { useAttendanceSearchSchema } from "../../services/useAttendanceSearchSchema";
 import { useAttendanceRules } from "../../services/useSettingsData";
 import { useHrApi } from "../../services/useHrApi";
@@ -321,6 +322,16 @@ export default function Attendance() {
   const pendingOvertime = useMemo(() => attendance.data.filter((a) => (a.overtimeStatus || "").toLowerCase() === "pending" && (a.overtimeMinutes ?? 0) > 0), [attendance.data]);
   const shouldShowLocationSelect = branches.data.length > 1;
 
+  const essAnnouncements = useAnnouncements([], null, { scope: "ess" });
+  const [mandatoryAckNotice, setMandatoryAckNotice] = useState<Announcement | null>(null);
+  const [ackSaving, setAckSaving] = useState(false);
+
+  const pendingMandatoryAnnouncements = useMemo(() => {
+    return essAnnouncements.data.filter(
+      (a) => a.mandatoryAck && !a.isAcknowledged && a.status !== "Disabled"
+    );
+  }, [essAnnouncements.data]);
+
   const actorEmp = useMemo(() => employees.find((e) => e.id === actor), [employees, actor]);
 
   const doPunch = async (secured: boolean, selfieDataUrl?: string) => {
@@ -369,6 +380,10 @@ export default function Attendance() {
       if (empError) { setMsg(`Couldn't load employees: ${empError}`); return; }
       if (!employees.length) { setMsg("No employees found. Add an employee (or check the backend connection) before clocking in."); return; }
       setMsg("Select an employee first."); return;
+    }
+    if (clockedIn && pendingMandatoryAnnouncements.length > 0) {
+      setMandatoryAckNotice(pendingMandatoryAnnouncements[0]);
+      return;
     }
     if (!clockedIn && (faceRequired || face)) {
       if (!actorEmp?.faceDescriptor) { setMsg("No enrolled face for this employee — enroll Face ID on their profile first."); return; }
@@ -1065,6 +1080,85 @@ export default function Attendance() {
           </div>
         </div>
       </Drawer>
+
+      {/* Mandatory Announcement Enforcement Modal on Punch-Out */}
+      <Dialog
+        open={Boolean(mandatoryAckNotice)}
+        onClose={() => setMandatoryAckNotice(null)}
+        testId="hr-mandatory-ack-enforcement-modal"
+        title="Action Required: Mandatory Announcement"
+        description="You must acknowledge this company notice before clocking out."
+        contentClassName="max-w-[560px]"
+      >
+        {mandatoryAckNotice && (
+          <div className="space-y-4 pt-2">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-amber-950 font-extrabold text-sm">
+                <ShieldAlert size={18} className="text-amber-600 shrink-0" />
+                <span>{mandatoryAckNotice.title}</span>
+              </div>
+              <p className="text-xs text-amber-950 leading-relaxed m-0">
+                {mandatoryAckNotice.description}
+              </p>
+            </div>
+
+            {mandatoryAckNotice.attachments?.length ? (
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attached Guidelines & Documents</div>
+                {mandatoryAckNotice.attachments.map((item, idx) => {
+                  const att = typeof item === "string" ? { filePath: item } : item;
+                  const href = att.filePath || att.shortUrl || att.url;
+                  const name = att.fileName || `Attachment ${idx + 1}`;
+                  return (
+                    <a
+                      key={idx}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-teal-800 no-underline"
+                    >
+                      <span className="truncate">{name}</span>
+                      <Download size={14} />
+                    </a>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            <div className="pt-3 border-t border-slate-200 flex justify-end gap-3">
+              <Button
+                id="hr-mandatory-ack-cancel"
+                data-testid="hr-mandatory-ack-cancel"
+                variant="outline"
+                onClick={() => setMandatoryAckNotice(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                id="hr-mandatory-ack-confirm-btn"
+                data-testid="hr-mandatory-ack-confirm-btn"
+                variant="primary"
+                className="bg-teal-700 hover:bg-teal-800 font-extrabold"
+                loading={ackSaving}
+                onClick={async () => {
+                  setAckSaving(true);
+                  try {
+                    await essAnnouncements.acknowledge(mandatoryAckNotice.id, actor);
+                    setMandatoryAckNotice(null);
+                    await doPunch(false);
+                  } catch (e) {
+                    setMsg(e instanceof Error ? e.message : "Failed to acknowledge announcement.");
+                  } finally {
+                    setAckSaving(false);
+                  }
+                }}
+              >
+                I Acknowledge and Understand
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </section>
   );
 }

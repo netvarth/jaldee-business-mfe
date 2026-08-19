@@ -49,7 +49,7 @@ export function useExpenses(
   useEffect(() => { void load(); }, [load]);
 
   const create = useCallback(async (payload: Record<string, unknown>, receipt?: File | null) => {
-    if (options.scope === "ess" && receipt) {
+    if (receipt) {
       const multipart = new FormData();
       multipart.append("request", new Blob([JSON.stringify(payload)], { type: "application/json" }));
       multipart.append("file", receipt);
@@ -58,7 +58,7 @@ export function useExpenses(
       await api.post(basePath, payload);
     }
     await load();
-  }, [api, basePath, load, options.scope]);
+  }, [api, basePath, load]);
   const approve = useCallback(async (uid: string) => {
     await api.post(`/expenses/${uid}/approve`); await load();
   }, [api, load]);

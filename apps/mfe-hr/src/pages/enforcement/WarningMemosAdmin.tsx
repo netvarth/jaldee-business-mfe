@@ -20,12 +20,17 @@ import {
   Select,
   Textarea,
   ColumnDef,
+  SectionCard,
+  EmptyState,
+  Popover,
+  Drawer,
 } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import { useEmployees } from "../../services/useEmployees";
 import { useMemos, MemoSeverity, WarningMemo } from "../../services/useLifecycle";
 import { formatDate } from "../../lib/utils";
 import { HrPageHeader } from "../../components/HrPageHeader";
+import { RecruitmentMobileCard, RecruitmentViewToggle, useRecruitmentResponsiveViewMode } from "../recruitment/recruitmentResponsive";
 
 const CATEGORIES = [
   "Attendance",
@@ -55,10 +60,12 @@ export default function WarningMemosAdmin() {
   const { eventBus } = useMFEProps();
   const memos = useMemos({ isEss: false });
   const employees = useEmployees();
+  const [viewMode, setViewMode] = useRecruitmentResponsiveViewMode();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [severityFilter, setSeverityFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
   const [viewMemo, setViewMemo] = useState<WarningMemo | null>(null);
   const [deleteMemo, setDeleteMemo] = useState<WarningMemo | null>(null);
@@ -160,6 +167,7 @@ export default function WarningMemosAdmin() {
     {
       key: "issuedOn",
       header: "Issued On",
+      width: "14%",
       render: (memo) => (
         <span className="font-semibold text-slate-800">
           {memo.issuedOn ? formatDate(memo.issuedOn) : "—"}
@@ -169,18 +177,19 @@ export default function WarningMemosAdmin() {
     {
       key: "employee",
       header: "Employee",
+      width: "24%",
       render: (memo) => {
         const emp = empMap.get(memo.employeeUid || "");
         const name = memo.employeeName || emp?.name || "Employee";
         return (
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-50 text-teal-700 font-bold text-xs border border-teal-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-700 font-bold text-xs border border-teal-200">
               {name.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <div className="font-bold text-slate-900 text-sm">{name}</div>
+            <div className="min-w-0">
+              <div className="font-bold text-slate-900 text-sm truncate">{name}</div>
               {emp?.employeeId && (
-                <div className="text-[11px] text-slate-500 font-mono">{emp.employeeId}</div>
+                <div className="text-[11px] text-slate-500 font-mono truncate">{emp.employeeId}</div>
               )}
             </div>
           </div>
@@ -190,6 +199,7 @@ export default function WarningMemosAdmin() {
     {
       key: "category",
       header: "Category",
+      width: "15%",
       render: (memo) => (
         <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
           {memo.category || "General"}
@@ -199,6 +209,7 @@ export default function WarningMemosAdmin() {
     {
       key: "severity",
       header: "Severity",
+      width: "14%",
       render: (memo) => (
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${severityBadge(
@@ -212,6 +223,7 @@ export default function WarningMemosAdmin() {
     {
       key: "issuedByName",
       header: "Issued By",
+      width: "14%",
       render: (memo) => (
         <span className="text-slate-600 font-medium">{memo.issuedByName || "HR Admin"}</span>
       ),
@@ -219,6 +231,7 @@ export default function WarningMemosAdmin() {
     {
       key: "status",
       header: "Status",
+      width: "14%",
       render: (memo) =>
         memo.acknowledgedAt ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
@@ -233,6 +246,7 @@ export default function WarningMemosAdmin() {
     {
       key: "actions",
       header: "Actions",
+      width: "12%",
       align: "right",
       render: (memo) => (
         <div className="flex items-center justify-end gap-1.5">
@@ -262,18 +276,27 @@ export default function WarningMemosAdmin() {
     },
   ];
 
+  const activeFilterCount =
+    (categoryFilter !== "ALL" ? 1 : 0) +
+    (severityFilter !== "ALL" ? 1 : 0) +
+    (statusFilter !== "ALL" ? 1 : 0);
+
   return (
-    <div id="hr-enforcement-memos-page" data-testid="hr-enforcement-memos-page" className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+    <section id="hr-enforcement-memos-page" data-testid="hr-enforcement-memos-page" className="page-section active hr-page-shell space-y-3.5">
       <HrPageHeader
         title="Warning Memos & Enforcement"
-        description="Issue formal warning notices, monitor compliance acknowledgements, and review employee disciplinary records."
-        action={
+        subtitle="Issue warning notices and track compliance acknowledgements."
+        className="!mb-1 sm:!mb-2"
+        stackOnMobile={false}
+        actions={
           <Button
             id="hr-enforcement-memo-issue-btn"
             data-testid="hr-enforcement-memo-issue-btn"
             variant="primary"
-            icon={<Plus size={16} />}
+            icon={<Plus size={15} />}
             onClick={() => setIssueOpen(true)}
+            size="sm"
+            className="whitespace-nowrap"
           >
             Issue Warning Memo
           </Button>
@@ -311,64 +334,172 @@ export default function WarningMemosAdmin() {
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[240px]">
-            <Input
-              id="hr-memos-search"
-              data-testid="hr-memos-search"
-              placeholder="Search by employee name, category or text..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="rounded-lg !h-10"
+      {/* Integrated SectionCard toolbar & table */}
+      <SectionCard className="border-[color:color-mix(in_srgb,var(--color-border)_72%,white)] shadow-sm" padding={false}>
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-3 sm:p-4">
+          <Input
+            id="hr-memos-search"
+            data-testid="hr-memos-search"
+            placeholder="Search memos..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            icon={<Search size={14} />}
+            className="!h-8.5 text-xs placeholder:text-xs"
+            containerClassName="min-w-0 flex-1 sm:max-w-xs"
+          />
+
+          {/* 3 Dropdowns (Visible in 1 line on sm: screens and above) */}
+          <div className="hidden sm:flex items-center gap-2">
+            <Select
+              id="hr-memos-category-filter"
+              testId="hr-memos-category-filter"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              options={[
+                { value: "ALL", label: "All Categories" },
+                ...CATEGORIES.map((c) => ({ value: c, label: c })),
+              ]}
+              containerClassName="w-36"
+              className="!h-8.5 text-xs px-2 py-0"
+            />
+            <Select
+              id="hr-memos-severity-filter"
+              testId="hr-memos-severity-filter"
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value)}
+              options={[
+                { value: "ALL", label: "All Severities" },
+                { value: "Low", label: "Low" },
+                { value: "Medium", label: "Medium" },
+                { value: "High", label: "High" },
+                { value: "Critical", label: "Critical" },
+              ]}
+              containerClassName="w-32"
+              className="!h-8.5 text-xs px-2 py-0"
+            />
+            <Select
+              id="hr-memos-status-filter"
+              testId="hr-memos-status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              options={[
+                { value: "ALL", label: "All Statuses" },
+                { value: "PENDING", label: "Pending Ack" },
+                { value: "ACKNOWLEDGED", label: "Acknowledged" },
+              ]}
+              containerClassName="w-36"
+              className="!h-8.5 text-xs px-2 py-0"
             />
           </div>
-          <Select
-            id="hr-memos-category-filter"
-            testId="hr-memos-category-filter"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            options={[
-              { value: "ALL", label: "All Categories" },
-              ...CATEGORIES.map((c) => ({ value: c, label: c })),
-            ]}
-          />
-          <Select
-            id="hr-memos-severity-filter"
-            testId="hr-memos-severity-filter"
-            value={severityFilter}
-            onChange={(e) => setSeverityFilter(e.target.value)}
-            options={[
-              { value: "ALL", label: "All Severities" },
-              { value: "Low", label: "Low" },
-              { value: "Medium", label: "Medium" },
-              { value: "High", label: "High" },
-              { value: "Critical", label: "Critical" },
-            ]}
-          />
-          <Select
-            id="hr-memos-status-filter"
-            testId="hr-memos-status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            options={[
-              { value: "ALL", label: "All Statuses" },
-              { value: "PENDING", label: "Pending Ack" },
-              { value: "ACKNOWLEDGED", label: "Acknowledged" },
-            ]}
-          />
-        </div>
-      </div>
 
-      {/* Data Table */}
-      <DataTable
-        data-testid="hr-memos-table"
-        data={filteredMemos}
-        columns={columns}
-        getRowId={(row) => row.id || row.uid || ""}
-        className="border border-slate-200 rounded-[12px] shadow-sm bg-white overflow-hidden"
-      />
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            {/* Filter Drawer Button (Visible on mobile / small devices) */}
+            <Button
+              type="button"
+              id="hr-memos-mobile-filter-btn"
+              data-testid="hr-memos-mobile-filter-btn"
+              variant={activeFilterCount > 0 ? "primary" : "outline"}
+              icon={<Filter size={15} />}
+              size="sm"
+              onClick={() => setFiltersOpen(true)}
+              className="sm:hidden !h-8 px-2.5"
+              title="Filter warning memos"
+            >
+              {activeFilterCount > 0 && <span className="ml-1 text-[10px]">({activeFilterCount})</span>}
+            </Button>
+
+            <RecruitmentViewToggle
+              value={viewMode}
+              onChange={setViewMode}
+              tableTestId="hr-memos-view-table"
+              cardsTestId="hr-memos-view-cards"
+            />
+          </div>
+        </div>
+
+        {/* Content View: Table vs Cards */}
+        {viewMode === "cards" ? (
+          filteredMemos.length === 0 ? (
+            <div className="p-12">
+              <EmptyState title="No Warning Memos" description="No warning memos match your search or filters." />
+            </div>
+          ) : (
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              {filteredMemos.map((memo) => {
+                const emp = empMap.get(memo.employeeUid);
+                return (
+                  <RecruitmentMobileCard
+                    key={memo.id || memo.uid}
+                    title={emp?.name || memo.employeeName || memo.employeeUid}
+                    rows={[
+                      { label: "Issued On", value: formatDate(memo.issuedOn) || "Recently" },
+                      { label: "Category", value: memo.category || "General" },
+                      {
+                        label: "Severity",
+                        value: (
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold border ${severityBadge(memo.severity)}`}>
+                            {memo.severity || "Medium"}
+                          </span>
+                        ),
+                      },
+                      { label: "Issued By", value: memo.issuedByName || "HR Admin" },
+                      {
+                        label: "Status",
+                        value: memo.acknowledgedAt ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
+                            <CheckCircle2 size={13} /> Acknowledged
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-700">
+                            <Clock size={13} /> Pending Ack
+                          </span>
+                        ),
+                      },
+                    ]}
+                    footer={
+                      <div className="flex items-center justify-end gap-2 w-full pt-1">
+                        <Button
+                          id={`hr-memo-card-view-${memo.id}`}
+                          data-testid={`hr-memo-card-view-${memo.id}`}
+                          variant="outline"
+                          size="sm"
+                          icon={<Eye size={14} />}
+                          onClick={() => setViewMemo(memo)}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          id={`hr-memo-card-delete-${memo.id}`}
+                          data-testid={`hr-memo-card-delete-${memo.id}`}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:bg-red-50"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => setDeleteMemo(memo)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    }
+                  />
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <DataTable
+            data-testid="hr-memos-table"
+            data={filteredMemos}
+            columns={columns}
+            getRowId={(row) => row.id || row.uid || ""}
+            className="rounded-none border-0 bg-transparent shadow-none"
+            tableClassName="w-full min-w-[750px]"
+            emptyState={
+              <EmptyState title="No Warning Memos" description="No warning memos match your search or filters." />
+            }
+          />
+        )}
+      </SectionCard>
 
       {/* Modal: Issue Warning Memo */}
       <Dialog
@@ -560,6 +691,92 @@ export default function WarningMemosAdmin() {
           </Button>
         </div>
       </Dialog>
-    </div>
+
+      {/* FILTER DRAWER FOR SMALL DEVICES */}
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filter Warning Memos"
+        size="sm"
+        contentClassName="flex flex-col p-0 overflow-hidden"
+      >
+        <div className="flex h-full flex-1 flex-col justify-between" data-testid="hr-memos-filter-drawer">
+          <div className="space-y-4 p-5 overflow-y-auto">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Category
+              </label>
+              <Select
+                id="hr-memos-drawer-category"
+                testId="hr-memos-drawer-category"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                options={[
+                  { value: "ALL", label: "All Categories" },
+                  ...CATEGORIES.map((c) => ({ value: c, label: c })),
+                ]}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Severity
+              </label>
+              <Select
+                id="hr-memos-drawer-severity"
+                testId="hr-memos-drawer-severity"
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value)}
+                options={[
+                  { value: "ALL", label: "All Severities" },
+                  { value: "Low", label: "Low" },
+                  { value: "Medium", label: "Medium" },
+                  { value: "High", label: "High" },
+                  { value: "Critical", label: "Critical" },
+                ]}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Acknowledgement Status
+              </label>
+              <Select
+                id="hr-memos-drawer-status"
+                testId="hr-memos-drawer-status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                options={[
+                  { value: "ALL", label: "All Statuses" },
+                  { value: "PENDING", label: "Pending Ack" },
+                  { value: "ACKNOWLEDGED", label: "Acknowledged" },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 gap-3 border-t border-slate-200 p-4 bg-slate-50">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setCategoryFilter("ALL");
+                setSeverityFilter("ALL");
+                setStatusFilter("ALL");
+              }}
+            >
+              Reset All
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              className="flex-1"
+              onClick={() => setFiltersOpen(false)}
+            >
+              Apply Filters
+            </Button>
+          </div>
+        </div>
+      </Drawer>
+    </section>
   );
 }

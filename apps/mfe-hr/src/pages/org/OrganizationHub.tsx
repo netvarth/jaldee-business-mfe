@@ -736,17 +736,46 @@ export default function OrgStructure() {
         </Popover>
       </nav>
 
-      <div className="attendance-tabs-desktop" style={{ overflowX: "auto", paddingBottom: 0, marginBottom: 22 }}>
-        <div style={tabBar}>
-          {ORG_ROUTES.map(({ key, label, Icon }) => (
-            <button key={key} type="button" onClick={() => goToTab(key)} data-active={tab === key ? "true" : "false"} style={tabButton(tab === key)}>
-              <span style={{ color: tab === key ? TEAL : "var(--light-text)", display: "inline-flex", flexShrink: 0 }}>
-                <Icon size={18} />
-              </span>
+      {/* DESKTOP PILL TABS */}
+      <div
+        className="hidden md:inline-flex flex-wrap w-full md:w-auto gap-1 mb-6"
+        style={{
+          background: "rgba(100,116,139,0.08)",
+          padding: 4,
+          borderRadius: 12,
+        }}
+      >
+        {ORG_ROUTES.map(({ key, label }) => {
+          const isActive = tab === key;
+          return (
+            <button
+              key={key}
+              id={`hr-org-tab-${key}`}
+              data-testid={`hr-org-tab-${key}`}
+              data-active={isActive ? "true" : "false"}
+              onClick={() => goToTab(key)}
+              className="min-w-0 px-3 py-2 md:px-5 transition-all"
+              style={{
+                minHeight: 42,
+                borderRadius: 10,
+                border: "none",
+                cursor: "pointer",
+                fontSize: 10,
+                fontWeight: 800,
+                lineHeight: 1.2,
+                letterSpacing: "0.04em",
+                textAlign: "center",
+                textTransform: "uppercase",
+                whiteSpace: "nowrap",
+                background: isActive ? "white" : "transparent",
+                color: isActive ? "var(--dark-text)" : "var(--light-text)",
+                boxShadow: isActive ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+              }}
+            >
               {label}
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
       <div className="org-content-shell">

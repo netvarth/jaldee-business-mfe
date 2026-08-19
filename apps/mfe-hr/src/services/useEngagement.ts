@@ -4,10 +4,31 @@ import { buildAnnouncementSearchBody } from "./announcementSearch";
 import { buildHrSearchBody, unwrapHrSearchPage } from "./hrSearch";
 import { useHrApi } from "../services/useHrApi";
 
+export interface TargetAudience {
+  targetType: "ALL" | "TARGETED";
+  targetEmploymentTypes?: string[];
+  targetDepartmentUids?: string[];
+  targetDesignationUids?: string[];
+  targetLocationUids?: string[];
+  targetEmployeeUids?: string[];
+}
+
 export interface Announcement {
-  id: string; uid?: string; title?: string; description?: string; type?: string;
-  startDate?: string; endDate?: string; isPinned?: boolean; acknowledgedBy?: string[];
-  status?: string; isAcknowledged?: boolean; attachments?: (TicketAttachment | string)[];
+  id: string;
+  uid?: string;
+  title?: string;
+  description?: string;
+  type?: string;
+  startDate?: string;
+  endDate?: string;
+  isPinned?: boolean;
+  mandatoryAck?: boolean;
+  targetAudience?: TargetAudience;
+  acknowledgedBy?: string[];
+  status?: string;
+  isAcknowledged?: boolean;
+  attachments?: (TicketAttachment | string)[];
+  createdAtTs?: string;
 }
 export interface TicketResponse { message?: string; respondedBy?: string; respondedAt?: string; }
 export interface TicketAttachment {
@@ -131,6 +152,16 @@ export function useAnnouncements(
 
   const acknowledge = useCallback(
     async (uid: string, employeeUid?: string) => {
+      setData((prev) =>
+        prev.map((item) => {
+          if (item.id === uid || item.uid === uid) {
+            const currentAck = item.acknowledgedBy || [];
+            const newAck = employeeUid && !currentAck.includes(employeeUid) ? [...currentAck, employeeUid] : currentAck;
+            return { ...item, isAcknowledged: true, acknowledgedBy: newAck };
+          }
+          return item;
+        })
+      );
       await api.post(getAcknowledgeEndpoint(uid, employeeUid));
       await load();
     },
@@ -139,6 +170,9 @@ export function useAnnouncements(
 
   const updateStatus = useCallback(
     async (uid: string, status: string) => {
+      setData((prev) =>
+        prev.map((item) => (item.id === uid || item.uid === uid ? { ...item, status } : item))
+      );
       await api.patch(`/announcements/${uid}/status`, { status });
       await load();
     },

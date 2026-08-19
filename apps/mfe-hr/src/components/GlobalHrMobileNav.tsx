@@ -12,7 +12,9 @@ import {
   Briefcase,
   UserX,
   Laptop,
+  UserCheck,
   Settings as SettingsIcon,
+  ShieldAlert,
 } from "lucide-react";
 import { Popover } from "@jaldee/design-system";
 
@@ -28,8 +30,10 @@ const MORE_NAV_ITEMS = [
   { key: "employees", route: "/employees", label: "Employees", Icon: Users },
   { key: "org", route: "/org", label: "Organization", Icon: Building2 },
   { key: "recruitment", route: "/recruitment", label: "Recruitment", Icon: Briefcase },
+  { key: "enforcement", route: "/enforcement", label: "Warning Memos", Icon: ShieldAlert },
   { key: "separation", route: "/separation", label: "Separation", Icon: UserX },
   { key: "assets", route: "/assets", label: "Assets", Icon: Laptop },
+  { key: "users", route: "/users", label: "Users", Icon: UserCheck },
   { key: "settings", route: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
@@ -46,7 +50,6 @@ export function GlobalHrMobileNav() {
   const isDedicatedSection = DEDICATED_MOBILE_NAV_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
-  // Also hide on Employee Details page which renders its own bottom footer
   const isEmployeeDetails = /^\/employees\/[^/]+/.test(pathname) && pathname !== "/employees/new";
 
   if (isDedicatedSection || isEmployeeDetails) {

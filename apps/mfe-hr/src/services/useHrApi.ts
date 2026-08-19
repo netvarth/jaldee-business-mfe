@@ -175,6 +175,16 @@ export function useHrApi() {
           if (err.code === "ECONNABORTED") {
             throw new Error(`Request timed out after ${timeout}ms. Ensure the backend is running and reachable.`);
           }
+          const responseData = err?.response?.data;
+          const fieldError = responseData?.details?.fieldErrors?.[0];
+          const fieldErrorMsg = fieldError?.message || (fieldError?.field ? `${fieldError.field}: ${fieldError.message}` : undefined);
+          const apiMsg = responseData?.message || fieldErrorMsg;
+
+          if (apiMsg && typeof apiMsg === "string") {
+            const errObj = new Error(apiMsg);
+            throw Object.assign(errObj, { ...err, message: apiMsg, responseData, fieldErrors: responseData?.details?.fieldErrors });
+          }
+
           const readable = getReadableApiError(err, "HR request failed.");
           throw Object.assign(new Error(readable.message), readable);
         }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical, Download, LayoutGrid, Table as Rows3 } from "lucide-react";
-import { Badge, Button, DataTable, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Popover, PopoverSection, Drawer, SectionCard } from "@jaldee/design-system";
+import { Plus, Search, Filter, Calendar, CheckCircle2, Pin, Paperclip, Loader2, AlertCircle, X, Megaphone, MoreVertical, Download, LayoutGrid, Table as Rows3, Globe, Target, Users, Building2, Briefcase, MapPin, ShieldAlert } from "lucide-react";
+import { Badge, Button, DataTable, EmptyState, Select, DatePicker, Textarea, Dialog, SkeletonCard, Input, Checkbox, Popover, PopoverSection, Drawer, SectionCard, cn } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { HrPageHeader as PageHeader } from "../../components/HrPageHeader";
 import {
@@ -12,7 +12,7 @@ import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { useMFEProps, SHELL_TOAST_EVENT } from "@jaldee/auth-context";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmployees } from "../../services/useEmployees";
-import { useAnnouncements, type Announcement } from "../../services/useEngagement";
+import { useAnnouncements, type Announcement, type TargetAudience } from "../../services/useEngagement";
 import { useAnnouncementSearchSchema } from "../../services/useAnnouncementSearchSchema";
 import { useTelemetry } from "../../services/useTelemetry";
 import { HR_ANALYTICS_BACK, isAnalyticsNavigation } from "../../lib/hrNavigation";
@@ -21,6 +21,38 @@ import { useHrAttachmentUpload } from "../../services/useHrAttachmentUpload";
 
 const TEAL = "var(--primary-color)";
 const TYPES = ["Policy", "Event", "Payroll", "General"];
+const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)", padding: 4 };
+
+const EMPLOYMENT_TYPES = [
+  { value: "FullTime", label: "Full-Time" },
+  { value: "PartTime", label: "Part-Time" },
+  { value: "DailyWage", label: "Daily Wage" },
+  { value: "Intern", label: "Intern" },
+  { value: "Contract", label: "Contract" },
+  { value: "Consultant", label: "Consultant" },
+];
+
+const DEPARTMENTS = [
+  { id: "dept-eng", name: "Engineering" },
+  { id: "dept-sales", name: "Sales" },
+  { id: "dept-hr", name: "HR & People" },
+  { id: "dept-fin", name: "Finance" },
+  { id: "dept-ops", name: "Operations" },
+];
+
+const DESIGNATIONS = [
+  { id: "desig-mgr", name: "Manager" },
+  { id: "desig-tl", name: "Team Lead" },
+  { id: "desig-assoc", name: "Associate" },
+  { id: "desig-exec", name: "Executive" },
+];
+
+const LOCATIONS = [
+  { id: "loc-blr", name: "HQ - Bangalore" },
+  { id: "loc-mum", name: "Branch - Mumbai" },
+  { id: "loc-del", name: "Branch - Delhi" },
+  { id: "loc-rem", name: "Remote" },
+];
 const lbl: CSSProperties = { fontSize: 10, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--light-text)" };
 const panel: CSSProperties = { background: "var(--surface-bg)", border: "1px solid rgba(148,163,184,0.16)", borderRadius: 16, boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)" };
 const sectionStack: CSSProperties = { display: "flex", flexDirection: "column", gap: 20, width: "100%" };
@@ -56,13 +88,55 @@ export default function Announcements() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", type: "General", startDate: getTodayDateString(), endDate: "", isPinned: false, description: "" });
+  const [form, setForm] = useState({
+    title: "",
+    type: "General",
+    startDate: getTodayDateString(),
+    endDate: "",
+    isPinned: false,
+    mandatoryAck: false,
+    description: "",
+    targetType: "ALL" as "ALL" | "TARGETED",
+    targetEmploymentTypes: [] as string[],
+    targetDepartmentUids: [] as string[],
+    targetDesignationUids: [] as string[],
+    targetLocationUids: [] as string[],
+    targetEmployeeUids: [] as string[],
+  });
   const [saving, setSaving] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const uploadAttachment = useHrAttachmentUpload();
   const [msg, setMsg] = useState<string | null>(null);
-  const { data: employees } = useEmployees({ enabled: !isEmployeeView && Boolean(tracking) });
+  const { data: employees } = useEmployees({ enabled: !isEmployeeView && (Boolean(tracking) || addOpen) });
+
+  const audienceSummary = useMemo(() => {
+    if (form.targetType === "ALL") {
+      return "Company-wide broadcast (All Employees)";
+    }
+    const parts: string[] = [];
+    if (form.targetEmploymentTypes.length) {
+      const names = form.targetEmploymentTypes.map((t) => EMPLOYMENT_TYPES.find((e) => e.value === t)?.label || t);
+      parts.push(`${form.targetEmploymentTypes.length} Employment Type${form.targetEmploymentTypes.length > 1 ? "s" : ""} (${names.join(", ")})`);
+    }
+    if (form.targetDepartmentUids.length) {
+      const names = form.targetDepartmentUids.map((id) => DEPARTMENTS.find((d) => d.id === id)?.name || id);
+      parts.push(`${form.targetDepartmentUids.length} Department${form.targetDepartmentUids.length > 1 ? "s" : ""} (${names.join(", ")})`);
+    }
+    if (form.targetDesignationUids.length) {
+      const names = form.targetDesignationUids.map((id) => DESIGNATIONS.find((d) => d.id === id)?.name || id);
+      parts.push(`${form.targetDesignationUids.length} Designation${form.targetDesignationUids.length > 1 ? "s" : ""} (${names.join(", ")})`);
+    }
+    if (form.targetLocationUids.length) {
+      const names = form.targetLocationUids.map((id) => LOCATIONS.find((l) => l.id === id)?.name || id);
+      parts.push(`${form.targetLocationUids.length} Location${form.targetLocationUids.length > 1 ? "s" : ""} (${names.join(", ")})`);
+    }
+    if (form.targetEmployeeUids.length) {
+      parts.push(`${form.targetEmployeeUids.length} Specific Employee${form.targetEmployeeUids.length > 1 ? "s" : ""}`);
+    }
+    return parts.length ? parts.join(" • ") : "No targeting criteria selected yet";
+  }, [form]);
+
   const { schema: rawAnnouncementSearchSchema, loading: schemaLoading } = useAnnouncementSearchSchema();
   const announcementSearchSchema = useMemo(() => {
     if (!rawAnnouncementSearchSchema) return null;
@@ -137,17 +211,34 @@ export default function Announcements() {
     {
       key: "type",
       header: "Type",
-      width: "14%",
+      width: "10%",
       render: (a) => (
-        <span style={{ borderRadius: 999, padding: "4px 14px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: typeColor(a.type), display: "inline-block" }}>
+        <span style={{ borderRadius: 999, padding: "4px 12px", fontWeight: 900, fontSize: 10, letterSpacing: "-0.2px", textTransform: "uppercase", color: "white", background: typeColor(a.type), display: "inline-block" }}>
           {a.type || "General"}
         </span>
       ),
     },
     {
+      key: "targetAudience",
+      header: "Audience",
+      width: "14%",
+      render: (a) => {
+        const isTargeted = a.targetAudience?.targetType === "TARGETED";
+        return isTargeted ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-sky-800">
+            <Target size={11} /> Targeted
+          </span>
+        ) : (
+          <span className="inline-[flex] items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-600">
+            <Globe size={11} /> All Staff
+          </span>
+        );
+      },
+    },
+    {
       key: "startDate",
       header: "Start Date",
-      width: "16%",
+      width: "12%",
       render: (a) => (
         <span className="text-sm font-semibold text-[var(--color-text-secondary)]">
           {formatDate(a.startDate) || "Recently"}
@@ -157,12 +248,17 @@ export default function Announcements() {
     {
       key: "title",
       header: "Title",
-      width: "42%",
+      width: "28%",
       render: (a) => (
         <div className="min-w-0">
-          <div className="flex items-center gap-2 font-semibold text-sm text-[var(--color-text-primary)]">
+          <div className="flex items-center gap-2 font-semibold text-sm text-[var(--color-text-primary)] flex-wrap">
             {a.isPinned && <Pin size={14} color={TEAL} fill={TEAL} className="shrink-0" />}
             <span className="truncate">{a.title}</span>
+            {a.mandatoryAck && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-800 uppercase tracking-wider">
+                <ShieldAlert size={10} /> Mandatory
+              </span>
+            )}
           </div>
           {a.description && <div className="mt-0.5 text-xs text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
         </div>
@@ -171,7 +267,7 @@ export default function Announcements() {
     {
       key: "status",
       header: "Status",
-      width: "14%",
+      width: "12%",
       render: (a) => {
         const disabled = a.status === "Disabled";
         return (
@@ -182,9 +278,43 @@ export default function Announcements() {
       },
     },
     {
+      key: "acknowledged",
+      header: "Acknowledged",
+      width: "16%",
+      render: (a) => {
+        const count = a.acknowledgedBy?.length || 0;
+        if (!isEmployeeLogin) {
+          return (
+            <button
+              type="button"
+              id={`hr-announcement-tracking-table-${a.id}`}
+              data-testid={`hr-announcement-tracking-table-${a.id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setTracking(a);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-extrabold text-slate-700 hover:bg-teal-50 hover:border-teal-200 hover:text-teal-800 transition-colors cursor-pointer"
+            >
+              <CheckCircle2 size={13} className="text-slate-400" />
+              {count} Acknowledged
+            </button>
+          );
+        }
+        return a.isAcknowledged ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-extrabold text-emerald-700">
+            <CheckCircle2 size={13} className="text-emerald-600" /> Acknowledged
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-extrabold text-amber-700">
+            Pending
+          </span>
+        );
+      },
+    },
+    {
       key: "actions",
       header: "Actions",
-      width: "18%",
+      width: "14%",
       align: "right",
       render: (a) => (
         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -436,10 +566,32 @@ export default function Announcements() {
                 <div style={{ width: 6, background: color, flexShrink: 0 }} />
                 <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between relative">
                   <div>
-                    <div className="flex items-center gap-2 mb-3 flex-wrap pr-8">
-                      {a.isPinned && <div className="p-1 rounded bg-teal-500/10"><Pin size={14} color={TEAL} fill={TEAL} /></div>}
-                      <span className="rounded-full px-2.5 py-0.5 font-bold text-[10px] uppercase tracking-wider text-white" style={{ background: color }}>{a.type || "General"}</span>
-                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-500"><Calendar size={12} /> {formatDate(a.startDate) || "Recently"}</span>
+                    <div className="flex items-center gap-1.5 mb-3 flex-wrap pr-8">
+                      {a.isPinned && (
+                        <div className="p-1 rounded bg-teal-500/10" title="Pinned Announcement">
+                          <Pin size={14} color={TEAL} fill={TEAL} />
+                        </div>
+                      )}
+                      <span className="rounded-full px-2.5 py-0.5 font-bold text-[10px] uppercase tracking-wider text-white" style={{ background: color }}>
+                        {a.type || "General"}
+                      </span>
+                      {a.targetAudience?.targetType === "TARGETED" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-sky-800">
+                          <Target size={10} /> Targeted
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-slate-600">
+                          <Globe size={10} /> All Staff
+                        </span>
+                      )}
+                      {a.mandatoryAck && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-900">
+                          <ShieldAlert size={10} /> Mandatory
+                        </span>
+                      )}
+                      <span className="inline-flex items-center gap-1 text-xs text-slate-500 ml-auto">
+                        <Calendar size={12} /> {formatDate(a.startDate) || "Recently"}
+                      </span>
                     </div>
                     {!isEmployeeLogin ? (
                       <div className="absolute top-5 right-5">
@@ -510,7 +662,10 @@ export default function Announcements() {
                     ) : (
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col items-end">
-                          <span id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer">{a.acknowledgedBy?.length || 0} Staff</span>
+                          <button type="button" id={`hr-announcement-tracking-${a.id}`} data-testid={`hr-announcement-tracking-${a.id}`} onClick={() => setTracking(a)} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100/80 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-teal-50 hover:border-teal-200 hover:text-teal-800 transition-colors cursor-pointer">
+                            <CheckCircle2 size={13} className="text-slate-400" />
+                            {a.acknowledgedBy?.length || 0} Acknowledged
+                          </button>
                         </div>
                       </div>
                     )}
@@ -595,57 +750,77 @@ export default function Announcements() {
         onClose={() => setAddOpen(false)}
         testId="hr-announcements-create-modal"
         hideHeader
-        contentClassName="max-w-[820px] h-auto max-h-[calc(100dvh-1rem)] p-0 overflow-hidden flex flex-col max-[640px]:!h-[100dvh] max-[640px]:!max-h-none max-[640px]:!max-w-none max-[640px]:!rounded-none"
+        contentClassName="max-w-[880px] h-auto max-h-[calc(100dvh-1rem)] p-0 overflow-hidden flex flex-col max-[640px]:!h-[100dvh] max-[640px]:!max-h-none max-[640px]:!max-w-none max-[640px]:!rounded-none"
         bodyClassName="flex min-h-0 flex-none flex-col overflow-hidden sm:flex-1"
       >
-        <div className="max-[640px]:!p-4" style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", flexShrink: 0 }}>
+        <div className="max-[640px]:!p-4" style={{ background: "rgba(17,94,89,0.05)", padding: "24px 28px", flexShrink: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div><h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Create Announcement</h3><p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Post a new update for all employees to see.</p></div>
+            <div>
+              <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.5px", color: "var(--dark-text)", margin: 0 }}>Post New Announcement</h3>
+              <p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Broadcast updates company-wide or send targeted notices to specific employee groups.</p>
+            </div>
             <button id="hr-announcements-create-close" data-testid="hr-announcements-create-close" onClick={() => setAddOpen(false)} aria-label="Close create announcement modal" style={iconBtn}><X size={20} /></button>
           </div>
         </div>
-        <div className="max-[640px]:!grid-cols-1 max-[640px]:!content-start max-[640px]:!gap-4 max-[640px]:!p-4" style={{ padding: 28, display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: 24, overflowY: "auto", flex: 1 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+        <div className="p-6 space-y-5 overflow-y-auto flex-1 max-h-[72vh]">
+          {/* Section 1: Basic Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               id="hr-announcements-title"
               data-testid="hr-announcements-title"
-              label="Title"
-              placeholder="Enter a catchy title…"
+              label="Announcement Title"
+              placeholder="e.g. Q3 Safety Protocol Update"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
             <Select
               id="hr-announcements-category"
               testId="hr-announcements-category"
-              label="Category"
+              label="Category / Type"
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
               options={TYPES.map((t) => ({ value: t, label: t }))}
             />
-            <div className="max-[480px]:!grid-cols-1" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <DatePicker
-                id="hr-announcements-start-date"
-                label="Start Date"
-                value={form.startDate}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              />
-              <DatePicker
-                id="hr-announcements-end-date"
-                label="End Date (Optional)"
-                value={form.endDate}
-                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              />
-            </div>
-            <div className="max-[480px]:!items-start max-[480px]:!gap-4" style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 24, paddingTop: 4, flexWrap: "wrap" }}>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DatePicker
+              id="hr-announcements-start-date"
+              label="Validity Start Date"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+            />
+            <DatePicker
+              id="hr-announcements-end-date"
+              label="Validity End Date (Optional)"
+              value={form.endDate}
+              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+            />
+          </div>
+
+          <Textarea
+            id="hr-announcements-content"
+            data-testid="hr-announcements-content"
+            label="Announcement Content & Description"
+            placeholder="Write the full announcement text here..."
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={4}
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-4 p-3 rounded-xl border border-slate-200 bg-slate-50/50">
+            <div className="flex items-center gap-2">
               <Button
                 id="hr-announcements-attachment"
                 data-testid="hr-announcements-attachment"
                 type="button"
                 variant="outline"
-                icon={<Paperclip size={16} />}
+                size="sm"
+                icon={<Paperclip size={15} />}
                 onClick={() => attachmentInputRef.current?.click()}
               >
-                {attachments.length ? `${attachments.length} attachment${attachments.length === 1 ? "" : "s"} selected` : "Add Attachment"}
+                {attachments.length ? `${attachments.length} file${attachments.length === 1 ? "" : "s"} attached` : "Attach Files"}
               </Button>
               <input
                 ref={attachmentInputRef}
@@ -655,6 +830,9 @@ export default function Announcements() {
                 hidden
                 onChange={(event) => setAttachments(Array.from(event.target.files ?? []))}
               />
+            </div>
+
+            <div className="flex items-center gap-5">
               <Checkbox
                 id="hr-announcements-pin-top"
                 data-testid="hr-announcements-pin-top"
@@ -662,22 +840,203 @@ export default function Announcements() {
                 checked={form.isPinned}
                 onChange={(e) => setForm({ ...form, isPinned: e.target.checked })}
               />
+              <Checkbox
+                id="hr-announcements-mandatory-ack"
+                data-testid="hr-announcements-mandatory-ack"
+                label="Mandatory Acknowledgement"
+                checked={form.mandatoryAck}
+                onChange={(e) => setForm({ ...form, mandatoryAck: e.target.checked })}
+              />
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <Textarea
-              id="hr-announcements-content"
-              data-testid="hr-announcements-content"
-              label="Content"
-              placeholder="Write your announcement here…"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={8}
-            />
+
+          {/* Section 2: Audience Targeting Control Panel */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target size={16} className="text-teal-700" />
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800">Audience Targeting Control Panel</span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500">Define broadcast scope</span>
+            </div>
+
+            {/* Segmented Radio Buttons */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-200/70 p-1 rounded-xl">
+              <button
+                type="button"
+                id="hr-announcement-target-all"
+                data-testid="hr-announcement-target-all"
+                onClick={() => setForm({ ...form, targetType: "ALL" })}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer",
+                  form.targetType === "ALL"
+                    ? "bg-white text-slate-900 shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900 bg-transparent"
+                )}
+              >
+                <Globe size={15} /> 🌐 All Employees (Company-wide)
+              </button>
+
+              <button
+                type="button"
+                id="hr-announcement-target-groups"
+                data-testid="hr-announcement-target-groups"
+                onClick={() => setForm({ ...form, targetType: "TARGETED" })}
+                className={cn(
+                  "flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all border-0 cursor-pointer",
+                  form.targetType === "TARGETED"
+                    ? "bg-teal-700 text-white shadow-xs font-black"
+                    : "text-slate-600 hover:text-slate-900 bg-transparent"
+                )}
+              >
+                <Target size={15} /> 🎯 Targeted Groups (Segmented)
+              </button>
+            </div>
+
+            {/* Expanded Targeted Pickers */}
+            {form.targetType === "TARGETED" && (
+              <div className="space-y-4 pt-3 border-t border-slate-200">
+                {/* Employment Types */}
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Briefcase size={12} /> Employment Types
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {EMPLOYMENT_TYPES.map((type) => {
+                      const selected = form.targetEmploymentTypes.includes(type.value);
+                      return (
+                        <button
+                          key={type.value}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? form.targetEmploymentTypes.filter((t) => t !== type.value)
+                              : [...form.targetEmploymentTypes, type.value];
+                            setForm({ ...form, targetEmploymentTypes: next });
+                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer",
+                            selected
+                              ? "bg-teal-50 border-teal-300 text-teal-900 font-bold"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                          )}
+                        >
+                          {selected ? "✓ " : "+ "}{type.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Departments */}
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Building2 size={12} /> Departments
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DEPARTMENTS.map((dept) => {
+                      const selected = form.targetDepartmentUids.includes(dept.id);
+                      return (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? form.targetDepartmentUids.filter((d) => d !== dept.id)
+                              : [...form.targetDepartmentUids, dept.id];
+                            setForm({ ...form, targetDepartmentUids: next });
+                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer",
+                            selected
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-900 font-bold"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                          )}
+                        >
+                          {selected ? "✓ " : "+ "}{dept.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Designations / Roles */}
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <Users size={12} /> Designations / Roles
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DESIGNATIONS.map((desig) => {
+                      const selected = form.targetDesignationUids.includes(desig.id);
+                      return (
+                        <button
+                          key={desig.id}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? form.targetDesignationUids.filter((d) => d !== desig.id)
+                              : [...form.targetDesignationUids, desig.id];
+                            setForm({ ...form, targetDesignationUids: next });
+                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer",
+                            selected
+                              ? "bg-purple-50 border-purple-300 text-purple-900 font-bold"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                          )}
+                        >
+                          {selected ? "✓ " : "+ "}{desig.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Locations */}
+                <div>
+                  <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                    <MapPin size={12} /> Locations
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {LOCATIONS.map((loc) => {
+                      const selected = form.targetLocationUids.includes(loc.id);
+                      return (
+                        <button
+                          key={loc.id}
+                          type="button"
+                          onClick={() => {
+                            const next = selected
+                              ? form.targetLocationUids.filter((l) => l !== loc.id)
+                              : [...form.targetLocationUids, loc.id];
+                            setForm({ ...form, targetLocationUids: next });
+                          }}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer",
+                            selected
+                              ? "bg-amber-50 border-amber-300 text-amber-900 font-bold"
+                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                          )}
+                        >
+                          {selected ? "✓ " : "+ "}{loc.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Audience Summary Bar */}
+            <div className="rounded-lg bg-white border border-slate-200 p-2.5 text-xs font-semibold text-slate-700 flex items-center gap-2">
+              <span className="text-teal-700 font-extrabold shrink-0">Audience Summary:</span>
+              <span className="text-slate-600 truncate">{audienceSummary}</span>
+            </div>
           </div>
         </div>
-        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-        <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
+
+        {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
+
+        <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "16px 24px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, flexShrink: 0 }}>
           <Button
             id="hr-announcements-cancel"
             data-testid="hr-announcements-cancel"
@@ -777,4 +1136,3 @@ export default function Announcements() {
 
 const overlay: CSSProperties = { position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 };
 const modalBox: CSSProperties = { background: "var(--surface-bg)", borderRadius: 32, width: "100%", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", overflow: "hidden", maxHeight: "92vh" };
-const iconBtn: CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--light-text)" };
