@@ -8,6 +8,7 @@ import {
   InvoiceItem,
   FinanceCatalogOption,
   LocationOption,
+  SequenceDetailOption,
   DiscountOption,
   DiscountDetail,
   CouponOption,
@@ -31,6 +32,68 @@ import { useInvoiceAdjustmentDetails } from "./useInvoiceAdjustmentDetails";
 
 function toFinanceErrorMessage(error: unknown, fallbackMessage: string) {
   return getReadableApiError(error, fallbackMessage).message;
+}
+
+function readArrayPayload(value: any): any[] {
+  if (Array.isArray(value?.content)) return value.content;
+  if (Array.isArray(value?.data?.content)) return value.data.content;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value)) return value;
+  return [];
+}
+
+function mapSequenceDetailOptions(payload: any, locationUid: string): SequenceDetailOption[] {
+  const normalizedLocationUid = String(locationUid || "").trim();
+  const records = readArrayPayload(payload);
+  const invoiceSettings = records.filter((item: any) => {
+    const itemLocationUid = readString(item.locationUid, item.locationId);
+    const feature = readString(item.feature).toUpperCase();
+    const financeModule = readString(item.financeModule, item.featureModule).toUpperCase();
+
+    if (normalizedLocationUid && itemLocationUid && itemLocationUid !== normalizedLocationUid) {
+      return false;
+    }
+    if (feature && feature !== "FINANCE") {
+      return false;
+    }
+    return !financeModule || financeModule === "FINANCE_INVOICE";
+  });
+
+  return invoiceSettings.flatMap((item: any) => {
+    const details = Array.isArray(item.details) ? item.details : [];
+    if (details.length === 0) {
+      const uid = String(item.uid ?? item.sequenceDetailUid ?? "").trim();
+      if (!uid) {
+        return [];
+      }
+      const financeModule = String(item.financeModule ?? item.featureModule ?? "").trim();
+      return [{
+        value: uid,
+        label: financeModule || "Invoice Sequence",
+        isDefault: invoiceSettings.length === 1,
+      }];
+    }
+
+    return details
+      .map((detail: any, index: number) => {
+        const uid = String(detail.uid ?? detail.sequenceDetailUid ?? "").trim();
+        if (!uid) {
+          return null;
+        }
+        const prefix = String(detail.prefix ?? "").trim();
+        const suffix = String(detail.suffix ?? "").trim();
+        const isDefault = Boolean(detail.isDefault);
+        const parts = [prefix, suffix].filter(Boolean);
+        const baseLabel = parts.length ? parts.join(" / ") : `Sequence ${index + 1}`;
+
+        return {
+          value: uid,
+          label: isDefault ? `${baseLabel} (Default)` : baseLabel,
+          isDefault,
+        };
+      })
+      .filter(Boolean) as SequenceDetailOption[];
+  });
 }
 
 export function useFinanceInvoiceFormController() {
@@ -74,6 +137,8 @@ export function useFinanceInvoiceFormController() {
   const [categoryOptions, setCategoryOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [statusOptions, setStatusOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [locationOptions, setLocationOptions] = useState<LocationOption[]>([]);
+  const [sequenceDetailOptions, setSequenceDetailOptions] = useState<SequenceDetailOption[]>([]);
+  const [selectedSequenceDetailUid, setSelectedSequenceDetailUid] = useState("");
   const [consumerOptions, setConsumerOptions] = useState<ConsumerOption[]>([]);
   const [financeCatalogOptions, setFinanceCatalogOptions] = useState<FinanceCatalogOption[]>([]);
   const [discountOptions, setDiscountOptions] = useState<DiscountOption[]>([]);
@@ -218,39 +283,21 @@ export function useFinanceInvoiceFormController() {
   }, [invoiceTemplates, templateSearch]);
 
   const nextInvoiceRequest = useMemo(() => {
-    const locationRecord = (mfeProps.location ?? {}) as Record<string, unknown>;
     const accountRecord = (mfeProps.account ?? {}) as Record<string, unknown>;
 
     const tenantUid = readString(accountRecord.tenantUid, accountRecord.uid, accountRecord.id);
     const resolvedLocationUid = readString(
-      locationRecord.uid,
-      locationRecord.locationUid,
-      locationRecord.id,
-      locationRecord.locationId,
       locationId
     );
-    const storeUid = readString(
-      locationRecord.storeUid,
-      locationRecord.storeId,
-      accountRecord.storeUid,
-      accountRecord.storeId
-    );
-    const sequenceDetailUid = readString(
-      locationRecord.sequenceDetailUid,
-      locationRecord.invoiceSequenceDetailUid,
-      locationRecord.financeSequenceDetailUid,
-      accountRecord.sequenceDetailUid,
-      accountRecord.invoiceSequenceDetailUid,
-      accountRecord.financeSequenceDetailUid
-    );
+    const storeUid = readString(accountRecord.storeUid, accountRecord.storeId);
 
     return {
       tenantUid,
       locationUid: resolvedLocationUid,
       storeUid,
-      sequenceDetailUid,
+      sequenceDetailUid: selectedSequenceDetailUid,
     };
-  }, [locationId, mfeProps.account, mfeProps.location]);
+  }, [locationId, mfeProps.account, selectedSequenceDetailUid]);
 
   function resetItemBuilder() {
     setEditingItemId(null);
@@ -427,7 +474,7 @@ export function useFinanceInvoiceFormController() {
 
   function openSaveTemplateDialog() {
     setEditingTemplateUid("");
-    setTemplateNameInput(invoiceLabel.trim() || "Invoice Template");
+    setTemplateNameInput("");
     setShowSaveTemplateDialog(true);
     clearFormError();
   }
@@ -464,7 +511,28 @@ export function useFinanceInvoiceFormController() {
     setTemplateEditItems([]);
   }
 
-  function addTemplateEditItem() {
+  function addTemplateEditItem(input?: {
+    editingItemId?: string | null;
+    catalogValue?: string;
+    name?: string;
+    quantity?: number;
+    price?: number;
+  }) {
+    if (input?.name?.trim()) {
+      setTemplateEditItems((current) =>
+        saveInvoiceItem(current, {
+          editingItemId: input.editingItemId ?? null,
+          catalogValue: String(input.catalogValue ?? ""),
+          name: input.name,
+          quantity: Math.max(Number(input.quantity) || 1, 1),
+          price: Math.max(Number(input.price) || 0, 0),
+          date: todayIsoDate(),
+          catalogOptions: financeCatalogOptions,
+        })
+      );
+      return;
+    }
+
     setTemplateEditItems((current) => [
       ...current,
       {
@@ -540,7 +608,7 @@ export function useFinanceInvoiceFormController() {
       categoryOptions, categoryId, statusOptions, statusId,
       consumerName, consumerPhone, selectedConsumerOption, nextInvoiceRequest,
       invoiceNum, consumerUid, invoiceLabel, notesForCustomer,
-      referenceNo, notesForProvider, termsConditions, items,
+      referenceNo, notesForProvider, termsConditions, items, includeDetailList: true,
     });
   }
 
@@ -790,6 +858,44 @@ export function useFinanceInvoiceFormController() {
   }, [defaultLocationId, defaultLocationName, id, isEditing, preselectedConsumerUid]);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadSequenceDetails() {
+      if (!locationId) {
+        setSequenceDetailOptions([]);
+        setSelectedSequenceDetailUid("");
+        return;
+      }
+
+      try {
+        const response = await financeApi.sequenceSettings.list<any>({
+          location: locationId,
+        });
+        if (!active) return;
+        const nextOptions = mapSequenceDetailOptions(response.data, locationId);
+        setSequenceDetailOptions(nextOptions);
+        setSelectedSequenceDetailUid((current) => {
+          if (current && nextOptions.some((option) => option.value === current)) {
+            return current;
+          }
+          const defaultOption = nextOptions.find((option) => option.isDefault) ?? (nextOptions.length === 1 ? nextOptions[0] : null);
+          return defaultOption?.value || "";
+        });
+      } catch (error) {
+        if (!active) return;
+        console.error("[mfe-finance] Failed to load invoice sequence details", error);
+        setSequenceDetailOptions([]);
+        setSelectedSequenceDetailUid("");
+      }
+    }
+
+    void loadSequenceDetails();
+    return () => {
+      active = false;
+    };
+  }, [locationId]);
+
+  useEffect(() => {
     if (!selectedConsumerOption) {
       return;
     }
@@ -803,7 +909,7 @@ export function useFinanceInvoiceFormController() {
     let active = true;
 
     async function loadNextInvoiceNumber() {
-      if (isEditing || !locationId || invoiceNum) {
+      if (isEditing || !locationId || !selectedSequenceDetailUid || invoiceNum) {
         return;
       }
 
@@ -823,7 +929,7 @@ export function useFinanceInvoiceFormController() {
     return () => {
       active = false;
     };
-  }, [invoiceNum, isEditing, locationId, nextInvoiceRequest]);
+  }, [invoiceNum, isEditing, locationId, nextInvoiceRequest, selectedSequenceDetailUid]);
 
   async function handleCreateCategory() {
     if (!newCategoryName.trim()) {
@@ -1057,9 +1163,14 @@ export function useFinanceInvoiceFormController() {
   async function handleConfirmSaveTemplate() {
     const selectedCategoryOption = categoryOptions.find((option: any) => option.value === categoryId);
     const normalizedCategoryId = Number(selectedCategoryOption?.categoryId ?? categoryId);
+    const normalizedTemplateName = templateNameInput.trim();
 
-    if (!templateNameInput.trim()) {
+    if (!normalizedTemplateName) {
       reportFormError("Template name is required.");
+      return;
+    }
+    if (normalizedTemplateName.length > 25) {
+      reportFormError("Template name cannot exceed 25 characters.");
       return;
     }
     if (!Number.isFinite(normalizedCategoryId) || normalizedCategoryId <= 0) {
@@ -1070,7 +1181,7 @@ export function useFinanceInvoiceFormController() {
     setTemplateSaving(true);
     clearFormError();
     try {
-      const payload = buildInvoiceTemplatePayload(templateNameInput);
+      const payload = buildInvoiceTemplatePayload(normalizedTemplateName);
       if (editingTemplateUid) {
         await financeApi.invoices.updateTemplate(editingTemplateUid, payload);
       } else {
@@ -1117,12 +1228,17 @@ export function useFinanceInvoiceFormController() {
   async function handleUpdateTemplate() {
     const selectedCategoryOption = categoryOptions.find((option: any) => option.value === categoryId);
     const normalizedCategoryId = Number(selectedCategoryOption?.categoryId ?? categoryId);
+    const normalizedTemplateName = templateNameInput.trim();
 
     if (!editingTemplateUid) {
       return;
     }
-    if (!templateNameInput.trim()) {
+    if (!normalizedTemplateName) {
       reportFormError("Template name is required.");
+      return;
+    }
+    if (normalizedTemplateName.length > 25) {
+      reportFormError("Template name cannot exceed 25 characters.");
       return;
     }
     if (!Number.isFinite(normalizedCategoryId) || normalizedCategoryId <= 0) {
@@ -1133,7 +1249,7 @@ export function useFinanceInvoiceFormController() {
     setTemplateSaving(true);
     clearFormError();
     try {
-      await financeApi.invoices.updateTemplate(editingTemplateUid, createInvoiceTemplatePayload(templateNameInput, {
+      await financeApi.invoices.updateTemplate(editingTemplateUid, createInvoiceTemplatePayload(normalizedTemplateName, {
         locationId,
         categoryOptions,
         categoryId,
@@ -1263,7 +1379,7 @@ export function useFinanceInvoiceFormController() {
     setReferenceNo, invoiceDate, setInvoiceDate, dueDate, setDueDate, invoiceLabel, setInvoiceLabel, consumerUid,
     setConsumerUid, consumerName, setConsumerName, consumerPhone, setConsumerPhone, billedToAddress, setBilledToAddress, notesForProvider,
     setNotesForProvider, notesForCustomer, setNotesForCustomer, termsConditions, setTermsConditions, amount, setAmount, categoryOptions,
-    setCategoryOptions, statusOptions, setStatusOptions, locationOptions, setLocationOptions, consumerOptions, setConsumerOptions, financeCatalogOptions,
+    setCategoryOptions, statusOptions, setStatusOptions, locationOptions, setLocationOptions, sequenceDetailOptions, selectedSequenceDetailUid, setSelectedSequenceDetailUid, consumerOptions, setConsumerOptions, financeCatalogOptions,
     setFinanceCatalogOptions, discountOptions, setDiscountOptions, couponOptions, setCouponOptions, invoiceTemplates, setInvoiceTemplates, items,
     setItems, editingItemId, setEditingItemId, showItemBuilder, setShowItemBuilder, newItemCatalogValue, setNewItemCatalogValue, newItemName,
     setNewItemName, newItemQty, setNewItemQty, newItemPrice, setNewItemPrice, newItemDate, setNewItemDate, showCategoryDialog,

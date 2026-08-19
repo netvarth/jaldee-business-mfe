@@ -65,9 +65,21 @@ export function Popover({
       return;
     }
 
-    function handlePointerDown(event: globalThis.MouseEvent) {
-      const target = event.target as Node;
-      if (!popoverRef.current?.contains(target) && !contentRef.current?.contains(target)) {
+    function isEventInside(eventTarget: EventTarget | null, event?: Event) {
+      if (!eventTarget) {
+        return false;
+      }
+      const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+      if (path.length > 0) {
+        return path.includes(popoverRef.current as EventTarget) || path.includes(contentRef.current as EventTarget);
+      }
+      return Boolean(
+        popoverRef.current?.contains(eventTarget as Node) || contentRef.current?.contains(eventTarget as Node)
+      );
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!isEventInside(event.target, event)) {
         setOpenState(false);
       }
     }
@@ -78,11 +90,11 @@ export function Popover({
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isOpen]);
@@ -207,6 +219,8 @@ const PopoverContent = forwardRef<HTMLDivElement, {
     role="dialog"
     data-testid={`${testId}-content`}
     style={portal ? { top: portalPosition?.top ?? 0, left: portalPosition?.left ?? 0 } : undefined}
+    onPointerDown={(event) => event.stopPropagation()}
+    onClick={(event) => event.stopPropagation()}
     className={cn(
       portal ? "fixed z-[300]" : "absolute z-[150]",
       "min-w-[220px] rounded-xl border border-gray-200 bg-white p-3 shadow-lg",

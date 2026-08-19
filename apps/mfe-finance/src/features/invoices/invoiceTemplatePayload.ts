@@ -4,6 +4,8 @@ export function createInvoiceTemplatePayload(
     locationId,
     categoryOptions,
     categoryId,
+    statusOptions,
+    statusId,
     invoiceLabel,
     notesForProvider,
     notesForCustomer,
@@ -15,14 +17,30 @@ export function createInvoiceTemplatePayload(
   const selectedCategoryOption = Array.isArray(categoryOptions)
     ? categoryOptions.find((option: any) => option.value === categoryId)
     : null;
-  const normalizedCategoryId = Number(selectedCategoryOption?.categoryId ?? categoryId);
+  const selectedStatusOption = Array.isArray(statusOptions)
+    ? statusOptions.find((option: any) => option.value === statusId)
+    : null;
+  const normalizedCategoryUid = String(
+    selectedCategoryOption?.uid ??
+    selectedCategoryOption?.categoryUid ??
+    selectedCategoryOption?.value ??
+    categoryId ??
+    ""
+  ).trim();
+  const normalizedStatusUid = String(
+    selectedStatusOption?.uid ??
+    selectedStatusOption?.statusUid ??
+    selectedStatusOption?.value ??
+    statusId ??
+    ""
+  ).trim();
   const detailList = Array.isArray(items)
-    ? items.map((item: any) => ({
+    ? items
+      .filter((item: any) => String(item?.name ?? "").trim())
+      .map((item: any) => ({
         ...(item.itemUid ? { itemUid: String(item.itemUid) } : {}),
         itemType: item.itemType === "FINANCE_ITEM" ? "FINANCE_ITEM" : "ADHOC_ITEM",
-        ...(item.itemType === "FINANCE_ITEM"
-          ? { itemName: String(item.name || "").trim() }
-          : { itemName: String(item.name || "").trim() }),
+        itemName: String(item.name || "").trim(),
         quantity: Number(item.qty || 1),
         price: Number(item.price || 0),
       }))
@@ -33,15 +51,14 @@ export function createInvoiceTemplatePayload(
     feature: "FINANCE",
     featureModule: "FINANCE_INVOICE",
     templateName: templateName.trim(),
-    allowToUseOtherUsers: true,
+    allowToUseOtherUsers: false,
     ...(String(locationId ?? "").trim() ? { locationUid: String(locationId).trim() } : {}),
-    ...(Number.isFinite(normalizedCategoryId) && normalizedCategoryId > 0
-      ? { categoryId: normalizedCategoryId }
-      : {}),
+    ...(normalizedCategoryUid ? { categoryUid: normalizedCategoryUid } : {}),
+    ...(normalizedStatusUid ? { statusUid: normalizedStatusUid } : {}),
     ...(String(invoiceLabel ?? "").trim() ? { invoiceLabel: String(invoiceLabel).trim() } : {}),
     ...(String(notesForProvider ?? "").trim() ? { notesForProvider: String(notesForProvider).trim() } : {}),
     ...(String(notesForCustomer ?? "").trim() ? { notesForCustomer: String(notesForCustomer).trim() } : {}),
     ...(String(termsConditions ?? "").trim() ? { termsConditions: String(termsConditions).trim() } : {}),
-    ...(includeDetailList && detailList.length ? { detailList } : {}),
+    ...(includeDetailList !== false ? { detailList } : {}),
   };
 }

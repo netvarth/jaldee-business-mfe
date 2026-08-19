@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
 import {
   Button,
+  Dialog,
   Icon,
   SectionCard,
   Badge,
@@ -11,8 +11,54 @@ import { financeApi } from "../../lib/financeApi";
 import { formatCurrency } from "../../lib/financeData";
 import { PageShell } from "../../components/FinancePageLayout";
 
+type ExpenseUploadedDocument = {
+  caption?: string | null;
+  fileName?: string | null;
+  filePath?: string | null;
+  shortUrl?: string | null;
+  fileType?: string | null;
+  fileSize?: number | null;
+  fileUid?: string | null;
+  jaldeeDriveId?: string | null;
+};
+
+const LOCAL_DRIVE_BUCKET_BASE_URL = "https://msjaldeelocal.s3.ap-south-1.amazonaws.com";
+
+function formatFileSize(bytes?: number | null) {
+  if (!bytes || bytes <= 0) return "Size unavailable";
+  const units = ["Bytes", "KB", "MB", "GB"];
+  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** unitIndex;
+  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function isImageAttachment(attachment: ExpenseUploadedDocument) {
+  const type = String(attachment.fileType ?? "").toLowerCase();
+  const path = String(attachment.filePath ?? "").toLowerCase();
+  return type.includes("image") || /\.(png|jpe?g|webp|gif|bmp|jfif|svg)(\?|$)/.test(path);
+}
+
+function resolveAttachmentUrl(attachment: ExpenseUploadedDocument) {
+  const shortUrl = String(attachment.shortUrl ?? "").trim();
+  if (shortUrl) {
+    if (/^https?:\/\//i.test(shortUrl)) return shortUrl;
+    if (typeof window !== "undefined") return `${window.location.origin}${shortUrl.startsWith("/") ? shortUrl : `/${shortUrl}`}`;
+    return shortUrl;
+  }
+
+  const filePath = String(attachment.filePath ?? "").trim();
+  if (!filePath) return null;
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+
+  const bucketBase =
+    (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname))
+      ? LOCAL_DRIVE_BUCKET_BASE_URL
+      : (import.meta.env.VITE_CUSTOM_UPLOAD_S3_BASE_URL?.trim().replace(/\/$/, "") || LOCAL_DRIVE_BUCKET_BASE_URL);
+
+  return `${bucketBase}/${filePath.replace(/^\/+/, "")}`;
+}
+
 export default function ExpenseDetailPage() {
-  const mfeProps = useMFEProps();
   const navigate = useNavigate();
   const params = useParams();
   const id = params.id ?? "";
@@ -22,6 +68,7 @@ export default function ExpenseDetailPage() {
   const [statusName, setStatusName] = useState("");
   const [vendorName, setVendorName] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [previewAttachment, setPreviewAttachment] = useState<ExpenseUploadedDocument | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -169,6 +216,9 @@ export default function ExpenseDetailPage() {
   const amountPaidValue = Number(detail.amountPaid || detail.paidAmount || 0);
   const amountDueValue = Number(detail.amountDue || detail.balanceAmount || (amountValue - amountPaidValue));
   const bookedDate = detail.expenseDate || detail.paidDate || detail.createdDate;
+  const uploadedDocuments = Array.isArray(detail.uploadedDocuments)
+    ? (detail.uploadedDocuments as ExpenseUploadedDocument[])
+    : [];
   const formattedDate = bookedDate
     ? new Date(bookedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "-";
@@ -312,6 +362,64 @@ export default function ExpenseDetailPage() {
               </div>
             </dl>
           </SectionCard>
+
+          <SectionCard title="Uploaded Documents" className="border-slate-200 shadow-sm">
+            {uploadedDocuments.length ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {uploadedDocuments.map((attachment, index) => {
+                  const fileName = attachment.fileName || attachment.caption || `Attachment ${index + 1}`;
+                  const href = resolveAttachmentUrl(attachment);
+                  const image = isImageAttachment(attachment) && href;
+
+                  return (
+                    <button
+                      type="button"
+                      key={`${attachment.fileUid || attachment.jaldeeDriveId || fileName}-${index}`}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-200 hover:shadow-md"
+                      onClick={() => {
+                        if (!href || typeof window === "undefined") return;
+                        if (image) {
+                          setPreviewAttachment(attachment);
+                          return;
+                        }
+                        window.open(href, "_blank", "noopener,noreferrer");
+                      }}
+                      disabled={!href}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-indigo-600">
+                          {image ? (
+                            <img src={href} alt={fileName} className="h-full w-full object-cover" />
+                          ) : (
+                            <Icon name="folder" className="h-6 w-6" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div>
+                            <p className="truncate text-sm font-semibold text-slate-900" title={fileName}>
+                              {fileName}
+                            </p>
+                            <p className="text-xs font-semibold text-slate-400">
+                              {attachment.fileType || "Unknown type"}{" \u00B7 "}{formatFileSize(attachment.fileSize)}
+                            </p>
+                          </div>
+                          {!href ? (
+                            <span className="inline-flex rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-600">
+                              Preview unavailable
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm font-semibold text-slate-500">
+                No uploaded documents for this expense record.
+              </div>
+            )}
+          </SectionCard>
         </div>
 
         {/* Sidebar Sections */}
@@ -367,35 +475,35 @@ export default function ExpenseDetailPage() {
               </div>
             </SectionCard>
           )}
-
-          {/* Uploaded Documents Card */}
-          {Array.isArray(detail.uploadedDocuments) && detail.uploadedDocuments.length > 0 ? (
-            <SectionCard title="Uploaded Documents / Attachments" className="border-slate-200 shadow-sm">
-              <div className="grid gap-2">
-                {detail.uploadedDocuments.map((attachment: any, index: number) => {
-                  const title = String(attachment?.fileName || attachment?.caption || `Attachment ${index + 1}`);
-                  const fileUrl = String(attachment?.shortUrl || attachment?.filePath || attachment?.url || "").trim();
-                  return (
-                    <div key={attachment?.fileUid || `${title}-${index}`} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-sm">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 font-bold uppercase text-xs">
-                          {title.split(".").pop()?.slice(0, 4) || "FILE"}
-                        </div>
-                        <div className="truncate font-medium text-slate-800">{title}</div>
-                      </div>
-                      {fileUrl && (
-                        <a href={fileUrl} target="_blank" rel="noreferrer" className="shrink-0 font-semibold text-indigo-600 hover:text-indigo-800 text-xs">
-                          View / Download
-                        </a>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </SectionCard>
-          ) : null}
         </div>
       </div>
+
+      <Dialog
+        open={!!previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        title={previewAttachment?.fileName || previewAttachment?.caption || "Document preview"}
+        size="lg"
+      >
+        {previewAttachment ? (
+          <div className="flex flex-col items-center gap-4">
+            <img
+              src={resolveAttachmentUrl(previewAttachment) || ""}
+              alt={previewAttachment.fileName || previewAttachment.caption || "Document preview"}
+              className="max-h-[70vh] max-w-full rounded-xl object-contain"
+            />
+            {resolveAttachmentUrl(previewAttachment) ? (
+              <a
+                href={resolveAttachmentUrl(previewAttachment) || undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center rounded-lg bg-[var(--primary-color)] px-4 text-sm font-bold text-white no-underline"
+              >
+                Open original
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </Dialog>
     </PageShell>
   );
 }

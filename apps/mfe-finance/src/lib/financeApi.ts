@@ -21,6 +21,9 @@ function get<T>(url: string, params?: ApiFilter): ApiResponse<T> {
 function post<T>(url: string, data?: unknown): ApiResponse<T> {
   return getActiveApi().post<T>(url, data);
 }
+function postWithParams<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
+  return getActiveApi().post<T>(url, data, params ? { params } : undefined);
+}
 function put<T>(url: string, data?: unknown, params?: ApiFilter): ApiResponse<T> {
   return getActiveApi().put<T>(url, data, params ? { params } : undefined);
 }
@@ -148,15 +151,15 @@ function buildTenantApiUrl(path: string) {
 const TENANT_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/category"); const TENANT_CATEGORY_SEARCH_ENDPOINT = `${TENANT_CATEGORY_ENDPOINT}/search`;
 const TENANT_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/status"); const TENANT_STATUS_SEARCH_ENDPOINT = `${TENANT_STATUS_ENDPOINT}/search`;
 const TENANT_VENDOR_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor"); const TENANT_VENDOR_SEARCH_ENDPOINT = `${TENANT_VENDOR_ENDPOINT}/search`;
-const TENANT_VENDOR_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/category"); const TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT = `${TENANT_VENDOR_CATEGORY_ENDPOINT}/search`;
+const TENANT_VENDOR_CATEGORY_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/category"); const TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT = `${TENANT_VENDOR_CATEGORY_ENDPOINT}/search`; const TENANT_VENDOR_CATEGORY_SEARCH_SCHEMA_ENDPOINT = `${TENANT_VENDOR_CATEGORY_SEARCH_ENDPOINT}/schema`;
 const TENANT_VENDOR_STATUS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/vendor/status"); const TENANT_VENDOR_STATUS_SEARCH_ENDPOINT = `${TENANT_VENDOR_STATUS_ENDPOINT}/search`;
-const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item"); const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
+const TENANT_ITEM_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/item"); const TENANT_ITEM_SEARCH_ENDPOINT = `${TENANT_ITEM_ENDPOINT}/search`; const TENANT_PAYMENTS_IN_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-in");
 const TENANT_PAYMENTS_OUT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payments-out"); const TENANT_PAYMENTS_IN_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/search`;
 const TENANT_PAYMENTS_IN_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/count`; const TENANT_PAYMENTS_OUT_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/search`;
 const TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_OUT_ENDPOINT}/cashReserve`; const TENANT_PAYMENTS_OUT_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_OUT_CASH_RESERVE_ENDPOINT}/search`;
 const TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT = `${TENANT_PAYMENTS_IN_ENDPOINT}/cashReserve`; const TENANT_PAYMENTS_IN_CASH_RESERVE_SEARCH_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/search`;
 const TENANT_PAYMENTS_IN_CASH_RESERVE_COUNT_ENDPOINT = `${TENANT_PAYMENTS_IN_CASH_RESERVE_ENDPOINT}/count`;
-const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice"); const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`;
+const TENANT_INVOICE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice"); const TENANT_INVOICE_SEARCH_ENDPOINT = `${TENANT_INVOICE_ENDPOINT}/search`; const TENANT_INVOICE_SEARCH_SCHEMA_ENDPOINT = `${TENANT_INVOICE_SEARCH_ENDPOINT}/schema`;
 const TENANT_INVOICE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/templates"); const TENANT_INVOICE_PAYMENT_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/invoice/payment");
 const TENANT_SEQUENCE_TEMPLATE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/template"); const TENANT_SEQUENCE_TEMPLATE_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_TEMPLATE_ENDPOINT}/search`;
 const TENANT_SEQUENCE_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/sequence/settings"); const TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT = `${TENANT_SEQUENCE_SETTINGS_ENDPOINT}/search`;
@@ -164,7 +167,7 @@ const TENANT_EXPENSES_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tena
 const TENANT_CASH_BALANCE_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/payment/cash-balance"); const TENANT_AUDIT_LOG_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/audit-logs");
 const TENANT_AUDIT_LOG_SEARCH_ENDPOINT = `${TENANT_AUDIT_LOG_ENDPOINT}/search`; const TENANT_SETTINGS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/settings");
 const TENANT_CONSUMER_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/consumer"); const TENANT_CONSUMER_SEARCH_ENDPOINT = `${TENANT_CONSUMER_ENDPOINT}/search`;
-const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts"); const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`;
+const TENANT_DISCOUNTS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/discounts"); const TENANT_DISCOUNTS_SEARCH_ENDPOINT = `${TENANT_DISCOUNTS_ENDPOINT}/search`; const TENANT_DISCOUNTS_SEARCH_SCHEMA_ENDPOINT = `${TENANT_DISCOUNTS_SEARCH_ENDPOINT}/schema`;
 const TENANT_COUPONS_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/coupons"); const TENANT_COUPONS_SEARCH_ENDPOINT = `${TENANT_COUPONS_ENDPOINT}/search`;
 const TENANT_TAX_ENDPOINT = buildTenantApiUrl("/finance-service/v1/api/tenant/tax"); const TENANT_TAX_SEARCH_ENDPOINT = `${TENANT_TAX_ENDPOINT}/search`;
 const TENANT_LOCATIONS_ENDPOINT = buildTenantApiUrl("/base-service/v1/api/tenant/locations");
@@ -215,6 +218,9 @@ export const financeApi = {
     },
     search<T = unknown>(data: unknown) {
       return post<T>(TENANT_VENDOR_SEARCH_ENDPOINT, data);
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(TENANT_VENDOR_CATEGORY_SEARCH_SCHEMA_ENDPOINT);
     },
     detail<T = unknown>(id: string) {
       return get<T>(`${TENANT_VENDOR_ENDPOINT}/${id}`);
@@ -412,6 +418,9 @@ export const financeApi = {
   },
   invoices: {
     ...invoices,
+    searchSchema<T = unknown>() {
+      return get<T>(TENANT_INVOICE_SEARCH_SCHEMA_ENDPOINT);
+    },
     // Compatibility aliases for callers that still use the legacy *General names.
     // Invoice listing is served by the dedicated POST /search route and uses
     // Spring Pageable, so translate from/count -> page/size.
@@ -719,7 +728,13 @@ export const financeApi = {
   },
   items: {
     list<T = unknown>(filter: ApiFilter = {}) {
-      return get<T>(TENANT_ITEM_ENDPOINT, filter);
+      return post<T>(
+        TENANT_ITEM_SEARCH_ENDPOINT,
+        toTenantSearchBody(filter, { defaultSort: [{ field: "createdAt", direction: "DESC" }] })
+      );
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(`${TENANT_ITEM_SEARCH_ENDPOINT}/schema`);
     },
     detail<T = unknown>(uid: string) {
       return get<T>(`${TENANT_ITEM_ENDPOINT}/${uid}`);
@@ -759,6 +774,10 @@ export const financeApi = {
   },
   sequenceSettings: {
     list<T = unknown>(filter: ApiFilter = {}) {
+      const location = String(filter.location ?? filter.locationUid ?? filter.locationId ?? "").trim();
+      if (location) {
+        return postWithParams<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, {}, { location });
+      }
       return post<T>(TENANT_SEQUENCE_SETTINGS_SEARCH_ENDPOINT, filter);
     },
     detail<T = unknown>(uid: string) {
@@ -777,6 +796,9 @@ export const financeApi = {
   discounts: {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_DISCOUNTS_SEARCH_ENDPOINT, filter);
+    },
+    searchSchema<T = unknown>() {
+      return get<T>(TENANT_DISCOUNTS_SEARCH_SCHEMA_ENDPOINT);
     },
     listBill<T = unknown>() {
       return get<T>("provider/bill/discounts");

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMFEProps } from "@jaldee/auth-context";
 import {
@@ -46,7 +46,7 @@ export default function FinanceInvoiceForm() {
     setReferenceNo, invoiceDate, setInvoiceDate, dueDate, setDueDate, invoiceLabel, setInvoiceLabel, consumerUid,
     setConsumerUid, consumerName, setConsumerName, consumerPhone, setConsumerPhone, billedToAddress, setBilledToAddress, notesForProvider,
     setNotesForProvider, notesForCustomer, setNotesForCustomer, termsConditions, setTermsConditions, amount, setAmount, categoryOptions,
-    setCategoryOptions, statusOptions, setStatusOptions, locationOptions, setLocationOptions, consumerOptions, setConsumerOptions, financeCatalogOptions,
+    setCategoryOptions, statusOptions, setStatusOptions, locationOptions, setLocationOptions, sequenceDetailOptions, selectedSequenceDetailUid, setSelectedSequenceDetailUid, consumerOptions, setConsumerOptions, financeCatalogOptions,
     setFinanceCatalogOptions, discountOptions, setDiscountOptions, couponOptions, setCouponOptions, invoiceTemplates, setInvoiceTemplates, items,
     setItems, editingItemId, setEditingItemId, showItemBuilder, setShowItemBuilder, newItemCatalogValue, setNewItemCatalogValue, newItemName,
     setNewItemName, newItemQty, setNewItemQty, newItemPrice, setNewItemPrice, newItemDate, setNewItemDate, showCategoryDialog,
@@ -63,15 +63,100 @@ export default function FinanceInvoiceForm() {
     openNewItemBuilder, openItemEditor, handleSaveItem, handleDeleteItem, resetDiscountDialog, loadDiscountOptions, loadCouponOptions, loadInvoiceTemplates, handleDiscountChange,
     handleInvoiceDiscountChange, handleCouponChange, openDiscountDialog, openInvoiceDiscountDialog, openCouponDialog, openTemplateChooser, openSaveTemplateDialog, resetInvoiceDiscountDialog,
     resetCouponDialog, buildInvoiceTemplatePayload, loadInvoiceDetail, handleCreateCategory, handleApplyItemDiscount, handleRemoveItemDiscount, handleApplyInvoiceDiscount, handleApplyCoupon,
-    handleConfirmSaveTemplate, openEditTemplateDialog, closeEditTemplateDialog, addTemplateEditItem, updateTemplateEditItem, removeTemplateEditItem, handleUpdateTemplate, openDeleteTemplateDialog, resetDeleteTemplateDialog, handleDeleteTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
+    handleConfirmSaveTemplate, openEditTemplateDialog, closeEditTemplateDialog, addTemplateEditItem, removeTemplateEditItem, handleUpdateTemplate, openDeleteTemplateDialog, resetDeleteTemplateDialog, handleDeleteTemplate, handleUseTemplate, handlePreviewTemplate, handleSubmit,
     invoiceDiscount, invoiceCoupon, invoiceTotalAmount, invoiceNetTotal, invoiceAmountDue, invoiceTotalDiscount, invoiceTotalCoupon, invoiceTotalTax,
     handleRemoveInvoiceDiscount, handleRemoveInvoiceCoupon,
   } = useFinanceInvoiceFormController();
+  const [templateChooserPage, setTemplateChooserPage] = useState(1);
+  const [templateDraftMode, setTemplateDraftMode] = useState<"idle" | "add" | "edit">("idle");
+  const [templateDraftEditingItemId, setTemplateDraftEditingItemId] = useState("");
+  const [templateDraftCatalogValue, setTemplateDraftCatalogValue] = useState("");
+  const [templateDraftQty, setTemplateDraftQty] = useState(1);
+  const [templateDraftPrice, setTemplateDraftPrice] = useState(0);
+  const [isTemplateItemDropdownOpen, setIsTemplateItemDropdownOpen] = useState(false);
+  const [showBillingAddress, setShowBillingAddress] = useState(Boolean(String(billedToAddress || "").trim()));
+  const templateItemDropdownRef = useRef<HTMLDivElement | null>(null);
+  const templateChooserPageSize = 10;
   const previewTemplateDetails = Array.isArray(previewTemplate?.detailList)
     ? previewTemplate.detailList
     : Array.isArray(previewTemplate?.details)
       ? previewTemplate.details
       : [];
+  const previewTemplateSubject = String(previewTemplate?.invoiceLabel ?? previewTemplate?.subject ?? "");
+  const previewTemplateNotesForProvider = String(
+    previewTemplate?.notesForProvider ?? previewTemplate?.notes ?? previewTemplate?.privateNote ?? ""
+  );
+  const previewTemplateNotesForCustomer = String(
+    previewTemplate?.notesForCustomer ?? previewTemplate?.customerNote ?? previewTemplate?.sharedNote ?? ""
+  );
+  const previewTemplateTermsConditions = String(
+    previewTemplate?.termsConditions ?? previewTemplate?.termsAndConditions ?? ""
+  );
+  const templateChooserTotalPages = Math.max(1, Math.ceil(filteredInvoiceTemplates.length / templateChooserPageSize));
+  const paginatedInvoiceTemplates = useMemo(
+    () => filteredInvoiceTemplates.slice((templateChooserPage - 1) * templateChooserPageSize, templateChooserPage * templateChooserPageSize),
+    [filteredInvoiceTemplates, templateChooserPage]
+  );
+  const selectedTemplateDraftOption = useMemo(
+    () => financeCatalogOptions.find((option) => option.value === templateDraftCatalogValue),
+    [financeCatalogOptions, templateDraftCatalogValue]
+  );
+  const financeCatalogNameOptions = useMemo(
+    () => financeCatalogOptions.map((option) => ({
+      value: option.value,
+      label: option.label,
+    })),
+    [financeCatalogOptions]
+  );
+  const templateItemColumns = "minmax(0,1.8fr) 90px 110px 110px 90px";
+  const templateDraftColumns = "minmax(0,1.8fr) 90px 110px 110px 90px";
+
+  useEffect(() => {
+    setTemplateChooserPage(1);
+  }, [templateSearch, showTemplateChooser]);
+
+  useEffect(() => {
+    if (!showEditTemplateDialog) {
+      setTemplateDraftMode("idle");
+      setTemplateDraftEditingItemId("");
+      setTemplateDraftCatalogValue("");
+      setTemplateDraftQty(1);
+      setTemplateDraftPrice(0);
+    }
+  }, [showEditTemplateDialog]);
+
+  useEffect(() => {
+    if (!isTemplateItemDropdownOpen) {
+      return;
+    }
+
+    function handleOutsidePointerDown(event: PointerEvent) {
+      const target = event.target as Node | null;
+      if (!target) {
+        return;
+      }
+      if (!templateItemDropdownRef.current?.contains(target)) {
+        setIsTemplateItemDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, true);
+    };
+  }, [isTemplateItemDropdownOpen]);
+
+  useEffect(() => {
+    if (templateChooserPage > templateChooserTotalPages) {
+      setTemplateChooserPage(templateChooserTotalPages);
+    }
+  }, [templateChooserPage, templateChooserTotalPages]);
+
+  useEffect(() => {
+    if (String(billedToAddress || "").trim()) {
+      setShowBillingAddress(true);
+    }
+  }, [billedToAddress]);
 
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Loading invoice form...</div>;
@@ -113,16 +198,22 @@ export default function FinanceInvoiceForm() {
               <Input label="Customer Phone" value={consumerPhone} onChange={(event) => setConsumerPhone(event.target.value)} />
             </div>
 
-            <button type="button" className="w-fit text-sm font-semibold text-indigo-700">
-              + Billing Address
-            </button>
-
-            <Textarea
-              label="Billing Address"
-              value={billedToAddress}
-              onChange={(event) => setBilledToAddress(event.target.value)}
-              placeholder="Add customer billing address"
-            />
+            {!showBillingAddress ? (
+              <button
+                type="button"
+                className="w-fit text-sm font-semibold text-[var(--color-primary)]"
+                onClick={() => setShowBillingAddress(true)}
+              >
+                + Billing Address
+              </button>
+            ) : (
+              <Textarea
+                label="Billing Address"
+                value={billedToAddress}
+                onChange={(event) => setBilledToAddress(event.target.value)}
+                placeholder="Add customer billing address"
+              />
+            )}
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="flex flex-col gap-1.5">
@@ -151,10 +242,29 @@ export default function FinanceInvoiceForm() {
                 onChange={(event) => {
                   setLocationId(event.target.value);
                   if (!isEditing) {
+                    setSelectedSequenceDetailUid("");
                     setInvoiceNum("");
                   }
                 }}
                 options={[{ value: "", label: "Select location" }, ...locationOptions]}
+              />
+
+              <Select
+                label="Sequence Detail"
+                value={selectedSequenceDetailUid}
+                onChange={(event) => {
+                  setSelectedSequenceDetailUid(event.target.value);
+                  if (!isEditing) {
+                    setInvoiceNum("");
+                  }
+                }}
+                options={[
+                  {
+                    value: "",
+                    label: sequenceDetailOptions.length ? "Select sequence detail" : "No sequence details available",
+                  },
+                  ...sequenceDetailOptions,
+                ]}
               />
 
               <Input label="Invoice#" value={invoiceNum} onChange={(event) => setInvoiceNum(event.target.value)} />
@@ -166,7 +276,7 @@ export default function FinanceInvoiceForm() {
 
             {invoiceTemplates.length > 0 ? (
               <div className="flex justify-start">
-                <Button type="button" variant="outline" data-testid="finance-invoice-template-choose" onClick={() => void openTemplateChooser()}>
+                <Button type="button" data-testid="finance-invoice-template-choose" onClick={() => void openTemplateChooser()}>
                   Choose Invoice Template
                 </Button>
               </div>
@@ -480,7 +590,7 @@ export default function FinanceInvoiceForm() {
                       placeholder="Choose Procedure/Item"
                       searchPlaceholder="Search finance items"
                       emptyMessage="No matching finance item found"
-                      options={financeCatalogOptions}
+                      options={financeCatalogNameOptions}
                       value={newItemCatalogValue}
                       onValueChange={(value) => {
                         setNewItemCatalogValue(value);
@@ -518,8 +628,7 @@ export default function FinanceInvoiceForm() {
 
               <Button
                 type="button"
-                variant="outline"
-                className="border-indigo-600 text-indigo-700 hover:bg-indigo-50"
+                className="px-4"
                 onClick={openNewItemBuilder}
               >
                 Add Procedure/Item
@@ -608,10 +717,10 @@ export default function FinanceInvoiceForm() {
                   <div className="col-span-3 border-b border-slate-200/60 my-1" />
 
                   {/* Amount Due Card */}
-                  <div className="col-span-3 rounded-lg bg-indigo-50/50 border border-indigo-100 p-3.5 mt-2">
+                  <div className="col-span-3 mt-2 rounded-lg border border-[color:var(--color-primary-soft,#dbeafe)] bg-[color:var(--color-primary-softest,#eff6ff)] p-3.5">
                     <div className="grid grid-cols-[1fr_auto_28px] items-center">
-                      <span className="text-base font-bold text-indigo-900">Amount Due</span>
-                      <span className="text-lg font-extrabold text-indigo-700 text-right">{formatCurrency(invoiceAmountDue)}</span>
+                      <span className="text-base font-bold text-[var(--color-primary)]">Amount Due</span>
+                      <span className="text-lg font-extrabold text-[var(--color-primary)] text-right">{formatCurrency(invoiceAmountDue)}</span>
                       <div className="w-7" />
                     </div>
                   </div>
@@ -842,8 +951,9 @@ export default function FinanceInvoiceForm() {
           <Input
             label="Template Name *"
             value={templateNameInput}
-            onChange={(event) => setTemplateNameInput(event.target.value)}
+            onChange={(event) => setTemplateNameInput(event.target.value.slice(0, 25))}
             placeholder="Enter template name"
+            maxLength={25}
           />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setShowSaveTemplateDialog(false)}>
@@ -856,299 +966,503 @@ export default function FinanceInvoiceForm() {
         </div>
       </Dialog>
 
-      <Dialog open={showTemplateChooser} onClose={() => setShowTemplateChooser(false)} title={`Invoice Templates (${invoiceTemplates.length})`} size="md">
+      <Dialog open={showTemplateChooser} onClose={() => setShowTemplateChooser(false)} title={`Invoice Templates (${invoiceTemplates.length})`} size="lg">
         <div className="grid gap-5 pt-2">
-          <div className="flex items-end gap-0">
-            <div className="flex-1">
-              <Input
-                label="Search Template"
-                value={templateSearch}
-                onChange={(event) => setTemplateSearch(event.target.value)}
-                placeholder="Search Template"
-              />
-            </div>
+          <div className="flex items-center gap-0">
+            <Input
+              label=""
+              value={templateSearch}
+              onChange={(event) => setTemplateSearch(event.target.value)}
+              placeholder="Search Template"
+              containerClassName="flex-1"
+              className="rounded-r-none border-r-0"
+            />
             <Button
               type="button"
-              className="mb-px h-[38px] rounded-l-none px-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="h-[38px] rounded-l-none px-5 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]"
               aria-label="Search template"
             >
               <Icon name="search" className="h-4 w-4" />
             </Button>
           </div>
-          
-          <div className="rounded-xl border border-slate-200 bg-white max-h-[360px] overflow-y-auto divide-y divide-slate-100 shadow-sm">
-            {templateLoading ? (
-              <div className="p-8 text-center text-slate-500">Loading templates...</div>
-            ) : filteredInvoiceTemplates.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">No templates found.</div>
-            ) : (
-              filteredInvoiceTemplates.map((template) => (
-                <div key={template.uid} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50/50 transition">
-                  <span className="font-semibold text-slate-800 text-sm truncate pr-2" title={template.templateName}>
-                    {template.templateName}
-                  </span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => void handleUseTemplate(template.uid)}
-                    >
-                      Use Template
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void handlePreviewTemplate(template.uid)}
-                    >
-                      View
-                    </Button>
-                    <Popover
-                      placement="bottom"
-                      align="end"
-                      trigger={(
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          aria-label={`Actions for ${template.templateName}`}
-                        >
-                          <Icon name="moreVertical" className="h-4 w-4" />
-                        </Button>
-                      )}
-                    >
-                      <div className="grid min-w-[160px] p-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start font-normal"
-                          onClick={() => void openEditTemplateDialog(template.uid)}
-                        >
-                          Edit Template
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="justify-start font-normal text-rose-600"
-                          onClick={() => openDeleteTemplateDialog(template.uid, template.templateName)}
-                        >
-                          Delete Template
-                        </Button>
-                      </div>
-                    </Popover>
+
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="grid grid-cols-[minmax(0,1fr)_340px] border-b border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-800">
+              <div>Template Name</div>
+              <div>Actions</div>
+            </div>
+
+            <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
+              {templateLoading ? (
+                <div className="p-8 text-center text-slate-500">Loading templates...</div>
+              ) : filteredInvoiceTemplates.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">No templates found.</div>
+              ) : (
+                paginatedInvoiceTemplates.map((template) => (
+                  <div
+                    key={template.uid}
+                    className="grid grid-cols-[minmax(0,1fr)_340px] items-center px-4 py-3 hover:bg-slate-50/50 transition"
+                  >
+                    <div className="truncate pr-4 text-sm font-medium text-slate-800" title={template.templateName}>
+                      {template.templateName}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 min-w-[118px] rounded-md bg-[var(--color-primary)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-primary-hover)]"
+                        onClick={() => void handleUseTemplate(template.uid)}
+                      >
+                        Use Template
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-9 min-w-[62px] rounded-md border-slate-200 px-4 text-sm font-medium text-slate-700"
+                        onClick={() => void handlePreviewTemplate(template.uid)}
+                      >
+                        View
+                      </Button>
+                      <Popover
+                        placement="bottom"
+                        align="end"
+                        trigger={(
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-9 w-14 rounded-md border-slate-200 p-0"
+                            aria-label={`Actions for ${template.templateName}`}
+                          >
+                            <Icon name="moreVertical" className="h-4 w-4 rotate-90" />
+                          </Button>
+                        )}
+                      >
+                        <div className="grid min-w-[180px] p-1.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="justify-start font-normal text-slate-700"
+                            onClick={() => void openEditTemplateDialog(template.uid)}
+                            icon={<Icon name="pencil" className="h-4 w-4 text-slate-500" />}
+                          >
+                            Edit Template
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="justify-start font-normal text-slate-700"
+                            onClick={() => openDeleteTemplateDialog(template.uid, template.templateName)}
+                            icon={<Icon name="trash" className="h-4 w-4 text-slate-500" />}
+                          >
+                            Delete Template
+                          </Button>
+                        </div>
+                      </Popover>
+                    </div>
                   </div>
+                ))
+              )}
+            </div>
+
+            {!templateLoading && filteredInvoiceTemplates.length > 0 ? (
+              <div className="flex items-center justify-center gap-2 border-t border-slate-200 px-4 py-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 min-w-[40px] px-2 text-slate-500"
+                  onClick={() => setTemplateChooserPage(1)}
+                  disabled={templateChooserPage === 1}
+                >
+                  {"<<"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 min-w-[40px] px-2 text-slate-500"
+                  onClick={() => setTemplateChooserPage((current) => Math.max(1, current - 1))}
+                  disabled={templateChooserPage === 1}
+                >
+                  {"<"}
+                </Button>
+                <div className="flex h-10 min-w-[40px] items-center justify-center rounded-full bg-indigo-50 px-4 text-sm font-semibold text-indigo-700">
+                  {templateChooserPage}
                 </div>
-              ))
-            )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 min-w-[40px] px-2 text-slate-500"
+                  onClick={() => setTemplateChooserPage((current) => Math.min(templateChooserTotalPages, current + 1))}
+                  disabled={templateChooserPage >= templateChooserTotalPages}
+                >
+                  {">"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 min-w-[40px] px-2 text-slate-500"
+                  onClick={() => setTemplateChooserPage(templateChooserTotalPages)}
+                  disabled={templateChooserPage >= templateChooserTotalPages}
+                >
+                  {">>"}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
       </Dialog>
 
-      <Dialog open={showTemplatePreviewDialog} onClose={() => setShowTemplatePreviewDialog(false)} title={previewTemplate?.templateName || "Template Preview"} size="lg">
-        <div className="grid gap-4 pt-2">
-          <Input label="Template Name" value={String(previewTemplate?.templateName ?? "")} disabled />
-          <Input label="Subject" value={String(previewTemplate?.invoiceLabel ?? "")} disabled />
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-sm font-semibold text-slate-700">
-                  <th className="px-4 py-3">Procedure/Item</th>
-                  <th className="px-4 py-3 text-center">Qty</th>
-                  <th className="px-4 py-3 text-right">Price</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {previewTemplateDetails.length > 0 ? (
-                  previewTemplateDetails.map((detail: any, index: number) => (
-                    <tr key={detail.uid ?? `preview-detail-${index}`}>
-                      <td className="px-4 py-3">{String(detail.itemName ?? detail.name ?? "-")}</td>
-                      <td className="px-4 py-3 text-center">{Number(detail.quantity ?? 0)}</td>
-                      <td className="px-4 py-3 text-right">{formatCurrency(Number(detail.price ?? detail.netRate ?? 0))}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-slate-500">No template items found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void openEditTemplateDialog(String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? ""))}
-              disabled={!String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? "")}
-            >
-              Edit Template
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="border-rose-200 text-rose-600 hover:bg-rose-50"
-              onClick={() =>
-                openDeleteTemplateDialog(
-                  String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? ""),
-                  String(previewTemplate?.templateName ?? "Template")
-                )
-              }
-              disabled={!String(previewTemplate?.uid ?? previewTemplate?.templateUid ?? "")}
-            >
-              Delete Template
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setShowTemplatePreviewDialog(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </div>
-      </Dialog>
+      <Dialog open={showTemplatePreviewDialog} onClose={() => setShowTemplatePreviewDialog(false)} title={previewTemplate?.templateName || "Template"} size="lg">
+        <div className="max-h-[82vh] overflow-y-auto pt-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            <div className="grid gap-5">
+              <Input label="Subject" value={previewTemplateSubject} disabled />
 
-      {/* Edit Invoice Template Dialog */}
-      <Dialog open={showEditTemplateDialog} onClose={closeEditTemplateDialog} title="Edit Invoice Template" size="lg">
-        <div className="flex flex-col max-h-[82vh] pt-2">
-          {/* Scrollable Body Container */}
-          <div className="overflow-y-auto pr-1.5 pb-2 space-y-5 flex-1 max-h-[64vh]">
-            
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6 space-y-5">
-              <Input
-                label="Template Name"
-                value={templateNameInput}
-                onChange={(event) => setTemplateNameInput(event.target.value)}
-                placeholder="Enter template name"
-              />
-              <Input
-                label="Subject"
-                value={templateEditSubject}
-                onChange={(event) => setTemplateEditSubject(event.target.value)}
-                placeholder="Let your patient know what this invoice is for"
-              />
-
-              {/* Template Items Block */}
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900">Template Items</div>
-                    <div className="text-xs text-slate-500">Add services or adhoc items that should be loaded from this template.</div>
-                  </div>
-                  <div className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                    {templateEditItems.length} {templateEditItems.length === 1 ? "item" : "items"}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_120px_56px] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-700">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70">
+                <div className="grid grid-cols-[minmax(0,1.6fr)_140px_140px_140px] gap-3 border-b border-slate-200 px-4 py-4 text-sm font-semibold uppercase text-slate-800">
                   <div>Item Details</div>
                   <div>Quantity</div>
                   <div>Rate</div>
                   <div>Amount</div>
-                  <div />
                 </div>
-
-                <div className="grid gap-0 bg-white">
-                  {templateEditItems.length === 0 ? (
-                    <div className="px-4 py-12 text-center">
-                      <div className="text-sm font-medium text-slate-600">No template items found.</div>
-                      <div className="mt-1 text-xs text-slate-400">Add a procedure or item to make this template reusable.</div>
-                    </div>
+                <div className="bg-white">
+                  {previewTemplateDetails.length > 0 ? (
+                    previewTemplateDetails.map((detail: any, index: number) => {
+                      const quantity = Number(detail.quantity ?? detail.qty ?? 0);
+                      const price = Number(detail.price ?? detail.netRate ?? detail.rate ?? 0);
+                      return (
+                        <div
+                          key={detail.uid ?? `preview-detail-${index}`}
+                          className="grid grid-cols-[minmax(0,1.6fr)_140px_140px_140px] gap-3 border-b border-slate-200 px-4 py-4 last:border-b-0"
+                        >
+                          <Input value={String(detail.itemName ?? detail.name ?? "")} disabled />
+                          <Input value={String(quantity)} disabled />
+                          <Input value={String(price)} disabled />
+                          <div className="flex items-center text-sm font-semibold text-slate-900">
+                            {formatCurrency(quantity * price)}
+                          </div>
+                        </div>
+                      );
+                    })
                   ) : (
-                    templateEditItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="grid grid-cols-[minmax(0,1.5fr)_120px_120px_120px_56px] gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 hover:bg-slate-50/60"
-                      >
-                        <Input
-                          value={item.name}
-                          onChange={(event) => updateTemplateEditItem(item.id, "name", event.target.value)}
-                          placeholder="Procedure/Item"
-                        />
+                    <div className="px-4 py-10 text-center text-sm text-slate-500">No template items found.</div>
+                  )}
+                </div>
+              </div>
+
+              <Input label="Your Notes" value={previewTemplateNotesForProvider} disabled />
+              <Input label="Notes For Customer" value={previewTemplateNotesForCustomer} disabled />
+              <Input label="Terms & Conditions" value={previewTemplateTermsConditions} disabled />
+            </div>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Edit Invoice Template Dialog */}
+      <Dialog open={showEditTemplateDialog} onClose={() => { setIsTemplateItemDropdownOpen(false); closeEditTemplateDialog(); }} title="Edit Invoice Template" size="lg">
+        <div className="max-h-[86vh] overflow-y-auto pt-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            <div className="grid gap-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">Template Name</label>
+                <Input
+                  value={templateNameInput}
+                  onChange={(event) => setTemplateNameInput(event.target.value.slice(0, 25))}
+                  placeholder="hjh"
+                  maxLength={25}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">Subject</label>
+                <Input
+                  value={templateEditSubject}
+                  onChange={(event) => setTemplateEditSubject(event.target.value)}
+                  placeholder="Let your patient know what this invoice is for"
+                />
+              </div>
+
+              {/* Procedure / Item Section Container */}
+              <div className="rounded-xl border border-slate-200 bg-[#f0f4f8] p-5">
+                {templateDraftMode !== "idle" ? (
+                  <div className="mb-5 pb-4 border-b border-slate-200">
+                    <div
+                      className="grid gap-3 items-end"
+                      style={{ gridTemplateColumns: templateDraftColumns }}
+                    >
+                      <div ref={templateItemDropdownRef} className="relative min-w-0">
+                        <label className="block text-sm font-bold text-slate-800 mb-1.5 truncate">
+                          Procedure/Item <span className="text-rose-500">*</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (templateDraftMode === "edit") {
+                              return;
+                            }
+                            setIsTemplateItemDropdownOpen(!isTemplateItemDropdownOpen);
+                          }}
+                          className="flex h-10 w-full items-center justify-between rounded border border-slate-300 bg-white px-3.5 text-sm text-slate-800 focus:border-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                          disabled={templateDraftMode === "edit"}
+                        >
+                          <span className={selectedTemplateDraftOption ? "text-slate-900 font-medium truncate" : "text-slate-400 truncate"}>
+                            {selectedTemplateDraftOption?.label || "Choose Procedure/Item"}
+                          </span>
+                          {templateDraftMode === "edit" ? null : (
+                            <Icon name="chevronDown" className="ml-1 h-4 w-4 shrink-0 text-slate-400" />
+                          )}
+                        </button>
+                        {isTemplateItemDropdownOpen && templateDraftMode !== "edit" ? (
+                          <div className="absolute top-full left-0 z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-xl">
+                            {financeCatalogOptions.length === 0 ? (
+                              <div className="px-4 py-3 text-sm text-slate-500">No matching items found</div>
+                            ) : (
+                              financeCatalogOptions.map((option) => (
+                                <div
+                                  key={option.value}
+                                  className="cursor-pointer px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-slate-100 hover:text-slate-900"
+                                  onClick={() => {
+                                    setTemplateDraftCatalogValue(option.value);
+                                    setTemplateDraftPrice(Number(option.price ?? 0));
+                                    setIsTemplateItemDropdownOpen(false);
+                                  }}
+                                >
+                                  {option.label}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-1.5 text-center">Qty</label>
                         <Input
                           type="number"
                           min="1"
-                          value={String(item.qty)}
-                          onChange={(event) => updateTemplateEditItem(item.id, "qty", event.target.value)}
+                          className="text-center"
+                          value={String(templateDraftQty)}
+                          onChange={(event) => setTemplateDraftQty(Math.max(Number(event.target.value) || 1, 1))}
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-800 mb-1.5 text-center">Price(₹)</label>
                         <Input
                           type="number"
                           min="0"
                           step="0.01"
-                          value={String(item.price)}
-                          onChange={(event) => updateTemplateEditItem(item.id, "price", event.target.value)}
+                          className="text-center"
+                          value={String(templateDraftPrice)}
+                          onChange={(event) => setTemplateDraftPrice(Math.max(Number(event.target.value) || 0, 0))}
                         />
-                        <div className="flex items-center px-3 text-sm font-semibold text-slate-900">
-                          {formatCurrency(Number(item.qty) * Number(item.price))}
-                        </div>
-                        <div className="flex items-center justify-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 hover:bg-slate-100 rounded-lg text-slate-500 flex items-center justify-center"
-                            onClick={() => removeTemplateEditItem(item.id)}
-                            aria-label={`Remove ${item.name || "template item"}`}
-                          >
-                            <Icon name="moreHorizontal" className="h-4.5 w-4.5" />
-                          </Button>
-                        </div>
                       </div>
-                    ))
+
+                      <div>
+                        <Button
+                          type="button"
+                          className="h-10 w-full rounded bg-[#312e81] px-2 font-bold uppercase text-xs text-white hover:bg-[#2e2a72] disabled:opacity-50 transition-colors shadow-sm"
+                          onClick={() => {
+                            if (!selectedTemplateDraftOption) return;
+                            addTemplateEditItem({
+                              editingItemId: templateDraftMode === "edit" ? templateDraftEditingItemId : null,
+                              catalogValue: selectedTemplateDraftOption.value,
+                              name: selectedTemplateDraftOption.label,
+                              quantity: templateDraftQty,
+                              price: templateDraftPrice,
+                            });
+                            setTemplateDraftMode("idle");
+                            setTemplateDraftEditingItemId("");
+                            setTemplateDraftCatalogValue("");
+                            setTemplateDraftQty(1);
+                            setTemplateDraftPrice(0);
+                            setIsTemplateItemDropdownOpen(false);
+                          }}
+                          disabled={!selectedTemplateDraftOption}
+                        >
+                          {templateDraftMode === "edit" ? "CHANGE" : "ADD"}
+                        </Button>
+                      </div>
+
+                      <div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 w-full rounded bg-slate-200 border-none px-2 font-bold uppercase text-xs text-slate-700 hover:bg-slate-300 transition-colors"
+                          onClick={() => {
+                            setTemplateDraftMode("idle");
+                            setTemplateDraftEditingItemId("");
+                            setTemplateDraftCatalogValue("");
+                            setTemplateDraftQty(1);
+                            setTemplateDraftPrice(0);
+                            setIsTemplateItemDropdownOpen(false);
+                          }}
+                        >
+                          CANCEL
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Table Header inside Procedure/Item Card */}
+                <div
+                  className="grid gap-3 border-b border-slate-300 pb-3 text-xs font-bold uppercase tracking-wider text-slate-900"
+                  style={{ gridTemplateColumns: templateItemColumns }}
+                >
+                  <div className="min-w-0" />
+                  <div className="text-center">QUANTITY</div>
+                  <div className="text-center">RATE</div>
+                  <div className="text-left">AMOUNT</div>
+                  <div />
+                </div>
+
+                {/* Table Rows inside Procedure/Item Card */}
+                <div className="divide-y divide-slate-200">
+                  {templateEditItems.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-sm font-medium text-slate-500">
+                      No procedure/items added yet. Click "+ Add Procedure/Item" below.
+                    </div>
+                  ) : (
+                    templateEditItems.map((item) => {
+                      const matchingOption = financeCatalogOptions.find(
+                        (entry) => entry.value === item.itemUid || entry.itemUid === item.itemUid || entry.label === item.name
+                      );
+                      const displayName = String(item.name || matchingOption?.label || "-");
+                      const totalAmt = Number(item.qty) * Number(item.price);
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="grid gap-3 items-center py-3"
+                          style={{ gridTemplateColumns: templateItemColumns }}
+                        >
+                          <div className="truncate font-semibold text-slate-800 text-sm" title={displayName}>
+                            {displayName}
+                          </div>
+                          <Input value={String(item.qty)} disabled className="bg-white text-center font-medium" />
+                          <Input value={String(item.price)} disabled className="bg-white text-center font-medium" />
+                          <div className="font-bold text-slate-900 text-sm">
+                            {formatCurrency(totalAmt)}
+                          </div>
+                          <div className="flex justify-center">
+                            <Popover
+                              placement="bottom"
+                              align="end"
+                              trigger={(
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-8 w-full p-0 text-slate-700 hover:bg-transparent font-bold shadow-none"
+                                  aria-label={`Actions for ${displayName}`}
+                                >
+                                  <span className="text-lg font-semibold leading-none">...</span>
+                                </Button>
+                              )}
+                            >
+                              <div className="grid min-w-[150px] p-1.5">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal text-slate-700"
+                                  onClick={() => {
+                                    setTemplateDraftMode("edit");
+                                    setTemplateDraftEditingItemId(item.id);
+                                    setTemplateDraftCatalogValue(matchingOption?.value ?? "");
+                                    setTemplateDraftQty(Math.max(Number(item.qty) || 1, 1));
+                                    setTemplateDraftPrice(Math.max(Number(item.price) || 0, 0));
+                                    setIsTemplateItemDropdownOpen(false);
+                                  }}
+                                  icon={<Icon name="pencil" className="h-4 w-4 text-slate-500" />}
+                                >
+                                  Edit Item
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="justify-start font-normal text-slate-700"
+                                  onClick={() => removeTemplateEditItem(item.id)}
+                                  icon={<Icon name="trash" className="h-4 w-4 text-slate-500" />}
+                                >
+                                  Delete Item
+                                </Button>
+                              </div>
+                            </Popover>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
 
-                <div className="border-t border-slate-200 bg-slate-50/80 px-4 py-3">
+                {/* Add Procedure/Item Button */}
+                <div className="pt-3">
                   <Button
                     type="button"
-                    onClick={addTemplateEditItem}
+                    onClick={() => {
+                      setTemplateDraftMode("add");
+                      setTemplateDraftEditingItemId("");
+                      setTemplateDraftCatalogValue("");
+                      setTemplateDraftQty(1);
+                      setTemplateDraftPrice(0);
+                      setIsTemplateItemDropdownOpen(false);
+                    }}
                     icon={<Icon name="plus" className="h-4 w-4" />}
+                    className="rounded px-4"
                   >
                     Add Procedure/Item
                   </Button>
                 </div>
               </div>
 
-              {/* Template Notes Block */}
-              <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="text-sm font-semibold text-slate-900">Template Notes</div>
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">Your Notes</label>
                 <Input
-                  label="Your Notes"
                   value={templateEditNotesForProvider}
                   onChange={(event) => setTemplateEditNotesForProvider(event.target.value)}
                   placeholder="Private Note"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">Notes For Customer</label>
                 <Input
-                  label="Notes For Customer"
                   value={templateEditNotesForCustomer}
                   onChange={(event) => setTemplateEditNotesForCustomer(event.target.value)}
                   placeholder="Shared with patient"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-800 mb-1.5">Terms & Conditions</label>
                 <Input
-                  label="Terms & Conditions"
                   value={templateEditTermsConditions}
                   onChange={(event) => setTemplateEditTermsConditions(event.target.value)}
                   placeholder="Terms and condition"
                 />
               </div>
 
+              <div className="flex justify-center pt-4">
+                <Button
+                  type="button"
+                  className="min-w-[200px] rounded-md bg-[#059669] px-6 py-3 text-sm font-bold text-white hover:bg-[#047857] shadow transition-colors"
+                  onClick={() => void handleUpdateTemplate()}
+                  disabled={templateSaving || !templateNameInput.trim()}
+                >
+                  {templateSaving ? "Updating..." : "Update Invoice Template"}
+                </Button>
+              </div>
             </div>
-
           </div>
-
-          {/* Sticky footer */}
-          <DialogFooter className="border-t border-slate-200 pt-4 flex-shrink-0">
-            <Button type="button" variant="outline" className="rounded-xl px-4" onClick={closeEditTemplateDialog}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="rounded-xl bg-indigo-600 px-5 text-white hover:bg-indigo-700"
-              onClick={() => void handleUpdateTemplate()}
-              disabled={templateSaving || !templateNameInput.trim()}
-            >
-              {templateSaving ? "Updating..." : "Update Template"}
-            </Button>
-          </DialogFooter>
-
         </div>
       </Dialog>
 

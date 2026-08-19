@@ -71,7 +71,7 @@ async function uploadPayableAttachments(
     {
       action: "ADD",
       caption: file.name,
-      contextType: "PAYABLE",
+      contextType: "PAYMENTS_OUT",
       featureModuleName: "FINANCE_PAYMENT",
       featureServiceName: "FINANCE",
       fileName: file.name,
@@ -118,7 +118,7 @@ async function uploadPayableAttachments(
   return {
     action: null,
     caption: file.name,
-    contextType: "PAYABLE" as const,
+    contextType: "PAYMENTS_OUT" as const,
     contextUid: null,
     driveId: null,
     featureModuleName: "FINANCE_PAYMENT" as const,

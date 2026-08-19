@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useMFEProps } from "@jaldee/auth-context";
+import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
 import {
   Button,
   Dialog,
   DialogFooter,
   Input,
-  PageHeader,
   SectionCard,
   Select,
   Textarea,
@@ -21,6 +20,12 @@ function toFinanceRoute(routePath: string) {
   if (!normalized) return "/";
   const stripped = normalized.replace(/^\/finance(?=\/|$)/, "");
   return stripped || "/";
+}
+
+function isVendorLinkedType(item: any) {
+  const linkedTo = String(item?.linkedTo ?? item?.statusFor ?? item?.categoryType ?? item?.type ?? "").toLowerCase();
+  if (!linkedTo) return true;
+  return linkedTo.includes("vendor");
 }
 
 export default function VendorFormPage() {

@@ -40,6 +40,12 @@ export interface LocationOption {
   label: string;
 }
 
+export interface SequenceDetailOption {
+  value: string;
+  label: string;
+  isDefault?: boolean;
+}
+
 export interface DiscountOption {
   value: string;
   label: string;

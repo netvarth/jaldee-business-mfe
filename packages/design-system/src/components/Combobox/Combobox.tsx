@@ -82,8 +82,27 @@ export function Combobox({
       return;
     }
 
-    function handlePointerDown(event: globalThis.MouseEvent) {
-      if (!wrapperRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) {
+    function isEventInside(eventTarget: EventTarget | null, event?: Event) {
+      if (!eventTarget) {
+        return false;
+      }
+      const path = typeof event?.composedPath === "function" ? event.composedPath() : [];
+      if (path.length > 0) {
+        return path.includes(wrapperRef.current as EventTarget) || path.includes(menuRef.current as EventTarget);
+      }
+      return Boolean(
+        wrapperRef.current?.contains(eventTarget as Node) || menuRef.current?.contains(eventTarget as Node)
+      );
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!isEventInside(event.target, event)) {
+        setOpen(false);
+      }
+    }
+
+    function handleFocusIn(event: FocusEvent) {
+      if (!isEventInside(event.target, event)) {
         setOpen(false);
       }
     }
@@ -94,11 +113,13 @@ export function Combobox({
       }
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("focusin", handleFocusIn, true);
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("focusin", handleFocusIn, true);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [open]);
