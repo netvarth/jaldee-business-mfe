@@ -4,11 +4,11 @@ html {
 
 :root {
   /* ─── Primary ─────────────────────────────── */
-  --color-primary: #5B21D1;
-  --color-primary-hover: #7C3AED;
-  --color-primary-active: #4C1DB3;
-  --color-primary-subtle: #EDE9FE;
-  --color-primary-muted: #DDD6FE;
+  --color-primary: #0f766e;
+  --color-primary-hover: #0f9f8c;
+  --color-primary-active: #115e59;
+  --color-primary-subtle: #f0fdfa;
+  --color-primary-muted: #ccfbf1;
   --color-primary-text: #FFFFFF;
 
   /* ─── Surface ─────────────────────────────── */
@@ -21,12 +21,12 @@ html {
   --color-text-secondary: #6B7280;
   --color-text-disabled: #9CA3AF;
   --color-text-inverse: #FFFFFF;
-  --color-text-link: #5B21D1;
+  --color-text-link: #0f766e;
 
   /* ─── Border ──────────────────────────────── */
   --color-border: #E5E7EB;
   --color-border-strong: #D1D5DB;
-  --color-border-focus: #5B21D1;
+  --color-border-focus: #0f766e;
 
   /* ─── Semantic ────────────────────────────── */
   --color-success: #059669;

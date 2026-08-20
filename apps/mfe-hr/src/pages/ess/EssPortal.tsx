@@ -193,15 +193,12 @@ export default function EssPortal() {
   });
   const profile = useMyProfile();
   const exits = useExits({ enabled: section === "separation" });
-  const showAttendanceData = section === "attendance";
-  const showLeaveData = section === "leave";
-  const showPayslipData = section === "payslips";
-  const attendanceRules = useAttendanceRules({ enabled: section === "attendance" });
+  const attendanceRules = useAttendanceRules();
   const leaveTypes = useLeaveTypes({ enabled: section === "leave" });
-  const attendance = useMyAttendance({ enabled: showAttendanceData });
+  const attendance = useMyAttendance();
   const leaves = useMyLeaves({ enabled: section === "leave" });
-  const balances = useMyLeaveBalances({ enabled: showLeaveData });
-  const payslips = useMyPayslips({ enabled: showPayslipData });
+  const balances = useMyLeaveBalances();
+  const payslips = useMyPayslips();
   const documents = useDocumentRequests(profile.data?.id ?? profile.data?.uid, EMPTY_DOCUMENT_FILTERS, null, {
     enabled: section === "documents",
     page: documentPage - 1,
@@ -232,7 +229,7 @@ export default function EssPortal() {
     );
   }, [balances.data, leaveTypes.data]);
   const today = new Date().toISOString().slice(0, 10);
-  const branches = useBranches({ enabled: section === "attendance" });
+  const branches = useBranches();
   const [selectedLocationUid, setSelectedLocationUid] = useState("");
   const [isOnBreak, setIsOnBreak] = useState(false);
   const sortedAttendance = useMemo(
@@ -357,15 +354,15 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
       setSelectedLocationUid(profile.data.locationUid);
       return;
     }
-    if (branches.data.length === 1) {
+    if (branches.data.length > 0) {
       setSelectedLocationUid(branches.data[0].id);
     }
   }, [branches.data, profile.data?.locationUid, selectedLocationUid]);
 
   const resolveCurrentPosition = () =>
-    new Promise<{ latitude: number; longitude: number; accuracy: number | null }>((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error("Location access is not supported by this browser."));
+    new Promise<{ latitude: number | null; longitude: number | null; accuracy: number | null }>((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        resolve({ latitude: null, longitude: null, accuracy: null });
         return;
       }
 
@@ -377,14 +374,10 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
             accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
           });
         },
-        (error) => {
-          if (error.code === error.PERMISSION_DENIED) {
-            reject(new Error("Location permission is required to punch in."));
-            return;
-          }
-          reject(new Error("Unable to fetch your current location."));
+        () => {
+          resolve({ latitude: null, longitude: null, accuracy: null });
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
       );
     });
 
@@ -392,14 +385,15 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
     setPunchBusy(true);
     try {
       const currentPosition = await resolveCurrentPosition();
+      const locationUid = selectedLocationUid || profile.data?.locationUid || branches.data[0]?.id || null;
       await attendance.punchIn(mode, {
         selfieDataUrl,
-        locationUid: selectedLocationUid || profile.data?.locationUid || branches.data[0]?.id || null,
-        location: {
+        locationUid,
+        location: currentPosition.latitude != null ? {
           latitude: currentPosition.latitude,
           longitude: currentPosition.longitude,
           accuracy: currentPosition.accuracy,
-        },
+        } : undefined,
       });
       setFaceOpen(false);
     } catch (error) {
