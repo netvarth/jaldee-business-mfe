@@ -10,13 +10,34 @@ import { SchemaFilterBuilder, buildDefaultSearchClauses, compactSearchClauses } 
 import type { SearchFilterClause } from "@jaldee/shared-modules";
 import { buildFinanceSearchBody, useAuditLogsSearchSchema } from "../../lib/financeSearch";
 
+function formatActivityTimestamp(value: unknown) {
+  const rawValue = String(value ?? "").trim();
+  if (!rawValue) {
+    return "-";
+  }
+
+  const parsed = new Date(rawValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return rawValue;
+  }
+
+  return parsed.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
 export function ActivityLogPage() {
   const mfeProps = useMFEProps();
   const [activityLogs, setActivityLogs] = useState<Array<{
     id: string;
     action: string;
     actor: string;
-    target: string;
     timestamp: string;
   }>>([]);
   const [activityCount, setActivityCount] = useState(0);
@@ -77,8 +98,9 @@ export function ActivityLogPage() {
           id: String(item?.uid || item?.id || item?.logId || `activity-${index}`),
           action: String(item?.message || item?.action || item?.event || item?.activity || item?.description || "-"),
           actor: String(item?.actorUserName || item?.actor || item?.userName || item?.createdByName || "System"),
-          target: String(item?.target || item?.referenceId || item?.entityName || item?.module || "-"),
-          timestamp: String(item?.createdAt || item?.timestamp || item?.createdDate || item?.updatedDate || "-"),
+          timestamp: formatActivityTimestamp(
+            item?.createdAt || item?.timestamp || item?.createdDate || item?.updatedDate || "-"
+          ),
         }))
       );
 
@@ -106,7 +128,6 @@ export function ActivityLogPage() {
     () => [
       { key: "action", header: "Action" },
       { key: "actor", header: "Actor" },
-      { key: "target", header: "Target" },
       { key: "timestamp", header: "Timestamp" },
     ],
     []
