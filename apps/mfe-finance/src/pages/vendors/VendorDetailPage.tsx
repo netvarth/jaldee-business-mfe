@@ -20,11 +20,6 @@ type VendorUploadedDocument = {
 
 const LOCAL_DRIVE_BUCKET_BASE_URL = "https://msjaldeelocal.s3.ap-south-1.amazonaws.com";
 
-function toFinanceRoute(routePath: string) {
-  const normalized = routePath.startsWith("/") ? routePath : `/${routePath}`;
-  return normalized.startsWith("/finance") ? normalized : `/finance${normalized}`;
-}
-
 function resolveUploadFileType(file: File) {
   if (file.type.includes("/")) {
     return file.type.split("/")[1] || "file";
@@ -431,7 +426,7 @@ export default function VendorDetailPage() {
               <Button
                 type="button"
                 className="h-9 rounded-lg bg-[var(--color-primary)] px-4 text-sm font-semibold text-white hover:opacity-95"
-                onClick={() => navigate(toFinanceRoute(`/vendors/edit/${id}`))}
+                onClick={() => navigate(`/vendors/edit/${id}`)}
               >
                 Edit
               </Button>

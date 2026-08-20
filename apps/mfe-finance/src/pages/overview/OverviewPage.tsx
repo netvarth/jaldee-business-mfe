@@ -561,7 +561,7 @@ export default function OverviewPage() {
 
   return (
     <div className="bg-[#f8fafc] text-[#0f172a] font-sans min-h-screen text-[13px] leading-normal p-4 sm:p-6 lg:p-8">
-      <div className="relative w-full">
+      <div className="relative w-full max-w-7xl mx-auto">
         {/* Header section */}
         <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
@@ -1087,6 +1087,233 @@ export default function OverviewPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Payouts by vendor - Error State Widget (Image 1 top) */}
+          <div className="lg:col-span-12 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="text-sm font-bold text-slate-900">Payouts by vendor</div>
+            <div className="text-xs text-slate-500">Money out, grouped by vendor</div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-4 mt-4">
+              <span className="text-red-600 font-bold text-base shrink-0">⚠</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-red-900 mb-0.5">
+                  This widget failed to load — the rest of the dashboard is unaffected
+                </div>
+                <div className="text-[11px] text-red-700 leading-relaxed">
+                  The vendor payout aggregate returned <code className="font-mono bg-red-100/60 px-1 rounded text-red-800">503</code>. Figures are unavailable, not zero. Vendor bank details stay masked (<code className="font-mono bg-red-100/60 px-1 rounded text-red-800">••••1234</code>) in any drill-down and are revealed only on explicit action.
+                </div>
+              </div>
+              <button className="bg-red-700 hover:bg-red-800 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer shrink-0 border-0 transition-colors">
+                Retry
+              </button>
+            </div>
+            <div className="text-[11px] text-slate-400 mt-3 pt-2.5 border-t border-slate-100 leading-relaxed">
+              Would show <code className="font-mono text-[10.5px]">SUM(amount) WHERE is_payments_in = false</code> grouped by <code className="font-mono text-[10.5px]">vendor_uid</code>. Vendor payables ageing is not possible — there is no vendor bill entity, only payments out.
+            </div>
+          </div>
+        </div>
+
+        {/* Section D: Invoice operations */}
+        <div className="flex items-center gap-3 my-6">
+          <span className="text-xs font-bold tracking-widest uppercase text-slate-400">D · Invoice operations</span>
+          <div className="flex-1 h-px bg-slate-200" />
+        </div>
+
+        {/* Section D Grid 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+          {/* Invoices by status */}
+          <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="text-sm font-bold text-slate-900">Invoices by status</div>
+              <div className="text-xs text-slate-500 mb-4">All six states</div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {invoiceStatus.map((st, i) => (
+                  <div
+                    key={i}
+                    onClick={st.open}
+                    style={{ backgroundColor: st.bg, borderColor: st.bd }}
+                    className="border rounded-xl p-3 cursor-pointer hover:shadow-sm transition-all"
+                  >
+                    <div style={{ color: st.fg }} className="text-xl font-bold leading-tight">
+                      {st.count}
+                    </div>
+                    <div style={{ color: st.lfg }} className="text-[11px] font-semibold mt-1 leading-tight">
+                      {st.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="text-[10.5px] text-slate-400 mt-4 pt-2.5 border-t border-slate-100 leading-relaxed">
+              Display strings only — <code className="font-mono">InvoiceStatus</code> is stored ordinal and its constants mix naming styles.
+            </div>
+          </div>
+
+          {/* Draft backlog & Cancellation rate */}
+          <div className="lg:col-span-4 flex flex-col gap-4">
+            <div onClick={openDrafts} className="bg-amber-50/60 border border-dashed border-amber-300 rounded-2xl p-5 cursor-pointer hover:bg-amber-50/90 transition-all">
+              <div className="flex justify-between items-baseline">
+                <span className="text-sm font-bold text-amber-900">Draft backlog</span>
+                <span className="text-[10px] font-bold tracking-wider uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                  Not revenue yet
+                </span>
+              </div>
+              <div className="flex items-baseline gap-3 my-2">
+                <span className="text-2xl font-bold text-amber-950">34</span>
+                <span className="text-base font-bold text-amber-700">₹2,94,600</span>
+              </div>
+              <div className="text-[11px] text-amber-800 leading-relaxed">
+                Unfinished invoices. Excluded from every revenue figure above — deliberately.
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex-1 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-baseline">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">Cancellation rate</div>
+                    <div className="text-xs text-slate-500">Trend beats the single number</div>
+                  </div>
+                  <span className="text-lg font-bold text-slate-900">2.7%</span>
+                </div>
+                <div className="flex items-end gap-1.5 h-14 mt-4">
+                  {cancelTrend.map((c, i) => (
+                    <div key={i} className="flex-1 flex flex-col justify-end h-full">
+                      <div style={{ height: c.hStr, backgroundColor: c.c }} className="rounded-t-sm" />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                  <span>Jan</span>
+                  <span>Aug</span>
+                </div>
+              </div>
+              <div className="text-[10.5px] text-slate-400 mt-3">
+                19 cancelled ÷ 703 raised, this month.
+              </div>
+            </div>
+          </div>
+
+          {/* Discount & coupon leakage & GST summary */}
+          <div className="lg:col-span-4 flex flex-col gap-4">
+            <div onClick={openLeakage} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm cursor-pointer hover:border-slate-300 transition-all">
+              <div className="text-sm font-bold text-slate-900">Discount &amp; coupon leakage</div>
+              <div className="text-xs text-slate-500">Given away this period</div>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-bold text-slate-900">₹1,15,800</span>
+                <span className="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                  5.9% of gross
+                </span>
+              </div>
+              <div className="flex h-4 rounded-md overflow-hidden gap-0.5 my-3">
+                <div className="w-[72.7%] bg-[#8b5cf6] rounded-l" />
+                <div className="w-[27.3%] bg-[#f59e0b] rounded-r" />
+              </div>
+              <div className="flex justify-between text-xs text-slate-600 font-medium">
+                <span><strong className="text-slate-900">₹84,200</strong> discounts</span>
+                <span><strong className="text-slate-900">₹31,600</strong> coupons</span>
+              </div>
+              <div className="text-[10.5px] text-slate-400 mt-3 pt-2 border-t border-slate-100 leading-relaxed">
+                Shared discount and shared coupon columns are counted once, on the master invoice only.
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="text-sm font-bold text-slate-900">GST summary</div>
+              <div className="text-xs text-slate-500">Compliance-facing totals</div>
+              <div className="flex flex-col divide-y divide-slate-100 mt-2">
+                {tax.map((t, i) => (
+                  <div key={i} onClick={t.open} className="flex justify-between items-center py-1.5 text-xs cursor-pointer hover:bg-slate-50 px-1 rounded">
+                    <span className="font-semibold text-slate-600">{t.label}</span>
+                    <span className="font-bold text-slate-900">{t.value}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pt-2 text-xs font-bold text-slate-900">
+                  <span>Total tax</span>
+                  <span>₹1,45,720</span>
+                </div>
+              </div>
+              <div className="text-[10.5px] text-slate-400 mt-3 pt-2 border-t border-slate-100 leading-relaxed">
+                Amounts are stored as <code className="font-mono">double</code> — shown to 2 decimals and approximate at the third. Do not treat this as a reconciliation that ties exactly.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section D Grid 2: Coupon performance & Recent activity (Image 2) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
+          {/* Coupon performance (Empty state) */}
+          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="text-sm font-bold text-slate-900">Coupon performance</div>
+              <div className="text-xs text-slate-500 mb-4">Redemptions per coupon</div>
+              <div className="flex flex-col items-center justify-center text-center py-6">
+                <div className="w-12 h-12 rounded-2xl bg-pink-50 flex items-center justify-center text-2xl mb-3">
+                  🎟️
+                </div>
+                <div className="text-sm font-bold text-slate-900 mb-1">No coupons published yet</div>
+                <p className="text-xs text-slate-400 max-w-xs leading-relaxed mb-4">
+                  Publish a coupon and redemptions, value given away and expiry will appear here. This is an empty state, not a failure or a zero.
+                </p>
+                <button className="bg-[#55349A] hover:bg-[#43277d] text-white font-semibold text-xs px-4 py-2 rounded-xl border-0 cursor-pointer transition-colors shadow-sm">
+                  Create a coupon
+                </button>
+              </div>
+            </div>
+            <div className="text-[10.5px] text-slate-400 pt-2.5 border-t border-slate-100 leading-relaxed">
+              Would count rows in <code className="font-mono">coupon_stat_tbl</code> grouped by coupon. Coupon amounts are the only money in the service stored as <code className="font-mono">BigDecimal</code>.
+            </div>
+          </div>
+
+          {/* Recent activity */}
+          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-baseline mb-3">
+                <div>
+                  <div className="text-sm font-bold text-slate-900">Recent activity</div>
+                  <div className="text-xs text-slate-500">Latest invoices and payments</div>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  Buildable today
+                </span>
+              </div>
+              <div className="flex flex-col divide-y divide-slate-100">
+                {activity.map((a, i) => (
+                  <div key={i} onClick={a.open} className="flex items-center gap-3 py-2 cursor-pointer hover:bg-slate-50 px-1 rounded">
+                    <span style={{ backgroundColor: a.iconBg, color: a.iconFg }} className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
+                      {a.icon}
+                    </span>
+                    <span className="font-mono text-xs font-semibold text-[#55349A] shrink-0">
+                      {a.ref}
+                    </span>
+                    <span className="text-xs text-slate-800 font-medium truncate flex-1 min-w-0">
+                      {a.who}
+                    </span>
+                    <span style={{ color: a.amtFg }} className="text-xs font-bold shrink-0">
+                      {a.amount}
+                    </span>
+                    <span className="text-[11px] text-slate-400 w-16 text-right shrink-0">
+                      {a.when}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="text-[10.5px] text-slate-400 mt-4 pt-2.5 border-t border-slate-100 leading-relaxed">
+              Page 1 of <code className="font-mono">POST /invoice/search</code> and <code className="font-mono">POST /payment/search</code>, newest first — a page, never a total. Test transactions excluded.
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Notes Section */}
+        <div className="pt-6 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6 text-[10.5px] text-slate-400 leading-relaxed">
+          <div>
+            <strong className="text-slate-600 font-bold block mb-1">Design decisions baked in</strong>
+            Collected = <code className="font-mono text-[10px]">payment.amount WHERE is_payments_in</code> · totals converted to <code className="font-mono text-[10px]">default_currency</code> with a per-currency filter available · master invoices only · aged on <code className="font-mono text-[10px]">due_date</code> with nulls excluded and labelled · tenant-wide with location as a filter.
+          </div>
+          <div>
+            <strong className="text-slate-600 font-bold block mb-1">Deliberately absent</strong>
+            No gross-margin widget (no COGS field) · no budget-vs-actual (no budget entity) · no cash-balance-over-time (no snapshot history) · no vendor payables ageing (no vendor bill entity) · nothing sourced from the analytics pipeline.
           </div>
         </div>
 
