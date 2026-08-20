@@ -155,12 +155,17 @@ export default function Expenses() {
       const label = (f.label || "").trim().toLowerCase();
       const name = (f.name || f.key || "").trim().toLowerCase();
       if (name === "date" || label === "date") return false;
+      if (name === "createdat" || name === "createddate" || label === "created at" || label === "created date") return false;
       if (name.includes("transport") || name.includes("kms") || name.includes("mode")) return false;
       if (label === "employee" || name === "employee" || name === "employeeuid") return false;
       return true;
     });
     const defaultSortField = rawExpenseSchema.defaultSort?.field;
-    const defaultSort = defaultSortField === "date" ? undefined : rawExpenseSchema.defaultSort;
+    const isInvalidSort =
+      defaultSortField === "date" ||
+      defaultSortField === "createdAt" ||
+      defaultSortField === "createdDate";
+    const defaultSort = isInvalidSort ? undefined : rawExpenseSchema.defaultSort;
     return {
       ...rawExpenseSchema,
       fields,

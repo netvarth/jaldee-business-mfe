@@ -50,8 +50,11 @@ export function buildHrSearchBody(
     }));
 
   const rawSortField = schema?.defaultSort?.field;
+  const isKnownInvalidSortField =
+    rawSortField === "createdAt" || rawSortField === "createdDate" || rawSortField === "date";
   const isSortFieldValid =
-    rawSortField && (schemaFieldKeys.size === 0 || schemaFieldKeys.has(rawSortField));
+    rawSortField &&
+    (schemaFieldKeys.size > 0 ? schemaFieldKeys.has(rawSortField) : !isKnownInvalidSortField);
   const sortField = isSortFieldValid ? rawSortField : undefined;
 
   return {
