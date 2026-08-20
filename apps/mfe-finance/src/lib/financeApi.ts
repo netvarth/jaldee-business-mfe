@@ -760,6 +760,20 @@ export const financeApi = {
       return patch<T>(`/platform-service/v1/api/drive/${fileUid}/status`, null, { status: "COMPLETE" });
     },
   },
+  consumerPayments: {
+    linkDetail<T = unknown>(paymentLink: string) {
+      return get<T>(`/finance-service/v1/api/tenant/consumer/payment/link/${encodeURIComponent(paymentLink)}`);
+    },
+    paymentModes<T = unknown>(data: unknown) {
+      return put<T>("/finance-service/v1/api/consumer/finance/payment/modes", data);
+    },
+    createPayment<T = unknown>(data: unknown) {
+      return post<T>("/finance-service/v1/api/consumer/finance/payment", data);
+    },
+    updatePayment<T = unknown>(data: unknown) {
+      return post<T>("/finance-service/v1/api/consumer/finance/payment/update", data);
+    },
+  },
   hsn: {
     list<T = unknown>(filter: ApiFilter = {}) {
       return post<T>(TENANT_HSNCODE_SEARCH_ENDPOINT, filter);
