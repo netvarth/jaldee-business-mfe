@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
+import { apiClient } from "@jaldee/api-client";
 import { Select } from "@jaldee/design-system";
 import { useShellStore } from "../store/shellStore";
 import { BASE_CRM_SIDEBAR_SECTIONS, PRODUCT_SIDEBAR_BEHAVIOR, SIDEBAR_CONFIG } from "./sidebarConfig";
 import type { SidebarSection } from "./sidebarConfig";
 import type { ProductKey } from "../store/shellStore";
+
+const FINANCE_SIDEBAR_SETTINGS_UPDATED_EVENT = "finance:sidebar-settings-updated";
 
 interface SidebarProps {
   collapseOnSelect: boolean;
@@ -19,11 +22,66 @@ export default function Sidebar({ collapseOnSelect, onSubmenuSelection }: Sideba
   const navigate = useNavigate();
   const location = useLocation();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [cashFeaturesEnabled, setCashFeaturesEnabled] = useState(true);
   const isBaseCrm = !activeProduct;
 
-  const sections: SidebarSection[] = activeProduct
-    ? SIDEBAR_CONFIG[activeProduct] ?? []
-    : filterBaseCrmSections(BASE_CRM_SIDEBAR_SECTIONS, account?.enabledModules);
+  useEffect(() => {
+    let active = true;
+
+    async function loadFinanceSettings() {
+      if (activeProduct !== "finance") {
+        if (active) {
+          setCashFeaturesEnabled(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await apiClient.get<Record<string, unknown>>("/finance-service/v1/api/tenant/settings");
+        if (!active) {
+          return;
+        }
+        const data = response.data ?? {};
+        const isCashRegisterEnabled =
+          data.cashRegisterStatus === "Enabled" ||
+          data.cashRegister === "Enabled" ||
+          data.enableCashRegister === true ||
+          data.cashRegisterEnabled === true;
+        setCashFeaturesEnabled(Boolean(isCashRegisterEnabled));
+      } catch (error) {
+        console.error("[shell-host] Failed to load finance settings for sidebar", error);
+        if (active) {
+          setCashFeaturesEnabled(true);
+        }
+      }
+    }
+
+    const handleFinanceSidebarSettingsUpdated = () => {
+      void loadFinanceSettings();
+    };
+
+    void loadFinanceSettings();
+    window.addEventListener(FINANCE_SIDEBAR_SETTINGS_UPDATED_EVENT, handleFinanceSidebarSettingsUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener(FINANCE_SIDEBAR_SETTINGS_UPDATED_EVENT, handleFinanceSidebarSettingsUpdated);
+    };
+  }, [activeProduct]);
+
+  const sections: SidebarSection[] = useMemo(() => {
+    if (!activeProduct) {
+      return filterBaseCrmSections(BASE_CRM_SIDEBAR_SECTIONS, account?.enabledModules);
+    }
+
+    const productSections = SIDEBAR_CONFIG[activeProduct] ?? [];
+    if (activeProduct !== "finance" || cashFeaturesEnabled) {
+      return productSections;
+    }
+
+    return productSections.filter(
+      (section) => section.id !== "finance-cash-in-hand" && section.id !== "finance-cash-register"
+    );
+  }, [account?.enabledModules, activeProduct, cashFeaturesEnabled]);
   const submenuTitle = account?.name ?? "Jaldee Business";
   const showLocationSwitcher = !isBaseCrm && (activeProduct ? PRODUCT_SIDEBAR_BEHAVIOR[activeProduct]?.showLocationSwitcher ?? true : true);
 

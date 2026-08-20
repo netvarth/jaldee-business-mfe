@@ -5,12 +5,15 @@ import { FinanceFeatureLayout } from "../../components/FinancePageLayout";
 import { financeApi } from "../../lib/financeApi";
 import { useFinanceLiveData } from "../../lib/financeLive";
 
+const FINANCE_SIDEBAR_SETTINGS_UPDATED_EVENT = "finance:sidebar-settings-updated";
+
 function SettingsPage() {
   const navigate = useNavigate();
   const { financeCategories, financeStatuses, financeVendors } = useFinanceLiveData();
   const [expenseEnabled, setExpenseEnabled] = useState(false);
   const [invoiceEnabled, setInvoiceEnabled] = useState(false);
   const [masterInvoiceEnabled, setMasterInvoiceEnabled] = useState(false);
+  const [cashRegisterEnabled, setCashRegisterEnabled] = useState(false);
   const [taxEnabled, setTaxEnabled] = useState(false);
   const [updating, setUpdating] = useState(false);
 
@@ -41,6 +44,13 @@ function SettingsPage() {
             data.enableMasterInvoice === true ||
             data.masterInvoiceEnabled === true;
           setMasterInvoiceEnabled(isMasterInvoiceEnabled);
+
+          const isCashRegisterEnabled =
+            data.cashRegisterStatus === "Enabled" ||
+            data.cashRegister === "Enabled" ||
+            data.enableCashRegister === true ||
+            data.cashRegisterEnabled === true;
+          setCashRegisterEnabled(isCashRegisterEnabled);
 
           const isTaxEnabled =
             data.enableTaxStatus === "Enabled" ||
@@ -129,6 +139,20 @@ function SettingsPage() {
     }
   }
 
+  async function handleToggleCashRegister(checked: boolean) {
+    setUpdating(true);
+    const nextStatus = checked ? "Enabled" : "Disabled";
+    try {
+      await financeApi.settings.cashRegisterFeature(nextStatus);
+      setCashRegisterEnabled(checked);
+      window.dispatchEvent(new Event(FINANCE_SIDEBAR_SETTINGS_UPDATED_EVENT));
+    } catch (error) {
+      console.error("Failed to update cash register status", error);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   const moduleControls = [
     {
       key: "expense",
@@ -161,6 +185,14 @@ function SettingsPage() {
       enabled: masterInvoiceEnabled,
       onChange: handleToggleMasterInvoice,
       icon: "layers" as const,
+    },
+    {
+      key: "cashRegister",
+      title: "Cash Register Feature",
+      description: "Enable or disable cash register operations inside the finance module.",
+      enabled: cashRegisterEnabled,
+      onChange: handleToggleCashRegister,
+      icon: "database" as const,
     },
   ];
 
