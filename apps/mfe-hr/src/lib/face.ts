@@ -10,14 +10,23 @@
  * POST /employees/{id}/face-enrollment and compare with euclidean distance
  * (lower = more similar; < ~0.55 is a confident match).
  */
-import * as faceapi from "@vladmandic/face-api";
 
 const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model/";
 
+let faceapiPromise: Promise<typeof import("@vladmandic/face-api")> | null = null;
+
+function getFaceApi() {
+  if (!faceapiPromise) {
+    faceapiPromise = import("@vladmandic/face-api");
+  }
+  return faceapiPromise;
+}
+
 let modelsPromise: Promise<void> | null = null;
 
-export function loadFaceModels(): Promise<void> {
+export async function loadFaceModels(): Promise<void> {
   if (!modelsPromise) {
+    const faceapi = await getFaceApi();
     modelsPromise = Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
       faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -28,6 +37,7 @@ export function loadFaceModels(): Promise<void> {
 }
 
 export async function getDescriptor(input: HTMLVideoElement | HTMLImageElement): Promise<Float32Array | null> {
+  const faceapi = await getFaceApi();
   const result = await faceapi
     .detectSingleFace(input, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 }))
     .withFaceLandmarks()
@@ -35,7 +45,8 @@ export async function getDescriptor(input: HTMLVideoElement | HTMLImageElement):
   return result?.descriptor ?? null;
 }
 
-export function faceDistance(a: number[] | Float32Array, b: number[] | Float32Array): number {
+export async function faceDistance(a: number[] | Float32Array, b: number[] | Float32Array): Promise<number> {
+  const faceapi = await getFaceApi();
   return faceapi.euclideanDistance(a as unknown as number[], b as unknown as number[]);
 }
 

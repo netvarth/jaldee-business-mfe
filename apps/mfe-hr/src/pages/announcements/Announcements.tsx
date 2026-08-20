@@ -205,7 +205,10 @@ export default function Announcements() {
       .slice().sort((a, b) => Number(b.isPinned) - Number(a.isPinned));
   }, [ann.data, search]);
 
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? "cards" : "table"
+  );
+  const showTable = viewMode === "table" && (typeof window === "undefined" || !window.matchMedia("(max-width: 767px)").matches);
 
   const columns = useMemo<ColumnDef<Announcement>[]>(() => [
     {
@@ -229,7 +232,7 @@ export default function Announcements() {
             <Target size={11} /> Targeted
           </span>
         ) : (
-          <span className="inline-[flex] items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-600">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-600">
             <Globe size={11} /> All Staff
           </span>
         );
@@ -258,6 +261,18 @@ export default function Announcements() {
               <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-black text-amber-800 uppercase tracking-wider">
                 <ShieldAlert size={10} /> Mandatory
               </span>
+            )}
+            {Boolean(a.attachments?.length) && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAttachmentView(a);
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-extrabold text-teal-800 hover:bg-teal-100 transition-colors cursor-pointer"
+              >
+                <Paperclip size={11} /> {a.attachments?.length}
+              </button>
             )}
           </div>
           {a.description && <div className="mt-0.5 text-xs text-[var(--color-text-secondary)] line-clamp-1">{a.description}</div>}
@@ -317,12 +332,7 @@ export default function Announcements() {
       width: "14%",
       align: "right",
       render: (a) => (
-        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-          {a.attachments?.length ? (
-            <Button variant="outline" size="sm" icon={<Paperclip size={14} />} onClick={() => setAttachmentView(a)}>
-              {a.attachments.length}
-            </Button>
-          ) : null}
+        <div className="flex items-center justify-end gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
           {!isEmployeeLogin ? (
             <Button variant="outline" size="sm" onClick={() => handleToggleStatus(a.id, a.status || "Enabled")}>
               {a.status === "Disabled" ? "Enable" : "Disable"}
@@ -523,7 +533,7 @@ export default function Announcements() {
           </div>
 
           {/* FEED / TABLE */}
-          {viewMode === "table" ? (
+          {showTable ? (
             <div data-testid="hr-announcements-table-container">
               <DataTable
                 data-testid="hr-announcements-table"

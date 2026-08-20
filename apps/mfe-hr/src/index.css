@@ -1380,8 +1380,8 @@ a:hover {
     display: none;
     flex-grow: 1;
     flex-direction: column;
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
+    height: auto;
 }
 
 .page-section.active {
@@ -1389,8 +1389,10 @@ a:hover {
 }
 
 .hr-page-shell {
-    overflow-y: auto;
+    overflow-y: visible;
+    overflow-x: hidden;
     min-width: 0;
+    max-width: 100%;
     background: var(--app-bg);
 }
 
@@ -1435,6 +1437,13 @@ a:hover {
 :is(.hr-page-shell, #hr-settings-page) button:is([data-testid*="view-table"], [data-testid*="table-view"], [data-testid*="view-card"], [data-testid*="card-view"])[data-active="false"] {
     background: transparent !important;
     color: var(--color-text-secondary) !important;
+}
+
+/* Hide table/card view toggle controls on small viewports (mobile/tablet < 768px) in ESS section and pages */
+@media (max-width: 767px) {
+  :is(.hr-page-shell, #hr-settings-page, #hr-ess-page, .ess-portal) :is(div, span):has(> button[data-testid*="view-table"], > button[data-testid*="table-view"], > button[aria-label="Table view"]) {
+    display: none !important;
+  }
 }
 
 [data-view-toggle="table-card"] {

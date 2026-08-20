@@ -111,7 +111,11 @@ export default function Tickets() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [ticketsPage, setTicketsPage] = useState(1);
   const [ticketsPageSize, setTicketsPageSize] = useState(20);
-  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [viewMode, setViewMode] = useState<"table" | "cards">(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches ? "cards" : "table"
+  );
+  const isMobileView = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const showTable = viewMode === "table" && !isMobileView;
   const { schema: rawTicketSchema, loading: schemaLoading } = useTicketSearchSchema(!isEmployeeView);
   const ticketSchema = useMemo(() => {
     if (!rawTicketSchema) return null;
@@ -263,6 +267,7 @@ export default function Tickets() {
   const employeeOptions = usePagedEmployeeOptions({ enabled: addOpen && !isEmployeeView });
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<{ href: string; fileName: string } | null>(null);
+
   const [closeTarget, setCloseTarget] = useState<Ticket | null>(null);
   const [form, setForm] = useState({ employeeUid: "", title: "", category: "Payroll", priority: "Medium", description: "", hrDepartmentUid: "" });
   const { data: departments } = useDepartments();
@@ -506,7 +511,7 @@ export default function Tickets() {
             </div>
           </div>
 
-          {viewMode === "table" ? (
+          {showTable ? (
             <div data-testid="hr-tickets-table-container">
             <DataTable
               data-testid="hr-tickets-table"

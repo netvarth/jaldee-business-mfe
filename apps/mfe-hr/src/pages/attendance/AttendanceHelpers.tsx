@@ -61,29 +61,58 @@ export function statusBadge(status?: string): CSSProperties {
 }
 
 export function formatDuration(workedMinutes?: number, workedHours?: number, workedHoursFormatted?: string): string {
-  if (workedHoursFormatted && !workedHoursFormatted.includes("(")) return workedHoursFormatted;
+  if (workedHoursFormatted && workedHoursFormatted.trim()) {
+    return workedHoursFormatted;
+  }
   if (workedMinutes !== undefined && workedMinutes !== null) {
     const hrs = Math.floor(workedMinutes / 60);
     const mins = workedMinutes % 60;
-    if (hrs === 0) return `${mins} mins`;
-    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}`;
-    return `${hrs} hr ${mins} mins`;
+    const decimalStr = workedHours !== undefined && workedHours !== null ? ` (${workedHours.toFixed(2)}h)` : "";
+    if (hrs === 0) return `${mins} mins${decimalStr}`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}${decimalStr}`;
+    return `${hrs} hr ${mins} mins${decimalStr}`;
   }
-  if (workedHours !== undefined && workedHours !== null && workedHours > 0) {
+  if (workedHours !== undefined && workedHours !== null) {
     const totalMins = Math.round(workedHours * 60);
     const hrs = Math.floor(totalMins / 60);
     const mins = totalMins % 60;
-    if (hrs === 0) return `${mins} mins`;
-    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}`;
-    return `${hrs} hr ${mins} mins`;
+    const decimalStr = ` (${workedHours.toFixed(2)}h)`;
+    if (hrs === 0) return `${mins} mins${decimalStr}`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}${decimalStr}`;
+    return `${hrs} hr ${mins} mins${decimalStr}`;
   }
   return "—";
 }
 
-export function StatusBadge({ status }: { status?: string }) {
+export function StatusBadge({ status, halfDayType, clockIn }: { status?: string; halfDayType?: string; clockIn?: string }) {
+  const key = (status || "").toLowerCase().replace(/[\s-]+/g, "_");
+  const isHalfDay = key === "half_day";
+  const sessionText = halfDayType === "FIRST_HALF" ? "Morning Leave" : halfDayType === "SECOND_HALF" ? "Afternoon Leave" : undefined;
+  const tooltipText = isHalfDay
+    ? `Leave Session: ${sessionText || "Half-Day"} (Approved) • Work Session: ${clockIn ? `Clocked in at ${clockIn}` : "Active"}`
+    : undefined;
+
   return (
-    <span style={{ ...statusBadge(status), display: "inline-flex", alignItems: "center", padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
+    <span
+      title={tooltipText}
+      style={{
+        ...statusBadge(status),
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "4px 9px",
+        borderRadius: 8,
+        fontSize: 10,
+        fontWeight: 800,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        whiteSpace: "nowrap",
+        flexShrink: 0,
+        cursor: tooltipText ? "help" : "default",
+      }}
+    >
       {status || "Pending"}
+      {isHalfDay && sessionText && <span style={{ opacity: 0.85, fontWeight: 700 }}>({sessionText})</span>}
     </span>
   );
 }

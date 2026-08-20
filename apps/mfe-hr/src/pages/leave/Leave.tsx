@@ -1,3 +1,4 @@
+// Leave management & approval overview page
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Calendar, Plus, Clock, Users, UserCheck, Info, Eye, AlertCircle, Search, Loader2, X } from "lucide-react";
 import { Button, Combobox, Input, Select, DatePicker, Textarea, Dialog, Skeleton, SkeletonTable, DataTable } from "@jaldee/design-system";
@@ -127,6 +128,18 @@ export default function Leave() {
   const today = new Date().toISOString().slice(0, 10);
   const pendingLeaves = useMemo(() => leaves.data.filter((l) => (l.status || "").toLowerCase() === "pending"), [leaves.data]);
   const onLeaveToday = useMemo(() => leaves.data.filter((l) => (l.status || "").toLowerCase() === "approved" && l.startDate && l.endDate && l.startDate <= today && l.endDate >= today), [leaves.data, today]);
+  const { fullDayOnLeaveCount, halfDayActiveCount } = useMemo(() => {
+    let full = 0;
+    let halfActive = 0;
+    onLeaveToday.forEach((l) => {
+      if (l.isHalfDay || (l as any).halfDayType) {
+        halfActive += 1;
+      } else {
+        full += 1;
+      }
+    });
+    return { fullDayOnLeaveCount: full, halfDayActiveCount: halfActive };
+  }, [onLeaveToday]);
 
   // balances grouped by employee
   const balByEmp = useMemo(() => {
@@ -226,11 +239,16 @@ export default function Leave() {
       });
     } catch (e) {
       captureError(e instanceof Error ? e : new Error("Leave apply failed"), { employeeUid: form.employeeUid });
-      const errorMessage = e instanceof Error ? e.message : "Failed to submit.";
+      const rawMessage = e instanceof Error ? e.message : "Failed to submit.";
+      const isPolicy = rawMessage.includes("Leave blocked by policy") || rawMessage.includes("blocked by policy");
+      const ruleName = isPolicy && rawMessage.includes(":") ? rawMessage.split(":")[1].trim() : "";
+      const errorMessage = isPolicy
+        ? `⚠️ Policy Restriction: This leave request exceeds the allowable limit configured by company policy${ruleName ? ` ("${ruleName}")` : ""}. Please reduce the duration or contact HR.`
+        : rawMessage;
       setMsg(errorMessage);
       eventBus?.emit(SHELL_TOAST_EVENT, {
         intent: "error",
-        title: "Apply leave failed",
+        title: isPolicy ? "Policy Restriction" : "Apply leave failed",
         message: errorMessage,
       });
     }
@@ -262,9 +280,11 @@ export default function Leave() {
       eventBus?.emit(SHELL_TOAST_EVENT, { intent: "success", ...success });
     } catch (e) {
       captureError(e instanceof Error ? e : new Error("Leave status update failed"), { leaveId: selected.id });
-      const message = e instanceof Error ? e.message : "Action failed.";
+      const rawMessage = e instanceof Error ? e.message : "Action failed.";
+      const isPolicy = rawMessage.includes("Leave blocked by policy") || rawMessage.includes("blocked by policy");
+      const message = isPolicy ? `Cannot approve request: ${rawMessage}` : rawMessage;
       setApprovalError(message);
-      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: "Leave action failed", message });
+      eventBus?.emit(SHELL_TOAST_EVENT, { intent: "error", title: isPolicy ? "Policy Restriction" : "Leave action failed", message });
     }
     finally { setActing(false); }
   };
@@ -352,7 +372,7 @@ export default function Leave() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
                 <StatCard tag="Total Submitted" value={`${pendingLeaves.length} Pending`} sub="Needs verification" tone="#d97706" icon={<Clock size={20} />} />
                 <StatCard tag="Active Workforce Status" value={`${employees.length - onLeaveToday.length} / ${employees.length}`} sub="Active today" tone="#10b981" icon={<Users size={20} />} />
-                <StatCard tag="Out of Office" value={`${onLeaveToday.length} On Leave`} sub="Absent today" tone={TEAL} icon={<Calendar size={20} />} accent />
+                <StatCard tag="Out of Office" value={`${fullDayOnLeaveCount} On Leave`} sub={`${fullDayOnLeaveCount} Full Day • ${halfDayActiveCount} Half Day Active`} tone={TEAL} icon={<Calendar size={20} />} accent />
               </div>
 
           {/* who is on leave today */}

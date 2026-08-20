@@ -58,20 +58,23 @@ export default function ShellLayout({ children }: Props) {
   }, [location.pathname, location.search]);
 
   useLayoutEffect(() => {
-    const previousPath = previousPathRef.current;
     previousPathRef.current = location.pathname;
-    const leftBookings = previousPath.startsWith("/bookings") && !location.pathname.startsWith("/bookings");
-    if (!leftBookings) return;
     const shellContent = shellContentRef.current;
-    if (!shellContent) return;
 
-    // The Booking calendar temporarily owns these inline styles for its
-    // full-height grid. Clear any leaked values before another MFE is painted
-    // so the shell's normal layout and vertical scrolling are restored.
-    shellContent.style.removeProperty("overflow-y");
-    shellContent.style.removeProperty("overflow-x");
-    shellContent.style.removeProperty("display");
-    shellContent.scrollTop = 0;
+    if (shellContent) {
+      // Clear any leaked inline overflow styles from specialized views
+      // so the shell's normal layout and vertical scrolling are always restored.
+      shellContent.style.removeProperty("overflow-y");
+      shellContent.style.removeProperty("overflow-x");
+      shellContent.style.removeProperty("display");
+      shellContent.scrollTop = 0;
+    }
+
+    // Clear any modal/dialog scroll locks left on body or documentElement
+    document.body.style.removeProperty("overflow");
+    document.body.style.removeProperty("pointer-events");
+    document.body.removeAttribute("data-scroll-locked");
+    document.documentElement.style.removeProperty("overflow");
   }, [location.pathname]);
 
   function handleMenuToggle() {

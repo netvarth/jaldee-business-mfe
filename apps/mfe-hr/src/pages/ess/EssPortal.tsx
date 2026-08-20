@@ -1,9 +1,10 @@
+// Employee Self Service (ESS) main portal module - clean build verified
 import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, Plus, Receipt, ShieldAlert, Table as Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
-import { Button, DataTable, DataTablePagination, DatePicker, Dialog, FileUpload, Input, SectionCard, Select, Textarea } from "@jaldee/design-system";
+import { CalendarDays, Clock, Eye, FileText, History, Info, LayoutGrid, Loader2, LogOut, MessageSquare, MoreHorizontal, Plus, Receipt, ShieldAlert, Table as Rows3, Timer, User, Wallet, X, type LucideIcon } from "lucide-react";
+import { Button, DataTable, DataTablePagination, DatePicker, Dialog, EmptyState, FileUpload, Input, Popover, SectionCard, Select, Textarea } from "@jaldee/design-system";
 import type { ColumnDef } from "@jaldee/design-system";
 import { SHELL_TOAST_EVENT, useMFEProps } from "@jaldee/auth-context";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   useMyAttendance,
   useMyLeaveBalances,
@@ -29,12 +30,11 @@ import type { AttendanceBreak } from "../../types";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
-type Section = "overview" | "profile" | "attendance" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "memos" | "separation" | "helpdesk";
+type Section = "attendance" | "profile" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "memos" | "separation" | "helpdesk";
 
 const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: LucideIcon }> = [
-  { key: "overview", route: "", label: "Overview", Icon: User },
+  { key: "attendance", route: "", label: "Attendance", Icon: Clock },
   { key: "profile", route: "profile", label: "My Profile", Icon: User },
-  { key: "attendance", route: "attendance", label: "Attendance", Icon: Clock },
   { key: "leave", route: "leave", label: "Leave", Icon: CalendarDays },
   { key: "documents", route: "documents", label: "My Documents", Icon: FileText },
   { key: "staffspace", route: "staffspace", label: "StaffSpace", Icon: FileText },
@@ -46,9 +46,8 @@ const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: Luci
 ];
 
 const SECTION_DESCRIPTIONS: Record<Section, string> = {
-  overview: "Your HR profile, attendance, documents and requests.",
-  profile: "Your HR profile, identity details and employment information.",
   attendance: "Track work mode, punch status and attendance history.",
+  profile: "Your HR profile, identity details and employment information.",
   leave: "Review leave balances and past requests.",
   documents: "Documents requested by your company and the files you have submitted.",
   payslips: "View payroll statements and generated payslips.",
@@ -62,9 +61,9 @@ const SECTION_DESCRIPTIONS: Record<Section, string> = {
 function sectionFromPath(pathname: string): Section {
   const segments = pathname.split("/").filter(Boolean);
   const segment = segments.at(-1);
-  if (segment === "me") return "overview";
+  if (segment === "me" || segment === "attendance") return "attendance";
   const match = ESS_ROUTES.find((item) => item.route === segment || item.key === segment);
-  return match?.key || "overview";
+  return match?.key || "attendance";
 }
 
 function calcLeaveDays(start?: string, end?: string, half?: boolean): number {
@@ -76,23 +75,27 @@ function calcLeaveDays(start?: string, end?: string, half?: boolean): number {
 }
 
 function formatHoursAndMinutes(workedHours?: number, workedMinutes?: number, workedHoursFormatted?: string): string {
-  if (workedHoursFormatted && !workedHoursFormatted.includes('(')) return workedHoursFormatted;
+  if (workedHoursFormatted && workedHoursFormatted.trim()) {
+    return workedHoursFormatted;
+  }
   if (workedMinutes !== undefined && workedMinutes !== null) {
     const hrs = Math.floor(workedMinutes / 60);
     const mins = workedMinutes % 60;
-    if (hrs === 0) return `${mins} mins`;
-    if (mins === 0) return `${hrs} ${hrs > 1 ? 'hours' : 'hour'}`;
-    return `${hrs} hr ${mins} mins`;
+    const decimalStr = workedHours !== undefined && workedHours !== null ? ` (${workedHours.toFixed(2)}h)` : "";
+    if (hrs === 0) return `${mins} mins${decimalStr}`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}${decimalStr}`;
+    return `${hrs} hr ${mins} mins${decimalStr}`;
   }
-  if (workedHours !== undefined && workedHours !== null && workedHours > 0) {
+  if (workedHours !== undefined && workedHours !== null) {
     const totalMins = Math.round(workedHours * 60);
     const hrs = Math.floor(totalMins / 60);
     const mins = totalMins % 60;
-    if (hrs === 0) return `${mins} mins`;
-    if (mins === 0) return `${hrs} ${hrs > 1 ? 'hours' : 'hour'}`;
-    return `${hrs} hr ${mins} mins`;
+    const decimalStr = ` (${workedHours.toFixed(2)}h)`;
+    if (hrs === 0) return `${mins} mins${decimalStr}`;
+    if (mins === 0) return `${hrs} ${hrs > 1 ? "hours" : "hour"}${decimalStr}`;
+    return `${hrs} hr ${mins} mins${decimalStr}`;
   }
-  return '--';
+  return "--";
 }
 
 function mergeLeaveBalanceBuckets<T extends { leaveTypeName?: string; total?: number; used?: number; available?: number; status?: string }>(
@@ -145,8 +148,8 @@ const pageStack: CSSProperties = {
 type ViewMode = "table" | "cards";
 const EMPTY_DOCUMENT_FILTERS: [] = [];
 
-function getPreferredViewMode() {
-  if (typeof window === "undefined") return "table" as ViewMode;
+function getPreferredViewMode(): ViewMode {
+  if (typeof window === "undefined") return "table";
   return window.matchMedia("(max-width: 767px)").matches ? "cards" : "table";
 }
 
@@ -169,6 +172,8 @@ export default function EssPortal() {
   const [exitError, setExitError] = useState<string | null>(null);
   const [exitForm, setExitForm] = useState({ noticePeriodDays: "30", reason: "" });
   const [selectedExitDetail, setSelectedExitDetail] = useState<ExitRequest | null>(null);
+  const navigate = useNavigate();
+  const [essMenuOpen, setEssMenuOpen] = useState(false);
   const [exitDetailLoading, setExitDetailLoading] = useState(false);
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [documentSubmitBusy, setDocumentSubmitBusy] = useState(false);
@@ -188,9 +193,9 @@ export default function EssPortal() {
   });
   const profile = useMyProfile();
   const exits = useExits({ enabled: section === "separation" });
-  const showAttendanceData = section === "overview" || section === "attendance";
-  const showLeaveData = section === "overview" || section === "leave";
-  const showPayslipData = section === "overview" || section === "payslips";
+  const showAttendanceData = section === "attendance";
+  const showLeaveData = section === "leave";
+  const showPayslipData = section === "payslips";
   const attendanceRules = useAttendanceRules({ enabled: section === "attendance" });
   const leaveTypes = useLeaveTypes({ enabled: section === "leave" });
   const attendance = useMyAttendance({ enabled: showAttendanceData });
@@ -444,6 +449,11 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
     ...item,
     to: item.route ? `/me/${item.route}` : "/me",
   }));
+  const mainMobileSections: Section[] = ["attendance", "leave", "payslips", "profile"];
+  const mainMobileNavItems = navItems.filter((item) => mainMobileSections.includes(item.key));
+  const moreMobileNavItems = navItems.filter((item) => !mainMobileSections.includes(item.key));
+  const isMoreSectionActive = !mainMobileSections.includes(section);
+  const activeSectionItem = ESS_ROUTES.find((item) => item.key === section) ?? ESS_ROUTES[0];
   const railClassName = "hidden xl:block xl:flex-[0_0_32%] xl:pt-6";
 
   const snapshotItems = [
@@ -691,12 +701,10 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                 <div className="max-w-3xl">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">Employee Self-Service</div>
                   <h1 className="mt-3 text-[24px] font-black tracking-tight text-slate-950 md:text-[27px] lg:text-[30px]">
-                    {section === "overview" ? "Your workday, requests and updates in one place." : currentRoute.label}
+                    {currentRoute.label}
                   </h1>
                   <p className="mt-3 text-[13px] leading-6 text-slate-600 md:text-[14px] md:leading-6 lg:text-[15px] lg:leading-7">
-                    {section === "overview"
-                      ? "Access HR details, attendance, leave, documents and support without moving between multiple screens."
-                      : SECTION_DESCRIPTIONS[section]}
+                    {SECTION_DESCRIPTIONS[section]}
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 max-sm:hidden">
@@ -723,10 +731,10 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                 data-testid={`hr-ess-nav-${item.key}`}
                 key={item.key}
                 to={item.to}
-                end={item.key === "overview"}
+                end={item.key === "attendance"}
                 className={({ isActive }) =>
                   [
-                    "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all",
+                    "inline-flex shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all",
                     isActive
                       ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white shadow-[0_10px_20px_rgba(15,118,110,0.22)]"
                       : "text-slate-600 hover:bg-emerald-50 hover:text-slate-900",
@@ -740,72 +748,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
           </nav>
           <div className="ess-mobile-content flex flex-col gap-6 xl:flex-row xl:items-stretch">
             <div className="ess-mobile-main min-w-0 flex-1">
-              {section === "overview" && (
-                <div className="ess-overview-content mt-6 flex flex-col gap-6">
-                  <div>
-                    <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-sm">
-                      <div>
-                        <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">Popular services</h2>
-                        <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Quick access to the employee self-service areas you use most.</p>
-                      </div>
-                      <div className="mt-6 grid grid-cols-2 gap-3 md:gap-4">
-                        {primaryServices.map((item) => (
-                          <NavLink
-                            key={item.key}
-                            to={item.to}
-                            className="group rounded-xl border border-slate-200 bg-white p-3 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)]"
-                          >
-                            <div className="space-y-3 text-center sm:space-y-4 md:text-left">
-                              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700 sm:h-12 sm:w-12 md:mx-0">
-                                <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
-                              </div>
-                              <div>
-                                <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-[16px]">
-                                  {item.label}
-                                </div>
-                                <p className="mt-2 text-[10px] leading-normal text-slate-500 sm:text-[11px] md:text-[12px] md:leading-5 lg:text-sm lg:leading-6">
-                                  {SECTION_DESCRIPTIONS[item.key]}
-                                </p>
-                              </div>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    </SectionCard>
-                  </div>
 
-                  <SectionCard className="rounded-xl border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#fbfdff_100%)] shadow-sm">
-                    <div>
-                      <h2 className="text-[21px] font-black tracking-tight text-slate-950 md:text-[23px] lg:text-[24px]">Featured journeys</h2>
-                      <p className="mt-2 text-[12px] text-slate-500 md:text-[13px] lg:text-sm">Everything beyond core HR, grouped into the next actions employees usually need.</p>
-                    </div>
-                    <div className="mt-6 grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
-                      {featuredRoutes.map((item) => (
-                        <NavLink
-                          key={item.key}
-                          to={item.to}
-                          className="group rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-[linear-gradient(135deg,#ffffff_0%,#f6fffb_100%)] sm:p-5 md:text-left"
-                        >
-                          <div className="space-y-3 sm:space-y-4">
-                            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#ecfdf5_0%,#d1fae5_100%)] text-emerald-700 sm:h-12 sm:w-12 md:mx-0">
-                              <item.Icon className="h-5 w-5 sm:h-[18px] sm:w-[18px]" />
-                            </div>
-                            <div>
-                              <div className="text-[12px] font-bold text-slate-950 sm:mt-3 sm:text-[14px] md:text-[15px] md:font-black lg:text-[16px]">
-                                {item.label}
-                              </div>
-                              <p className="mt-2 text-[10px] leading-normal text-slate-500 sm:text-[11px] md:text-[12px] md:leading-5 lg:text-sm lg:leading-6">
-                                {featureDescriptions[item.key]}
-                              </p>
-                            </div>
-                          </div>
-                        </NavLink>
-                      ))}
-                    </div>
-                  </SectionCard>
-
-                </div>
-              )}
 
               {section === "profile" && (
                 <Panel loading={profile.loading} error={profile.error} className="mt-2 lg:mt-6">
@@ -1049,16 +992,18 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                             <AttendanceTimelineRow label="Worked Hours" value={liveHoursToday ?? (todayAttendance.workedHours != null ? formatHoursAndMinutes(todayAttendance.workedHours) : "--")} detail={todayAttendance.status ?? "Present"} />
                           </div>
                         ) : (
-                          <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-5 py-7 text-center text-sm text-slate-500">
-                            No attendance activity recorded for today.
-                          </div>
+                          <EmptyState
+                            title="No attendance activity recorded for today"
+                            description="Clock in or set your work mode to begin tracking today's shift."
+                            className="py-8 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                          />
                         )}
                       </SectionCard>
                     </div>
 
                     <SectionCard className="order-3 border-slate-200 shadow-sm">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
+                        <div className="hidden md:block">
                           <div className="text-xs font-extrabold uppercase tracking-[0.16em] text-slate-500">History</div>
                           <h3 className="mt-2 text-[17px] font-black tracking-tight text-slate-950 md:text-[19px] lg:text-[20px]">
                             Recent Attendance Logs ({sortedAttendance.length})
@@ -1086,9 +1031,11 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                             ])}
                           />
                         ) : sortedAttendance.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-                            No attendance records found.
-                          </div>
+                          <EmptyState
+                            title="No attendance records found"
+                            description="Your historical shift logs and check-in times will appear here."
+                            className="py-10 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                          />
                         ) : (
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {sortedAttendance.map((item, index) => (
@@ -1122,7 +1069,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                     ))}
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
+                    <div className="hidden md:block">
                       <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">
                         Leave requests ({leaves.data.length})
                       </h3>
@@ -1151,9 +1098,11 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                         data-testid="ess-leave-table"
                       />
                     ) : leaves.data.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-                        No leave records found.
-                      </div>
+                      <EmptyState
+                        title="No leave records found"
+                        description="Applied leave requests and balances will appear here."
+                        className="py-10 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                      />
                     ) : (
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {leaves.data.map((item, index) => (
@@ -1175,7 +1124,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
               {section === "documents" && (
                 <Panel loading={documents.loading} error={documents.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
+                    <div className="hidden md:block">
                       <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">
                         My Documents ({documentRows.length})
                       </h3>
@@ -1187,9 +1136,11 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                   </div>
                   <div className="mt-5">
                     {documentRows.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-                        No document requests found.
-                      </div>
+                      <EmptyState
+                        title="No document requests found"
+                        description="Documents requested by your organization will appear here."
+                        className="py-10 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                      />
                     ) : documentViewMode === "table" ? (
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-left text-[13px] md:text-[14px] lg:text-base">
@@ -1277,7 +1228,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
               {section === "payslips" && (
                 <Panel loading={payslips.loading} error={payslips.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
+                    <div className="hidden md:block">
                       <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px] lg:text-[20px]">
                         Payslip statements ({payslips.data.length})
                       </h3>
@@ -1296,9 +1247,11 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                         data-testid="ess-payslips-table"
                       />
                     ) : payslips.data.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                        No payslip statements found.
-                      </div>
+                      <EmptyState
+                        title="No payslip statements found"
+                        description="Generated monthly payslips and payout statements will appear here."
+                        className="py-10 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                      />
                     ) : (
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {payslips.data.map((item, index) => (
@@ -1390,7 +1343,11 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                       {exits.loading ? (
                         <div className="mt-4 flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> Loading requests...</div>
                       ) : exits.data.filter((item) => item.employeeUid === (profile.data?.id || profile.data?.uid)).length === 0 ? (
-                        <p className="mt-3 text-sm text-slate-500">No exit requests submitted.</p>
+                        <EmptyState
+                          title="No exit requests submitted"
+                          description="Submitted resignation requests will appear here."
+                          className="py-8 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                        />
                       ) : (
                         <div className="mt-3 space-y-2">
                           {exits.data
@@ -1733,6 +1690,87 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
           </Button>
         </div>
       </Dialog>
+
+      <nav
+        id="hr-ess-mobile-footer"
+        data-testid="hr-ess-mobile-footer"
+        className="mobile-bottom-nav ess-mobile-bottom-nav md:hidden"
+        aria-label="ESS Mobile navigation"
+      >
+        {mainMobileNavItems.map((item) => {
+          const isActive = section === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              id={`hr-ess-mobile-nav-${item.key}`}
+              data-testid={`hr-ess-mobile-nav-${item.key}`}
+              className="mobile-bottom-nav__item"
+              data-active={isActive}
+              onClick={() => navigate(item.to)}
+            >
+              <span className="mobile-bottom-nav__icon">
+                <item.Icon size={18} />
+              </span>
+              <span className="mobile-bottom-nav__label">{item.label.replace("My ", "")}</span>
+            </button>
+          );
+        })}
+        <Popover
+          portal
+          open={essMenuOpen}
+          onOpenChange={setEssMenuOpen}
+          placement="top"
+          align="end"
+          contentClassName="!w-60 !max-h-[70vh] !overflow-y-auto !p-0 !bg-[var(--surface-bg)] !border !border-[var(--border-color)] rounded-xl shadow-xl py-1.5 !z-[9999]"
+          trigger={
+            <button
+              type="button"
+              id="hr-ess-mobile-nav-more"
+              data-testid="hr-ess-mobile-nav-more"
+              className="mobile-bottom-nav__item"
+              data-active={isMoreSectionActive}
+              aria-label="More ESS sections"
+              onClick={() => setEssMenuOpen((open) => !open)}
+            >
+              <span className="mobile-bottom-nav__icon">
+                <MoreHorizontal size={18} />
+              </span>
+              <span className="mobile-bottom-nav__label">
+                {isMoreSectionActive ? activeSectionItem.label.replace("My ", "") : "More"}
+              </span>
+            </button>
+          }
+        >
+          <div className="flex w-full flex-col py-1">
+            <div className="border-b border-[var(--border-color)] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[var(--light-text)]">
+              Self Service
+            </div>
+            {moreMobileNavItems.map((item) => {
+              const isActive = section === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    navigate(item.to);
+                    setEssMenuOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-xs font-bold hover:bg-[var(--primary-light)] transition-colors"
+                  style={{
+                    color: isActive ? "var(--primary-color)" : "var(--dark-text)",
+                    background: isActive ? "rgba(17,94,89,0.06)" : "transparent",
+                    border: "none",
+                  }}
+                >
+                  <item.Icon size={16} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Popover>
+      </nav>
     </section>
   );
 }

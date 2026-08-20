@@ -90,10 +90,16 @@ function useShellContentHeightSync() {
       appRoot.style.setProperty("--bookings-shell-content-height", `${nextHeight}px`);
     };
 
-    if (shellContent && isCalendarRoute) {
-      shellContent.style.overflowY = "hidden";
-      shellContent.style.overflowX = "hidden";
-      shellContent.style.display = "flex";
+    if (shellContent) {
+      if (isCalendarRoute) {
+        shellContent.style.overflowY = "hidden";
+        shellContent.style.overflowX = "hidden";
+        shellContent.style.display = "flex";
+      } else {
+        shellContent.style.removeProperty("overflow-y");
+        shellContent.style.removeProperty("overflow-x");
+        shellContent.style.removeProperty("display");
+      }
     }
 
     syncHeight();
@@ -113,10 +119,10 @@ function useShellContentHeightSync() {
     return () => {
       window.removeEventListener("resize", syncHeight);
       resizeObserver?.disconnect();
-      if (shellContent && isCalendarRoute) {
-        shellContent.style.overflowY = previousOverflowY;
-        shellContent.style.overflowX = previousOverflowX;
-        shellContent.style.display = previousDisplay;
+      if (shellContent) {
+        shellContent.style.removeProperty("overflow-y");
+        shellContent.style.removeProperty("overflow-x");
+        shellContent.style.removeProperty("display");
       }
     };
   }, [location.pathname, location.key]);

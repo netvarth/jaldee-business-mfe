@@ -218,7 +218,25 @@ export function ApplyLeaveModal(props: ApplyModalProps) {
           )}
         </div>
       </div>
-      {msg && <div style={{ margin: "0 24px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
+      {msg && (
+        <div
+          id="hr-leave-apply-policy-error"
+          data-testid="hr-leave-apply-policy-error"
+          style={{
+            margin: "0 24px 16px",
+            padding: "12px 16px",
+            background: msg.includes("Policy Restriction") || msg.includes("blocked by policy") ? "rgba(245,158,11,0.08)" : "rgba(244,63,94,0.06)",
+            border: msg.includes("Policy Restriction") || msg.includes("blocked by policy") ? "1px solid rgba(245,158,11,0.25)" : "1px solid rgba(244,63,94,0.18)",
+            color: msg.includes("Policy Restriction") || msg.includes("blocked by policy") ? "#b45309" : "#e11d48",
+            borderRadius: 12,
+            fontSize: 13,
+            fontWeight: 700,
+            lineHeight: 1.45,
+          }}
+        >
+          {msg}
+        </div>
+      )}
       <div className="max-[480px]:!px-4 max-[480px]:[&>button]:flex-1" style={{ padding: "16px 24px", background: "var(--app-bg)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12, shrink: 0 }}>
         <Button id="hr-leave-apply-cancel" data-testid="hr-leave-apply-cancel" variant="outline" onClick={onClose}>Close</Button>
         <Button id="hr-leave-apply-submit" data-testid="hr-leave-apply-submit" variant="primary" onClick={submitApply} disabled={leaveTypesLoading} loading={saving}>Submit Application</Button>

@@ -200,6 +200,7 @@ export default function Expenses() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getPreferredViewMode());
+  const showTable = viewMode === "table" && (typeof window === "undefined" || !window.matchMedia("(max-width: 767px)").matches);
   const sumPending = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
   const sumSettled = useMemo(() => scopedExpenses.filter((e) => ["Approved", "Reimbursed", "Paid"].includes(e.status || "")).reduce((a, e) => a + (e.amount || 0), 0), [scopedExpenses]);
   const pendingCount = useMemo(() => scopedExpenses.filter((e) => e.status === "Pending").length, [scopedExpenses]);
@@ -555,7 +556,7 @@ export default function Expenses() {
           <div className="p-5">
             <SkeletonTable rows={4} columns={tab === "approvals" ? 7 : 6} />
           </div>
-        ) : viewMode === "table" ? (
+        ) : showTable ? (
           <div data-testid="hr-expenses-table-panel">
             <DataTable
               data-testid="hr-expenses-table"

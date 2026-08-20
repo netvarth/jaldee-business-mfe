@@ -1,3 +1,4 @@
+// CareersPublishPage - Requisition publish & preview flow
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { useJobRequisitions } from "../../services/useRecruitmentData";
@@ -126,18 +127,18 @@ export default function CareersPublishPage() {
         style={{ padding: 24, textAlign: "center" }}
       >
         <div style={{ width: "100%", maxWidth: 560, margin: "40px auto" }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#D1FAE5", color: "#059669", display: "grid", placeItems: "center", margin: "0 auto 14px", fontSize: 26, fontWeight: 800 }}>✓</div>
-        <h2 style={{ color: "#1E1B4B", margin: "0 0 4px" }}>Published to your careers site</h2>
-        <p style={{ color: "#6b7280", margin: 0, fontSize: 14 }}>{requisition?.title} is now live. Share this link anywhere.</p>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", border: "1px dashed #b9a9e6", borderRadius: 11, padding: "11px 14px", margin: "16px 0" }}>
-          <code data-testid="hr-careers-generated-link" style={{ flex: 1, textAlign: "left", color: "#4C1DB3", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</code>
-          <button onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
-            style={{ border: "1px solid #E5E7EB", background: "#fff", borderRadius: 8, padding: "6px 11px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>{copied ? "Copied ✓" : "Copy"}</button>
-        </div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-          <button data-testid="hr-careers-publish-done" onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Done</button>
-          <button data-testid="hr-careers-open-public-page" onClick={() => window.open(link, "_blank", "noopener,noreferrer")} style={btnPrimary}>Open public page →</button>
-        </div>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#D1FAE5", color: "#059669", display: "grid", placeItems: "center", margin: "0 auto 14px", fontSize: 26, fontWeight: 800 }}>✓</div>
+          <h2 style={{ color: "#1E1B4B", margin: "0 0 4px" }}>Published to your careers site</h2>
+          <p style={{ color: "#6b7280", margin: 0, fontSize: 14 }}>{requisition?.title} is now live. Share this link anywhere.</p>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", border: "1px dashed #b9a9e6", borderRadius: 11, padding: "11px 14px", margin: "16px 0" }}>
+            <code data-testid="hr-careers-generated-link" style={{ flex: 1, textAlign: "left", color: "#4C1DB3", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link}</code>
+            <button onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
+              style={{ border: "1px solid #E5E7EB", background: "#fff", borderRadius: 8, padding: "6px 11px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" }}>{copied ? "Copied ✓" : "Copy"}</button>
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <button data-testid="hr-careers-publish-done" onClick={() => navigate("/recruitment/requisitions")} style={btnGhost}>Done</button>
+            <button data-testid="hr-careers-open-public-page" onClick={() => window.open(link, "_blank", "noopener,noreferrer")} style={btnPrimary}>Open public page →</button>
+          </div>
         </div>
       </div>
     );
@@ -148,7 +149,7 @@ export default function CareersPublishPage() {
     <div
       data-testid="hr-careers-publish-page"
       className="page-section active hr-page-shell"
-      style={{ padding: "22px 24px 60px" }}
+      style={{ padding: "22px 24px 80px" }}
     >
       <button onClick={() => navigate("/recruitment/requisitions")} style={backLink}>← Back to requisitions</button>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: "#1E1B4B", margin: "8px 0 2px" }}>Publish to careers</h1>
@@ -192,12 +193,12 @@ export default function CareersPublishPage() {
         </div>
 
         {/* live preview */}
-        <div style={{ ...card, padding: 0, overflow: "hidden" }}>
+        <div style={{ ...card, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 180px)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #E5E7EB", fontSize: 12, color: "#6b7280", background: "#faf8fc" }}>
             <span>Live preview — what candidates see</span>
             <span style={{ textTransform: "capitalize" }}>{form.templateKey}</span>
           </div>
-          <div style={{ padding: 14, background: "#F5F3FB" }}>
+          <div style={{ padding: 14, background: "#F5F3FB", overflowY: "auto", flex: 1 }}>
             <JobPageView job={preview} interactive={false} />
           </div>
         </div>

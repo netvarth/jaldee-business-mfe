@@ -19,6 +19,7 @@ import { useAppStore } from "../store/appStore";
 import ShellToastHost from "./ShellToastHost";
 import "./employeeShell.css";
 
+
 export default function EmployeeShellLayout({ children }: { children: ReactNode }) {
   const { logout } = useAuth();
   const user = useAppStore((state) => state.user);
@@ -79,13 +80,6 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
             end
             className={({ isActive }) => (isActive ? activeClass : inactiveClass)}
           >
-            <LayoutGrid size={20} />
-            <span className="text-[10px] font-bold tracking-wider">Overview</span>
-          </NavLink>
-          <NavLink
-            to="/me/attendance"
-            className={({ isActive }) => (isActive ? activeClass : inactiveClass)}
-          >
             <Clock size={20} />
             <span className="text-[10px] font-bold tracking-wider">Attendance</span>
           </NavLink>
@@ -102,6 +96,13 @@ export default function EmployeeShellLayout({ children }: { children: ReactNode 
           >
             <Wallet size={20} />
             <span className="text-[10px] font-bold tracking-wider">Payslips</span>
+          </NavLink>
+          <NavLink
+            to="/me/profile"
+            className={({ isActive }) => (isActive ? activeClass : inactiveClass)}
+          >
+            <User size={20} />
+            <span className="text-[10px] font-bold tracking-wider">Profile</span>
           </NavLink>
           <button
             type="button"

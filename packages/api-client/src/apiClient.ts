@@ -60,7 +60,18 @@ function getCsrfToken(): string {
   return match ? match.split("=")[1] : _csrfToken;
 }
 
+let _lastSessionExpiredTime = 0;
+const SESSION_EXPIRED_THROTTLE_MS = 10000;
+
 function notifySessionExpired() {
+  const now = Date.now();
+  if (now - _lastSessionExpiredTime < SESSION_EXPIRED_THROTTLE_MS) {
+    console.warn(
+      "[api-client] Throttling session expired notification to prevent infinite auth loops"
+    );
+    return;
+  }
+  _lastSessionExpiredTime = now;
   _sessionExpired = true;
   if (_sessionExpiredHandler) {
     _sessionExpiredHandler();
@@ -70,18 +81,34 @@ function notifySessionExpired() {
   window.dispatchEvent(new CustomEvent("jaldee:session:expired"));
 }
 
+let _lastRefreshFailedTime = 0;
+const REFRESH_FAILURE_COOLDOWN_MS = 5000;
+
 async function refreshSessionOnce(): Promise<RefreshResult | void> {
   if (!_refreshSessionHandler) {
     return undefined;
+  }
+
+  const now = Date.now();
+  if (now - _lastRefreshFailedTime < REFRESH_FAILURE_COOLDOWN_MS) {
+    console.warn(
+      "[api-client] Session refresh failed recently; skipping duplicate refresh attempt"
+    );
+    throw new Error("Session refresh in cooldown");
   }
 
   if (_refreshInFlight) {
     return _refreshInFlight;
   }
 
-  _refreshInFlight = _refreshSessionHandler().finally(() => {
-    _refreshInFlight = null;
-  });
+  _refreshInFlight = _refreshSessionHandler()
+    .catch((err) => {
+      _lastRefreshFailedTime = Date.now();
+      throw err;
+    })
+    .finally(() => {
+      _refreshInFlight = null;
+    });
 
   return _refreshInFlight;
 }

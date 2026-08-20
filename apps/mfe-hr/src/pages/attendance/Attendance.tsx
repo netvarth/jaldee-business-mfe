@@ -322,12 +322,12 @@ export default function Attendance() {
   const pendingOvertime = useMemo(() => attendance.data.filter((a) => (a.overtimeStatus || "").toLowerCase() === "pending" && (a.overtimeMinutes ?? 0) > 0), [attendance.data]);
   const shouldShowLocationSelect = branches.data.length > 1;
 
-  const essAnnouncements = useAnnouncements([], null, { scope: "ess" });
+  const essAnnouncements = useAnnouncements([], null, { enabled: false });
   const [mandatoryAckNotice, setMandatoryAckNotice] = useState<Announcement | null>(null);
   const [ackSaving, setAckSaving] = useState(false);
 
   const pendingMandatoryAnnouncements = useMemo(() => {
-    return essAnnouncements.data.filter(
+    return (essAnnouncements.data || []).filter(
       (a) => a.mandatoryAck && !a.isAcknowledged && a.status !== "Disabled"
     );
   }, [essAnnouncements.data]);
@@ -398,7 +398,7 @@ export default function Attendance() {
     try {
       const parsed = JSON.parse(stored) as number[];
       const { faceDistance, FACE_MATCH_THRESHOLD } = await import("../../lib/face");
-      const dist = faceDistance(descriptor, parsed);
+      const dist = await faceDistance(descriptor, parsed);
       setFaceOpen(false);
       if (dist <= FACE_MATCH_THRESHOLD) await doPunch(true, selfieDataUrl);
       else setMsg(`Face not recognized (distance ${dist.toFixed(2)}). Try again.`);

@@ -22,7 +22,7 @@ interface RecruitmentLayoutProps {
 }
 
 const TABS = [
-  { value: "dashboard", label: "Overview", path: "/recruitment", icon: BarChart3 },
+  { value: "dashboard", label: "Dashboard", path: "/recruitment", icon: BarChart3 },
   { value: "requisitions", label: "Requisitions", path: "/recruitment/requisitions", icon: Briefcase },
   { value: "candidates", label: "Candidates", path: "/recruitment/candidates", icon: Users },
   { value: "interviews", label: "Interviews", path: "/recruitment/interviews", icon: CalendarClock },

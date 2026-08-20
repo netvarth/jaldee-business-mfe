@@ -105,6 +105,9 @@ export function useAnnouncements(
       : `/announcements/${uid}/acknowledge`;
   };
 
+  const filterKey = JSON.stringify(filterClauses);
+  const schemaKey = schema ? JSON.stringify(schema) : "";
+
   const load = useCallback(async () => {
     if (!enabled) {
       setLoading(false);
@@ -127,8 +130,17 @@ export function useAnnouncements(
           return;
         }
       } else {
-        const res = await api.get<unknown>(listEndpoint);
-        setData(normalizeListResponse<Announcement>(res));
+        try {
+          const res = await api.get<unknown>(listEndpoint);
+          setData(normalizeListResponse<Announcement>(res));
+        } catch (essError) {
+          try {
+            const res = await api.get<unknown>("/announcements");
+            setData(normalizeListResponse<Announcement>(res));
+          } catch {
+            setData([]);
+          }
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load announcements");
@@ -136,7 +148,7 @@ export function useAnnouncements(
     } finally {
       setLoading(false);
     }
-  }, [api, enabled, filterClauses, listEndpoint, schema, scope]);
+  }, [api, enabled, filterKey, listEndpoint, schemaKey, scope]);
 
   useEffect(() => {
     void load();
