@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [account, authResolved, hasHydrated, isAuthenticated]);
 
+
   useEffect(() => {
     if (userPreferences) {
       themeService.applyUserPreferences(userPreferences);
@@ -86,10 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initApiClient(window.location.origin);
     setApiClientAuthHandlers({
       refreshSession: async () => {
-        const tokens = await authService.refreshAccessToken();
-        return { authToken: tokens.accessToken };
+        try {
+          const session = await authService.refreshSession();
+          return { authToken: session.token ?? undefined };
+        } catch (err) {
+          console.warn("[AuthProvider] Session refresh failed:", err);
+          throw err;
+        }
       },
       onSessionExpired: () => {
+        console.warn("[AuthProvider] Session expired, clearing credentials.");
         clearStoredCredentials();
         clearAuth();
         useShellStore.persist.clearStorage();

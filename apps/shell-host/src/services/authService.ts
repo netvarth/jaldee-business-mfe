@@ -1115,22 +1115,33 @@ export const authService = {
 
   async refreshSession(): Promise<SessionResponse> {
     if (authMode === "token") {
-      const tokens = await this.refreshAccessToken();
-
-      const context = await this.checkSession();
-      return {
-        ...context,
-        token: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      };
+      const storedTokens = getStoredTokenSession();
+      if (storedTokens?.refreshToken) {
+        try {
+          const tokens = await this.refreshAccessToken();
+          const context = await this.checkSession();
+          return {
+            ...context,
+            token: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+          };
+        } catch (err) {
+          console.warn("[authService] Token refresh failed, falling back to checkSession:", err);
+        }
+      }
+      return this.checkSession();
     }
 
     const credentials = getStoredCredentials();
-    if (!credentials) {
-      throw new Error("No stored credentials available for session refresh");
+    if (credentials) {
+      try {
+        return await this.login(credentials);
+      } catch (err) {
+        console.warn("[authService] Credential re-login failed, falling back to checkSession:", err);
+      }
     }
 
-    return this.login(credentials);
+    return this.checkSession();
   },
 
   async refreshAccessToken(): Promise<TokenLoginResponse> {

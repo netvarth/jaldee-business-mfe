@@ -668,17 +668,20 @@ export default function Tickets() {
         onClose={() => setAddOpen(false)}
         testId="hr-tickets-create-modal"
         hideHeader
-        contentClassName="max-w-[820px] p-0 overflow-hidden"
+        contentClassName="w-[calc(100vw-1.5rem)] max-w-[820px] max-h-[calc(100vh-2rem)] p-0 overflow-hidden rounded-2xl shadow-2xl border-0"
       >
-        <div style={{ background: "rgba(17,94,89,0.05)", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div className="bg-[rgba(17,94,89,0.05)] px-6 py-6 sm:px-8 sm:py-7 flex items-start justify-between border-b border-emerald-900/10">
           <div>
-            <h3 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-1px", color: "var(--dark-text)", margin: 0 }}>Raise a Ticket</h3>
-            <p style={{ fontSize: 13, fontWeight: 500, color: "var(--light-text)", margin: "4px 0 0" }}>Provide details about your issue so we can help you better.</p>
+            <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">Raise a Ticket</h3>
+            <p className="mt-1 text-xs sm:text-sm font-medium text-slate-500">Provide details about your issue so we can help you better.</p>
           </div>
-          <button id="hr-tickets-create-close" data-testid="hr-tickets-create-close" onClick={() => setAddOpen(false)} style={iconBtn}><X size={20} /></button>
+          <button id="hr-tickets-create-close" data-testid="hr-tickets-create-close" onClick={() => setAddOpen(false)} style={iconBtn} aria-label="Close">
+            <X size={20} />
+          </button>
         </div>
-        <div style={{ padding: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }} className="max-[820px]:grid-cols-1">
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+        <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[calc(100vh-14rem)] overflow-y-auto">
+          <div className="flex flex-col gap-4">
             {!isEmployeeView ? (
               <Combobox
                 id="hr-tickets-employee"
@@ -709,7 +712,7 @@ export default function Tickets() {
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <Select
                 id="hr-tickets-category"
                 testId="hr-tickets-category"
@@ -739,11 +742,20 @@ export default function Tickets() {
               placeholder="Select department"
             />
             <input ref={attachmentInputRef} data-testid="hr-tickets-attachment-file" type="file" hidden onChange={(event) => setAttachment(event.target.files?.[0] ?? null)} />
-            <Button id="hr-tickets-attachment" data-testid="hr-tickets-attachment" type="button" variant="outline" icon={<Paperclip size={16} />} onClick={() => attachmentInputRef.current?.click()}>
+            <Button
+              id="hr-tickets-attachment"
+              data-testid="hr-tickets-attachment"
+              type="button"
+              variant="outline"
+              icon={<Paperclip size={16} />}
+              onClick={() => attachmentInputRef.current?.click()}
+              className="w-full justify-center overflow-hidden text-ellipsis whitespace-nowrap"
+            >
               {attachment ? attachment.name : "Attachment (Optional)"}
             </Button>
           </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
+
+          <div className="flex flex-col h-full min-h-[160px]">
             <Textarea
               id="hr-tickets-description"
               data-testid="hr-tickets-description"
@@ -751,12 +763,15 @@ export default function Tickets() {
               placeholder="Provide more details about your issue..."
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={9}
+              rows={8}
+              className="flex-1 min-h-[160px] md:min-h-[220px]"
             />
           </div>
         </div>
-        {msg && <div style={{ margin: "0 28px", padding: "10px 14px", background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.18)", color: "#e11d48", borderRadius: 12, fontSize: 13 }}>{msg}</div>}
-        <div style={{ padding: "20px 28px", background: "rgba(100,116,139,0.04)", borderTop: "1px solid var(--border-color)", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+
+        {msg && <div className="mx-6 sm:mx-8 mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs sm:text-sm font-medium">{msg}</div>}
+
+        <div className="px-6 py-4 sm:px-8 bg-slate-50 border-t border-slate-200/80 flex flex-wrap items-center justify-end gap-3">
           <Button id="hr-tickets-cancel" data-testid="hr-tickets-cancel" variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
           <Button id="hr-tickets-submit" data-testid="hr-tickets-submit" variant="primary" className={isEmployeeView ? "bg-[linear-gradient(135deg,#0f766e_0%,#0f9f8c_100%)] text-white hover:brightness-95 active:brightness-90" : undefined} onClick={raise} loading={saving}>Submit Ticket</Button>
         </div>
