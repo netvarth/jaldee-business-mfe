@@ -38,7 +38,7 @@ function formatSecondsToHHMMSS(totalSeconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function calculateDurationMinutes(startIso?: string, endIso?: string): number {
+export function calculateDurationMinutes(startIso?: string, endIso?: string): number {
   if (!startIso || !endIso) return 0;
   const start = new Date(startIso).getTime();
   const end = new Date(endIso).getTime();

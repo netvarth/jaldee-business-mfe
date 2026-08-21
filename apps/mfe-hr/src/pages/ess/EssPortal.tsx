@@ -24,7 +24,7 @@ import { useAttendanceRules, useLeaveTypes } from "../../services/useSettingsDat
 import { formatCurrency, formatDate } from "../../lib/utils";
 import { useExits } from "../../services/useExits";
 import { PayslipStatementDialog } from "../../components/PayslipStatementDialog";
-import { AttendanceBreakManager, BREAK_TYPE_OPTIONS } from "../../components/AttendanceBreakManager";
+import { AttendanceBreakManager, BREAK_TYPE_OPTIONS, calculateDurationMinutes } from "../../components/AttendanceBreakManager";
 import { useHrApi } from "../../services/useHrApi";
 import type { AttendanceBreak } from "../../types";
 
