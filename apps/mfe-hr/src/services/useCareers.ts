@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SearchFilterClause, SearchSchema } from "@jaldee/shared-modules";
+import { normalizeServiceGatewayUrl } from "@jaldee/api-client";
 import { buildHrSearchBody, EMPTY_SEARCH_FILTERS, unwrapHrSearchPage } from "./hrSearch";
 import { useHrApi } from "./useHrApi";
 
@@ -14,13 +15,7 @@ import { useHrApi } from "./useHrApi";
  * so they use a bare fetch. Tenant is resolved server-side from companySlug.
  */
 
-function getPublicGatewayPrefix() {
-  const configured = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
-  if (!configured || configured === "/") return "";
-  return `/${configured.replace(/^\/+|\/+$/g, "")}`;
-}
-
-const PUBLIC_BASE = `${getPublicGatewayPrefix()}/hr-service/v1/api/consumer/careers`;
+const PUBLIC_BASE = normalizeServiceGatewayUrl("/hr-service/v1/api/consumer/careers");
 
 export type JobPostingStatus = "DRAFT" | "PUBLISHED" | "CLOSED";
 
@@ -270,24 +265,90 @@ export function usePublicJob(companySlug: string, jobSlug: string) {
   return { data, loading, error };
 }
 
-/** Submit a public application using multipart form data. */
+/** Upload public resume file via platform drive upload (contextType CAREERS, featureModuleName HR_CAREERS). */
+export async function uploadPublicResumeFile(file: File): Promise<string> {
+  const fileExtension = file.name.includes(".") ? file.name.split(".").pop() || "pdf" : "pdf";
+  const descriptor = {
+    action: "ADD",
+    caption: file.name,
+    contextType: "CAREERS",
+    featureModuleName: "HR_CAREERS",
+    featureServiceName: "HR",
+    fileName: file.name,
+    fileType: fileExtension,
+    fileSize: file.size,
+    sharedType: "secureShare",
+  };
+
+  const initUrl = normalizeServiceGatewayUrl("/platform-service/v1/api/drive/initiate-upload");
+  const initRes = await fetch(initUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(descriptor),
+  });
+
+  if (!initRes.ok) {
+    throw new Error(`Failed to initiate resume upload (${initRes.status})`);
+  }
+
+  const target = (await initRes.json()) as { fileUid: string; uploadUrl: string };
+
+  const uploadRes = await fetch(target.uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: file.type ? { "Content-Type": file.type } : undefined,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("Failed to upload resume file.");
+  }
+
+  const completeUrl = normalizeServiceGatewayUrl(`/platform-service/v1/api/drive/${target.fileUid}/status?status=COMPLETE`);
+  await fetch(completeUrl, { method: "PATCH" }).catch(() => { /* ignore */ });
+
+  return target.fileUid;
+}
+
+/** Submit a public application using JSON body + drive file upload reference. */
 export async function applyToJob(
   companySlug: string,
   jobSlug: string,
   payload: JobApplication,
   resume?: File | null
 ) {
-  const fd = new FormData();
-  fd.append("application", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-  if (resume) fd.append("resume", resume, resume.name);
+  let resumeFileRef = payload.resumeFileRef ?? payload.resumeFileUid ?? null;
+
+  if (resume && !resumeFileRef) {
+    resumeFileRef = await uploadPublicResumeFile(resume);
+  }
+
+  const applicationPayload = {
+    ...payload,
+    resumeFileRef,
+    resumeFileUid: resumeFileRef,
+    attachment: resumeFileRef ? { fileUid: resumeFileRef } : undefined,
+  };
 
   const res = await fetch(`${PUBLIC_BASE}/${companySlug}/jobs/${jobSlug}/apply`, {
     method: "POST",
-    body: fd, // browser sets multipart boundary; do NOT set Content-Type manually
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(applicationPayload),
   });
+
   if (!res.ok) {
     let msg = `Apply failed (${res.status})`;
-    try { const j = JSON.parse(await res.text()); msg = j?.message || msg; } catch { /* ignore */ }
+    try {
+      const j = JSON.parse(await res.text());
+      msg = j?.message || msg;
+    } catch {
+      /* ignore */
+    }
     throw new Error(msg);
   }
   const text = await res.text();

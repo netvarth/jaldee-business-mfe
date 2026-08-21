@@ -16,6 +16,12 @@ const templates = [
   { value: "minimal", label: "Minimal" },
 ];
 
+function formatTagsText(tags: unknown): string {
+  if (Array.isArray(tags)) return tags.filter(Boolean).join(", ");
+  if (typeof tags === "string") return tags;
+  return "";
+}
+
 /**
  * Full publish flow (mirrors the approved demo): left = public-copy form with the
  * requisition shown read-only; right = live preview; then a generated-link step.
@@ -39,7 +45,7 @@ export default function CareersPublishPage() {
   const [form, setForm] = useState<JobPosting>(
     existing ?? { title: requisition?.title || "", requisitionUid, templateKey: site?.defaultTemplate || "classic" }
   );
-  const [tagsText, setTagsText] = useState((existing?.tags ?? []).join(", "));
+  const [tagsText, setTagsText] = useState(formatTagsText(existing?.tags));
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
@@ -49,7 +55,7 @@ export default function CareersPublishPage() {
   useEffect(() => {
     if (existing?.uid) {
       setForm(existing);
-      setTagsText((existing.tags ?? []).join(", "));
+      setTagsText(formatTagsText(existing.tags));
       return;
     }
 

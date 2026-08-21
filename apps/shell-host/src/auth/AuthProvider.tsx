@@ -158,11 +158,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearStoredCredentials();
         clearAuth();
         setAuthResolved(true);
-        useShellStore.persist.clearStorage();
       });
   }, [accessToken, clearAuth, hasHydrated, isAuthenticated, setAuth, setAuthResolved, setAvailableLocations, setLocation]);
 
   async function login(payload: LoginRequest) {
+    setApiClientContext({ authToken: "" });
     if (getAuthMode() === "session") {
       setStoredCredentials(payload);
     }

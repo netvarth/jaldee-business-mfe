@@ -4,6 +4,7 @@ export {
   setApiClientContext,
   setApiClientAuthHandlers,
   createApiClient,
+  normalizeServiceGatewayUrl,
 } from "./apiClient";
 
 export type { ApiClientAuthMode } from "./apiClient";

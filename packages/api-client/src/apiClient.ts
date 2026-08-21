@@ -8,6 +8,7 @@ interface RequestConfigWithMeta extends InternalAxiosRequestConfig {
   };
   _retry?: boolean;
   _skipAuthRefresh?: boolean;
+  _skipAuth?: boolean;
   _skipCsrf?: boolean;
   _skipLocationParam?: boolean;
 }
@@ -49,92 +50,41 @@ export function setApiClientAuthHandlers(handlers: {
   refreshSession?: RefreshSessionHandler | null;
   onSessionExpired?: SessionExpiredHandler | null;
 }) {
-  _refreshSessionHandler = handlers.refreshSession ?? null;
-  _sessionExpiredHandler = handlers.onSessionExpired ?? null;
+  if (handlers.refreshSession !== undefined) {
+    _refreshSessionHandler = handlers.refreshSession;
+  }
+  if (handlers.onSessionExpired !== undefined) {
+    _sessionExpiredHandler = handlers.onSessionExpired;
+  }
 }
 
 function getCsrfToken(): string {
-  const match = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrf_token="));
-  return match ? match.split("=")[1] : _csrfToken;
-}
+  if (_csrfToken) return _csrfToken;
+  if (typeof document === "undefined") return "";
 
-let _lastSessionExpiredTime = 0;
-const SESSION_EXPIRED_THROTTLE_MS = 10000;
-
-function notifySessionExpired() {
-  const now = Date.now();
-  if (now - _lastSessionExpiredTime < SESSION_EXPIRED_THROTTLE_MS) {
-    console.warn(
-      "[api-client] Throttling session expired notification to prevent infinite auth loops"
-    );
-    return;
-  }
-  _lastSessionExpiredTime = now;
-  _sessionExpired = true;
-  if (_sessionExpiredHandler) {
-    _sessionExpiredHandler();
-    return;
-  }
-
-  window.dispatchEvent(new CustomEvent("jaldee:session:expired"));
-}
-
-let _lastRefreshFailedTime = 0;
-const REFRESH_FAILURE_COOLDOWN_MS = 5000;
-
-async function refreshSessionOnce(): Promise<RefreshResult | void> {
-  if (!_refreshSessionHandler) {
-    return undefined;
-  }
-
-  const now = Date.now();
-  if (now - _lastRefreshFailedTime < REFRESH_FAILURE_COOLDOWN_MS) {
-    console.warn(
-      "[api-client] Session refresh failed recently; skipping duplicate refresh attempt"
-    );
-    throw new Error("Session refresh in cooldown");
-  }
-
-  if (_refreshInFlight) {
-    return _refreshInFlight;
-  }
-
-  _refreshInFlight = _refreshSessionHandler()
-    .catch((err) => {
-      _lastRefreshFailedTime = Date.now();
-      throw err;
-    })
-    .finally(() => {
-      _refreshInFlight = null;
-    });
-
-  return _refreshInFlight;
-}
-
-function getResponseErrorCode(data: unknown): string {
-  if (typeof data === "object" && data !== null && "code" in data) {
-    const code = (data as { code?: unknown }).code;
-    return typeof code === "string" ? code.trim().toUpperCase() : "";
-  }
-
-  if (typeof data === "string") {
-    try {
-      return getResponseErrorCode(JSON.parse(data));
-    } catch {
-      return "";
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (meta) {
+    const val = meta.getAttribute("content");
+    if (val) {
+      _csrfToken = val;
+      return val;
     }
+  }
+
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+  if (match) {
+    _csrfToken = decodeURIComponent(match[1]);
+    return _csrfToken;
   }
 
   return "";
 }
 
-function normalizeServiceGatewayUrl(url?: string): string {
+export function normalizeServiceGatewayUrl(url?: string): string {
   if (!url) return "";
   let normalized = url;
 
-  if (/^https?:\/\//i.test(normalized) && typeof window !== "undefined") {
+  if (typeof window !== "undefined" && window.location?.origin && /^https?:\/\//i.test(normalized)) {
     try {
       const parsed = new URL(normalized);
       if (parsed.origin === window.location.origin) {
@@ -189,8 +139,19 @@ export function createApiClient(baseURL: string): AxiosInstance {
       if (_mfeName) config.headers["X-MFE-Name"] = _mfeName;
       if (_productScope) config.headers["X-Product"] = _productScope;
 
-      if (_authMode === "token" && _authToken) {
+      const isAuthEndpoint = Boolean(
+        config._skipAuth ||
+        (config.url &&
+          (config.url.includes("/login") ||
+           config.url.includes("/auth-service/v1/api/auth/token") ||
+           config.url.includes("/provider/login")))
+      );
+
+      if (_authMode === "token" && _authToken && !isAuthEndpoint) {
         config.headers["Authorization"] = `Bearer ${_authToken}`;
+      } else if (isAuthEndpoint && config.headers) {
+        delete config.headers["Authorization"];
+        delete config.headers["authorization"];
       }
 
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
@@ -262,45 +223,38 @@ export function createApiClient(baseURL: string): AxiosInstance {
     },
     async (error) => {
       const status = error.response?.status;
-      const responseCode = getResponseErrorCode(error.response?.data);
-      const originalRequest = error.config as RequestConfigWithMeta | undefined;
+      const config = (error.config || {}) as RequestConfigWithMeta;
 
-      if (status === 401 || status === 419) {
-        const canRefresh =
-          Boolean(_refreshSessionHandler) &&
-          originalRequest &&
-          !originalRequest._retry &&
-          !originalRequest._skipAuthRefresh;
+      if (status === 401 && !config._retry && !config._skipAuthRefresh) {
+        config._retry = true;
 
-        if (canRefresh) {
-          originalRequest._retry = true;
-
+        if (_refreshSessionHandler) {
           try {
-            console.info(
-              `[api-client] ${status}${responseCode ? ` ${responseCode}` : ""} received; refreshing the session and retrying the request`
-            );
-            const refreshResult = await refreshSessionOnce();
-            _sessionExpired = false;
-
-            if (_authMode === "token" && refreshResult?.authToken !== undefined) {
-              _authToken = refreshResult.authToken;
-              originalRequest.headers["Authorization"] = `Bearer ${refreshResult.authToken}`;
+            if (!_refreshInFlight) {
+              _refreshInFlight = _refreshSessionHandler().finally(() => {
+                _refreshInFlight = null;
+              });
             }
 
-            const retriedResponse = await client.request(originalRequest);
-            console.info(`[api-client] Session refreshed; retried request completed with ${retriedResponse.status}`);
-            return retriedResponse;
-          } catch (refreshError) {
-            notifySessionExpired();
-            return Promise.reject(refreshError);
+            const refreshResult = await _refreshInFlight;
+            if (refreshResult && refreshResult.authToken) {
+              setApiClientContext({ authToken: refreshResult.authToken });
+            }
+
+            return client(config);
+          } catch (refreshErr) {
+            _sessionExpired = true;
+            if (_sessionExpiredHandler) {
+              _sessionExpiredHandler();
+            }
+            return Promise.reject(enrichApiError(refreshErr));
+          }
+        } else {
+          _sessionExpired = true;
+          if (_sessionExpiredHandler) {
+            _sessionExpiredHandler();
           }
         }
-
-        notifySessionExpired();
-      }
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("jaldee:api:error", { detail: error }));
       }
 
       return Promise.reject(enrichApiError(error));
@@ -310,8 +264,29 @@ export function createApiClient(baseURL: string): AxiosInstance {
   return client;
 }
 
-export let apiClient: AxiosInstance;
+export const apiClient = createApiClient("");
 
-export function initApiClient(baseURL: string): void {
-  apiClient = createApiClient(baseURL);
+export function initApiClient(options?: {
+  authToken?: string;
+  mfeName?: string;
+  productScope?: string;
+  authMode?: ApiClientAuthMode;
+  refreshSession?: RefreshSessionHandler | null;
+  onSessionExpired?: SessionExpiredHandler | null;
+}) {
+  if (!options) return apiClient;
+
+  setApiClientContext({
+    authToken: options.authToken,
+    mfeName: options.mfeName,
+    productScope: options.productScope,
+    authMode: options.authMode,
+  });
+
+  setApiClientAuthHandlers({
+    refreshSession: options.refreshSession,
+    onSessionExpired: options.onSessionExpired,
+  });
+
+  return apiClient;
 }
