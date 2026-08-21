@@ -431,14 +431,36 @@ export const useCalendars = (
     return updated;
   };
 
-  const toggleStatus = async (calendar: Calendar) => {
+  const toggleStatus = async (calendar: Calendar, cancelBooking = false) => {
     const next: CalendarStatus = calendar.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     setCalendars((prev) =>
       prev.map((item) => (item.uid === calendar.uid ? { ...item, status: next } : item))
     );
     try {
       await api.put(`/calendars/${calendar.uid}/status`, undefined, {
-        params: { status: next },
+        params: { status: next, cancelBooking },
+      });
+    } catch {
+      // Local-only update is fine for the prototype.
+    }
+  };
+
+  const toggleScheduleStatus = async (scheduleUid: string, currentEnabled: boolean, cancelBooking = false) => {
+    const nextStatus = currentEnabled ? "Disabled" : "Enabled";
+    try {
+      await api.put(`/schedules/${scheduleUid}/status`, undefined, {
+        params: { status: nextStatus, cancelBooking },
+      });
+    } catch {
+      // Local-only update is fine for the prototype.
+    }
+  };
+
+  const toggleTimeWindowStatus = async (timeWindowUid: string, currentEnabled: boolean, cancelBooking = false) => {
+    const nextStatus = currentEnabled ? "Disabled" : "Enabled";
+    try {
+      await api.put(`/schedules/time-windows/${timeWindowUid}/status`, undefined, {
+        params: { status: nextStatus, cancelBooking },
       });
     } catch {
       // Local-only update is fine for the prototype.
@@ -485,6 +507,8 @@ export const useCalendars = (
     customizeTimeWindow,
     normalizeCalendarStatus,
     toggleStatus,
+    toggleScheduleStatus,
+    toggleTimeWindowStatus,
     refresh: fetchCalendars,
     getUserCalendarsAvailability,
   };

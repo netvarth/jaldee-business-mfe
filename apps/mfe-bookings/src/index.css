@@ -3368,10 +3368,17 @@
 }
 
 @media (max-width: 767px) {
-    .calendar-details-layout,
-    .calendar-details-grid {
-        padding: 16px;
+    .calendar-details-layout {
+        padding: 0;
         gap: 16px;
+    }
+    .calendar-details-grid {
+        gap: 16px;
+    }
+
+    .form-row {
+        flex-direction: column;
+        gap: 12px;
     }
 
     .calendar-profile-header,
@@ -6768,4 +6775,22 @@
 }
 .fr-scan-line {
     animation: scanline 3s linear infinite;
+}
+
+@media (max-width: 639px) {
+    .detail-schedule-card {
+        background-color: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        margin-bottom: 32px !important;
+        padding-bottom: 32px !important;
+    }
+    .detail-schedule-card:last-child {
+        border-bottom: none !important;
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
 }

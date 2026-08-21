@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button, Input, Textarea, TimePicker, cn } from "@jaldee/design-system";
 import {
-  X, Calendar, Clock, User, CheckCircle, RotateCw, Ban, CreditCard, Play, FileText,
+  ChevronDown, X, Calendar, Clock, User, CheckCircle, RotateCw, Ban, CreditCard, Play, FileText, Trash,
 } from "../../components/icons";
 import {
   useBookingDetails,
@@ -19,7 +20,9 @@ import { buildOffsetDateTime, formatIsoTime } from "../../utils/dateTime";
 import { useToast } from "../../contexts/ToastContext";
 import { useBookingApi } from "../../services/useBookingApi";
 import AttachmentsPanel from "./AttachmentsPanel";
-
+import ShareInfoModal from "./ShareInfoModal";
+import ManageLabelsModal from "./ManageLabelsModal";
+import BookingHistoryTimeline from "./BookingHistoryTimeline";
 interface Props {
   bookingId: string | null;
   onClose: () => void;
@@ -45,16 +48,19 @@ const ACTION_META: Record<AllowedAction, { label: string; icon: typeof Play; ton
   MOVE_TO_WAITING: { label: "Move to Waiting",icon: Clock,       tone: "amber" },
   START:           { label: "Start",          icon: Play,        tone: "indigo" },
   COMPLETE:        { label: "Complete",       icon: CheckCircle, tone: "green" },
-  CANCEL:          { label: "Cancel",         icon: Ban,         tone: "red" },
+  CANCEL:          { label: "Cancel Booking", icon: Trash,       tone: "red" },
   NO_SHOW:         { label: "No Show",        icon: X,           tone: "slate" },
-  RESCHEDULE:      { label: "Reschedule",     icon: RotateCw,    tone: "blue" },
+  RESCHEDULE:      { label: "Reschedule",     icon: Calendar,    tone: "blue" },
   REBOOK:          { label: "Rebook",         icon: RotateCw,    tone: "blue" },
-  CREATE_INVOICE:  { label: "Create Invoice", icon: CreditCard,  tone: "purple" },
+  CREATE_INVOICE:  { label: "Invoice",        icon: FileText,    tone: "purple" },
   EDIT:            { label: "Edit",           icon: FileText,    tone: "slate" },
   VIEW_SUMMARY:    { label: "Summary",        icon: FileText,    tone: "slate" },
-  VIEW_INVOICE:    { label: "View Invoice",   icon: CreditCard,  tone: "slate" },
+  VIEW_INVOICE:    { label: "Invoice",        icon: FileText,    tone: "slate" },
   CREATE_FOLLOWUP: { label: "Follow-up",      icon: RotateCw,    tone: "emerald" },
   UNBLOCK:         { label: "Unblock",        icon: RotateCw,    tone: "cyan" },
+  SHARE_INFO:      { label: "Share Info",     icon: FileText,    tone: "blue" },
+  MANAGE_LABELS:   { label: "Manage Labels",  icon: FileText,    tone: "slate" },
+  VIEW_HISTORY:    { label: "Timeline",       icon: Clock,       tone: "slate" },
 };
 
 const TONE: Record<string, string> = {
@@ -108,14 +114,19 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   } = useBookingDetails();
   const { showToast } = useToast();
   const api = useBookingApi();
+  const navigate = useNavigate();
   const { preference } = useBookingPreferences();
   const { slots, isHoliday, holidayMessage, loading: slotsLoading, fetchSlots, clearSlots } = useSlots();
   const { unblockSlot, submitting: unblocking } = useBlockSlot();
   const [payOpen, setPayOpen] = useState(false);
   const [payAmount, setPayAmount] = useState("");
-  const [payMode, setPayMode] = useState<PaymentMode>("Cash");
+  const [payMode, setPayMode] = useState<PaymentMode>("cash");
   const [payNote, setPayNote] = useState("");
   const [payTxn, setPayTxn] = useState("");
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [shareInfoOpen, setShareInfoOpen] = useState(false);
+  const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSeries, setCancelSeries] = useState(false);
@@ -125,8 +136,6 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   const [newEnd, setNewEnd] = useState("");
   const [rescheduleSeries, setRescheduleSeries] = useState(false);
   const [viewFullDetails, setViewFullDetails] = useState(false);
-  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
-  const [showMobileActions, setShowMobileActions] = useState(false);
 
   useEffect(() => {
     if (bookingId) {
@@ -176,8 +185,10 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
     if (action === "RESCHEDULE") { setReschedOpen((v) => !v); return; }
     if (action === "CREATE_INVOICE") { createInvoice().then(() => setInvoiceModalOpen(true)); return; }
     if (action === "VIEW_INVOICE") { viewInvoice().then(() => setInvoiceModalOpen(true)); return; }
+    if (action === "SHARE_INFO") { setShareInfoOpen(true); return; }
+    if (action === "MANAGE_LABELS") { setManageLabelsOpen(true); return; }
     if (action === "UNBLOCK") { doUnblock(); return; }
-    if (action === "VIEW_SUMMARY" || action === "EDIT" || action === "CREATE_FOLLOWUP") return;
+    if (action === "VIEW_SUMMARY" || action === "EDIT" || action === "CREATE_FOLLOWUP" || action === "VIEW_HISTORY") return;
     act(action);
   };
 
@@ -236,11 +247,22 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
   };
 
   const getDerivedActions = (status: string, allowed: AllowedAction[], isInvoiceCreated: boolean = false): AllowedAction[] => {
+    let actions = [...allowed].filter(a => a !== "VIEW_HISTORY");
+    
+    // Always provide an invoice action if they are checked-in or beyond
+    if (!actions.includes("CREATE_INVOICE") && !actions.includes("VIEW_INVOICE")) {
+       if (["ARRIVED", "IN_PROGRESS", "COMPLETED"].includes(status)) {
+           actions.push("CREATE_INVOICE");
+       }
+    }
+
+    actions.push("SHARE_INFO", "MANAGE_LABELS");
+
     const invoiceAction = isInvoiceCreated ? "VIEW_INVOICE" : "CREATE_INVOICE";
-    return allowed
+    return actions
       .filter(a => a !== "NO_SHOW" && a !== "EDIT")
       .filter(a => !(status === "COMPLETED" && (a === "CREATE_FOLLOWUP" || a === "VIEW_SUMMARY")))
-      .map(a => a === "CREATE_INVOICE" ? invoiceAction : a);
+      .map(a => (a === "CREATE_INVOICE" || a === "VIEW_INVOICE") ? invoiceAction : a);
   };
 
   const st = details ? STATUS_STYLE[details.status] : null;
@@ -326,11 +348,18 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                 <div className="rounded-[16px] border border-slate-200 bg-white overflow-hidden">
                     <div className="flex items-center justify-between bg-[#f8fafc] px-4 py-3 border-b border-slate-200">
                         <h4 className="text-[12px] font-bold tracking-[0.05em] text-[#1e293b]">BOOKING DETAILS</h4>
-                        {st && (
-                            <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", st.bg, st.text)}>
-                                {st.label || details?.status}
-                            </span>
-                        )}
+                        <div className="flex gap-2">
+                            {details?.rescheduleRequired && (
+                                <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-700">
+                                    Reschedule Needed
+                                </span>
+                            )}
+                            {st && (
+                                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", st.bg, st.text)}>
+                                    {st.label || details?.status}
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="p-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
@@ -410,6 +439,10 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
                     <div>
                         <AttachmentsPanel bookingUid={bookingId} />
                     </div>
+                </div>
+
+                <div className="mt-4 mb-4">
+                  <BookingHistoryTimeline bookingUid={bookingId} />
                 </div>
                 
                 {reschedOpen && (
@@ -533,104 +566,88 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
         {/* Footer Actions */}
         {!loading && details && (
             <div className="shrink-0 px-6 pb-6 pt-4">
-                {actionsToShow.includes("START") && (
-                  <Button
-                    variant="primary"
-                    className="mb-3 h-11 w-full rounded-[14px] border-0 bg-[#5f3aa8] text-[14px] font-extrabold text-white shadow-[0_10px_24px_rgba(95,58,168,0.26)] hover:bg-[#533197]"
-                    onClick={() => handleAction("START")}
-                    disabled={!!acting}
-                  >
-                    Start Consultation
-                  </Button>
-                )}
-                {!reschedOpen && !cancelOpen && !cancelSeries && !rescheduleSeries && (
                 <div className="relative">
-                  <div className="sm:hidden mb-2 relative">
-                    <Button 
-                      variant="outline" 
-                      className="w-full flex items-center justify-center gap-2 border-[#5b3df5] text-[#5b3df5] font-bold h-11 rounded-[14px]"
-                      onClick={() => setShowMobileActions(!showMobileActions)}
-                    >
-                      Actions <span className="font-bold">...</span>
-                    </Button>
-                    
-                    {/* Mobile Dropdown List */}
-                    {showMobileActions && (
-                      <div className="absolute bottom-[100%] left-0 w-full mb-2 bg-white border border-slate-200 rounded-[14px] shadow-lg flex flex-col overflow-hidden z-50">
-                        {actionsToShow.filter((action) => action !== "START").map((action) => {
-                            const meta = ACTION_META[action];
-                            const Icon = meta?.icon || Play;
-                            const isBusy = acting === action;
-                            let disabled = !!acting;
-                            
-                            if (action === "COMPLETE" && details.startTime) {
-                                if (details.status !== "IN_PROGRESS") {
-                                    const now = new Date();
-                                    const start = new Date(details.startTime);
-                                    if (start > now) disabled = true;
-                                }
-                            }
-                            
-                            return (
-                                <button
-                                    key={action}
-                                    onClick={() => { handleAction(action); setShowMobileActions(false); }}
-                                    disabled={disabled}
-                                    className={cn(
-                                        "flex items-center gap-3 px-4 py-3 text-[13px] font-bold text-left border-b border-slate-100 last:border-0 hover:bg-slate-50",
-                                        action === "CANCEL" ? "text-red-600" : "text-slate-700",
-                                        disabled && "opacity-50 cursor-not-allowed"
-                                    )}
-                                >
-                                    {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={16} />}
-                                    {meta?.label || action}
-                                </button>
-                            );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Desktop Grid */}
-                  <div className="hidden sm:grid sm:grid-cols-4 gap-2">
-                  {actionsToShow.filter((action) => action !== "START").map((action) => {
-                      const meta = ACTION_META[action];
-                      const Icon = meta?.icon || Play;
-                      const isBusy = acting === action;
-                      let disabled = !!acting;
-                      
-                      if (action === "COMPLETE" && details.startTime) {
-                          if (details.status !== "IN_PROGRESS") {
-                              const now = new Date();
-                              const start = new Date(details.startTime);
-                              if (start > now) disabled = true;
-                          }
-                      }
+                  <div className="grid grid-cols-2 gap-3 mb-2">
+                    {(() => {
+                      const invoiceAction = actionsToShow.find(a => a === "CREATE_INVOICE" || a === "VIEW_INVOICE");
+                      const statusActions = actionsToShow.filter(a => a !== "CREATE_INVOICE" && a !== "VIEW_INVOICE");
                       
                       return (
-                          <Button
-                              key={action}
-                              variant="outline"
-                              size="sm"
-                              className={cn(
-                                "min-h-[44px] h-full rounded-[14px] border px-2 text-[12px] font-bold shadow-none flex-col items-center justify-center py-2",
-                                action === "CANCEL"
-                                  ? "border-[#fecaca] bg-white text-[#ff2b2b] hover:bg-[#fff5f5]"
-                                  : "border-[#d8e0ee] bg-white text-[#334155] hover:bg-slate-50",
-                              )}
-                              onClick={() => handleAction(action)}
-                              disabled={disabled}
-                          >
-                              <div className="flex items-center gap-1.5">
-                                  {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={14} />}
-                                  <span>{meta?.label || action}</span>
+                        <>
+                          <div className="relative">
+                            {statusActions.length > 0 ? (
+                              <Button 
+                                variant="outline" 
+                                className="w-full flex items-center justify-center gap-2 border-[#5b3df5] text-[#5b3df5] font-bold h-11 rounded-[14px]"
+                                onClick={() => setShowMobileActions(!showMobileActions)}
+                              >
+                                Status change <ChevronDown size={16} />
+                              </Button>
+                            ) : <div />}
+                            
+                            {showMobileActions && statusActions.length > 0 && (
+                              <div className="absolute bottom-[100%] left-0 w-full mb-2 bg-white border border-slate-200 rounded-[14px] shadow-lg flex flex-col overflow-hidden z-50">
+                                {statusActions.map((action) => {
+                                    const meta = ACTION_META[action];
+                                    const Icon = meta?.icon || Play;
+                                    const isBusy = acting === action;
+                                    let disabled = !!acting;
+                                    
+                                    if (action === "COMPLETE" && details.startTime) {
+                                        if (details.status !== "IN_PROGRESS") {
+                                            const now = new Date();
+                                            const start = new Date(details.startTime);
+                                            if (start > now) disabled = true;
+                                        }
+                                    }
+                                    
+                                    return (
+                                        <button
+                                            key={action}
+                                            onClick={() => { handleAction(action); setShowMobileActions(false); }}
+                                            disabled={disabled}
+                                            className={cn(
+                                                "flex items-center gap-3 px-4 py-3 text-[13px] font-bold text-left border-b border-slate-100 last:border-0 hover:bg-slate-50",
+                                                action === "CANCEL" ? "text-red-600" : "text-slate-700",
+                                                disabled && "opacity-50 cursor-not-allowed"
+                                            )}
+                                        >
+                                            {isBusy ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <Icon size={16} />}
+                                            {meta?.label || action}
+                                        </button>
+                                    );
+                                })}
                               </div>
-                          </Button>
+                            )}
+                          </div>
+                          
+                          {invoiceAction ? (
+                            <Button
+                                variant="outline"
+                                className="w-full h-11 rounded-[14px] border-[#d8e0ee] bg-white text-[#334155] font-bold hover:bg-slate-50 flex items-center justify-center gap-2"
+                                onClick={() => handleAction(invoiceAction)}
+                                disabled={!!acting}
+                            >
+                                {acting === invoiceAction ? <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin"></div> : <FileText size={16} />}
+                                {ACTION_META[invoiceAction]?.label || invoiceAction}
+                            </Button>
+                          ) : <div />}
+                        </>
                       );
-                  })}
+                    })()}
                   </div>
-                </div>
-                )}
+                  <div className="mt-5 mb-2 flex justify-center">
+                    <button
+                      className="text-[13px] font-bold text-[#8ca0bf] hover:text-[#5b3df5] transition-colors"
+                      onClick={() => {
+                        if (onClose) onClose();
+                        navigate(`/bookings/${bookingId}`);
+                      }}
+                    >
+                      View Booking Details & Timeline →
+                    </button>
+                  </div>
+                  </div>
                 {details.status === "BLOCKED" && !details.allowedActions.includes("UNBLOCK") && (
                     <Button variant="secondary" size="sm" className="mt-3 font-bold text-[12px] flex items-center gap-2 rounded-lg px-3 shadow-sm text-cyan-700 hover:bg-cyan-50" onClick={doUnblock} disabled={unblocking}>
                         Unblock slot
@@ -639,7 +656,18 @@ export default function AppointmentDetailsWorkspace({ bookingId, onClose }: Prop
             </div>
         )}
 
+        <ShareInfoModal
+          isOpen={shareInfoOpen}
+          onClose={() => setShareInfoOpen(false)}
+          bookingUid={bookingId || ""}
+        />
 
+        <ManageLabelsModal
+          isOpen={manageLabelsOpen}
+          onClose={() => setManageLabelsOpen(false)}
+          bookingUids={[bookingId || ""]}
+          initialLabels={[]}
+        />
     </div>
   );
 }

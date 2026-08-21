@@ -59,6 +59,7 @@ function buildBookingServiceUrl(endpoint: string) {
 
 interface BookingRequestOptions {
   params?: Record<string, string | number | boolean | undefined>;
+  data?: any;
   _skipLocationParam?: boolean;
   signal?: AbortSignal;
 }
@@ -90,7 +91,7 @@ export function useBookingApi() {
         const res = await apiClient.request<any>({
           url: buildBookingServiceUrl(endpoint),
           method,
-          data: body,
+          data: body ?? options?.data,
           params,
           _skipLocationParam: options?._skipLocationParam,
           signal: options?.signal,

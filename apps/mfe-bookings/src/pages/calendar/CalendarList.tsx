@@ -4,6 +4,7 @@ import {
   Badge,
   Button,
   cn,
+  Dialog,
   DataTable,
   Drawer,
   EmptyState,
@@ -125,6 +126,8 @@ export default function CalendarList() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [calendarToDisable, setCalendarToDisable] = useState<Calendar | null>(null);
+  const [openPopoverUid, setOpenPopoverUid] = useState<string | null>(null);
 
   const appliedFilterCount = useMemo(
     () => compactSearchClauses(advancedFilters, calendarSearchSchema).length,
@@ -235,6 +238,8 @@ export default function CalendarList() {
         render: (calendar) => (
           <div className="flex justify-end">
             <Popover
+              open={openPopoverUid === calendar.uid}
+              onOpenChange={(open) => setOpenPopoverUid(open ? calendar.uid || null : null)}
               trigger={
                 <button
                   id={`bookings-calendar-actions-${calendar.uid}`}
@@ -256,6 +261,7 @@ export default function CalendarList() {
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   onClick={(event) => {
                     event.stopPropagation();
+                    setOpenPopoverUid(null);
                     if (calendar.status === "DRAFT") {
                       navigate("/calendars/create", { state: { calendar } });
                     } else {
@@ -271,7 +277,12 @@ export default function CalendarList() {
                   className="px-4 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   onClick={(event) => {
                     event.stopPropagation();
-                    toggleStatus(calendar);
+                    setOpenPopoverUid(null);
+                    if (calendar.status === "ACTIVE") {
+                      setCalendarToDisable(calendar);
+                    } else {
+                      toggleStatus(calendar, false);
+                    }
                   }}
                 >
                   {calendar.status === "ACTIVE" ? "Make Inactive" : "Make Active"}
@@ -282,7 +293,7 @@ export default function CalendarList() {
         ),
       },
     ],
-    [navigate],
+    [navigate, openPopoverUid],
   );
 
   return (
@@ -293,127 +304,125 @@ export default function CalendarList() {
     >
       <PageHeader
         title="Calendars"
-        subtitle="Manage your booking calendars."
-        className="mb-2"
+        description="Manage your booking calendars."
         actions={
-          <Button
-            id="bookings-calendar-list-create"
-            data-testid="bookings-calendar-list-create"
-            onClick={() => navigate("/calendars/create")}
-          >
+          <Button id="btn-create-calendar" onClick={() => navigate("/calendars/create")}>
             Create Calendar
           </Button>
         }
       />
-      <div className="flex flex-row items-center justify-between gap-2 sm:gap-4">
-        <Input
-          id="bookings-calendar-list-search"
-          data-testid="bookings-calendar-list-search"
-          type="search"
-          placeholder="Search calendars"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setPage(1);
-          }}
-          containerClassName="flex-1 min-w-0 sm:max-w-sm"
-        />
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:ml-auto">
-          <Button
-            type="button"
-            data-testid="bookings-calendar-list-filter-trigger"
-            variant={appliedFilterCount > 0 ? "primary" : "outline"}
-            className={cn(
-              "flex items-center gap-2 rounded-md px-4 py-2 font-semibold",
-              appliedFilterCount > 0
-                ? ""
-                : "border-indigo-100 text-indigo-700 hover:bg-indigo-50/20"
-            )}
-            onClick={() => {
-              setDraftFilters(
-                advancedFilters.length > 0
-                  ? advancedFilters
-                  : buildDefaultSearchClauses(calendarSearchSchema)
-              );
-              setDrawerOpen(true);
-            }}
-          >
-            <FilterIcon />
-            <span>Filters</span>
-            {appliedFilterCount > 0 ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-indigo-600">
-                {appliedFilterCount}
-              </span>
-            ) : null}
-          </Button>
-        </div>
-      </div>
 
-      <DataTable
-        data={filtered}
-        columns={columns}
-        getRowId={(calendar) => calendar.uid}
-        loading={loading}
-        rowClassName={(calendar) => (calendar.status === "INACTIVE" ? "opacity-70" : "")}
-        onRowClick={(calendar) =>
-          navigate(`/calendars/${calendar.uid}/details`, { state: { calendar } })
-        }
-        pagination={{
-          page,
-          pageSize: 10,
-          total: filtered.length,
-          mode: "client",
-          onChange: setPage,
-        }}
-        emptyState={
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          <Input
+            id="bookings-calendar-search-input"
+            data-testid="bookings-calendar-search-input"
+            type="search"
+            placeholder="Search calendars"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+            containerClassName="max-w-md w-full"
+          />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Button
+              id="bookings-calendar-filter-btn"
+              data-testid="bookings-calendar-filter-btn"
+              variant="outline"
+              icon={<FilterIcon />}
+              onClick={() => setDrawerOpen(true)}
+            >
+              Filters
+              {appliedFilterCount > 0 && (
+                <Badge variant="primary" className="ml-2 h-5 min-w-[20px] px-1.5 text-xs">
+                  {appliedFilterCount}
+                </Badge>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {appliedFilterSummary && (
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <span className="font-medium">Applied Filters:</span>
+            <span>{appliedFilterSummary}</span>
+            <button
+              className="ml-2 text-indigo-600 hover:underline"
+              onClick={() => {
+                setAdvancedFilters([]);
+                setDraftFilters([]);
+              }}
+            >
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex h-64 items-center justify-center text-sm text-slate-500">
+            Loading calendars...
+          </div>
+        ) : calendars.length === 0 ? (
           <EmptyState
             title="No calendars found"
-            description="No calendars match the current search."
+            description="You don't have any calendars yet. Create one to start managing your bookings."
+            action={
+              <Button onClick={() => navigate("/calendars/create")}>
+                Create Calendar
+              </Button>
+            }
           />
-        }
-        tableClassName="min-w-[800px]"
-        data-testid="bookings-calendar"
-      />
+        ) : (
+          <DataTable
+            data={filtered}
+            columns={columns}
+            getRowId={(calendar) => calendar.uid}
+            loading={loading}
+            rowClassName={(calendar) => (calendar.status === "INACTIVE" ? "opacity-70" : "")}
+            onRowClick={(calendar) =>
+              navigate(`/calendars/${calendar.uid}/details`, { state: { calendar } })
+            }
+            pagination={{
+              page,
+              pageSize: 10,
+              total: filtered.length,
+              mode: "client",
+              onChange: setPage,
+            }}
+            emptyState={
+              <EmptyState
+                title="No matching calendars"
+                description="Try adjusting your search query or filters to find what you're looking for."
+              />
+            }
+            tableClassName="min-w-[800px]"
+            data-testid="bookings-calendar"
+          />
+        )}
+      </div>
 
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title="Filters"
-        size="sm"
-        contentClassName="flex flex-col overflow-hidden p-0"
+        title="Advanced Filters"
+        position="right"
+        size="md"
       >
-        <div className="flex h-full flex-1 flex-col overflow-hidden">
-          <div className="flex-1 space-y-5 overflow-y-auto p-5">
+        <div className="flex h-full flex-col">
+          <div className="flex-1 overflow-y-auto p-6">
             <SchemaFilterBuilder
               schema={calendarSearchSchema}
-              value={draftFilters}
+              clauses={draftFilters}
               onChange={setDraftFilters}
-              appliedCount={appliedFilterCount}
-              appliedSummary={appliedFilterSummary}
-              onClearAll={() => {
-                const resetClauses = buildDefaultSearchClauses(calendarSearchSchema);
-                setDraftFilters(resetClauses);
-                setAdvancedFilters(resetClauses);
-                setPage(1);
-              }}
-              emptyStateMessage="No calendar filters are available from the schema."
             />
           </div>
-          <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-white p-5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                const resetClauses = buildDefaultSearchClauses(calendarSearchSchema);
-                setDraftFilters(resetClauses);
-                setAdvancedFilters(resetClauses);
-                setPage(1);
-              }}
-            >
-              Reset All
+          <div className="flex items-center justify-end gap-3 border-t border-slate-200 p-6 bg-slate-50">
+            <Button variant="secondary" onClick={() => setDrawerOpen(false)}>
+              Cancel
             </Button>
             <Button
-              type="button"
               onClick={() => {
                 setAdvancedFilters(draftFilters);
                 setPage(1);
@@ -425,6 +434,41 @@ export default function CalendarList() {
           </div>
         </div>
       </Drawer>
+
+      <Dialog
+        open={calendarToDisable !== null}
+        onClose={() => setCalendarToDisable(null)}
+        title="Disable Calendar"
+        description="Do you want to cancel all upcoming active bookings automatically? If no, they will be flagged for rescheduling."
+        size="md"
+      >
+        <div className="flex gap-3 mt-6">
+          <Button
+            variant="danger"
+            className="flex-1 justify-center"
+            onClick={async () => {
+              if (calendarToDisable) {
+                await toggleStatus(calendarToDisable, true);
+                setCalendarToDisable(null);
+              }
+            }}
+          >
+            Cancel Bookings
+          </Button>
+          <Button
+            variant="primary"
+            className="flex-1 justify-center"
+            onClick={async () => {
+              if (calendarToDisable) {
+                await toggleStatus(calendarToDisable, false);
+                setCalendarToDisable(null);
+              }
+            }}
+          >
+            Reschedule bookings
+          </Button>
+        </div>
+      </Dialog>
     </section>
   );
 }

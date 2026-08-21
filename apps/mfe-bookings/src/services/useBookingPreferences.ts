@@ -23,6 +23,11 @@ export interface BookingPreference {
   notifyProvider?: boolean | null;
   currency?: string | null;
   refundOnCancel?: boolean | null;
+  sendNotifications?: boolean | null;
+  enableSmsNotifications?: boolean | null;
+  enableWalkinNotifications?: boolean | null;
+  enableOnlineNotifications?: boolean | null;
+  enableWhatsappNotifications?: boolean | null;
 }
 
 export function useBookingPreferences() {
@@ -63,6 +68,11 @@ export function useBookingPreferences() {
           reminderEnabled: value.reminderEnabled ?? false,
           reminderOffsets: value.reminderOffsets ?? [],
           cancellationEnabled: value.cancellationEnabled ?? false,
+          sendNotifications: value.sendNotifications ?? false,
+          enableSmsNotifications: value.enableSmsNotifications ?? false,
+          enableWalkinNotifications: value.enableWalkinNotifications ?? false,
+          enableOnlineNotifications: value.enableOnlineNotifications ?? false,
+          enableWhatsappNotifications: value.enableWhatsappNotifications ?? false,
         }),
       ]);
       const merged = { ...savedPref, ...savedNotif };

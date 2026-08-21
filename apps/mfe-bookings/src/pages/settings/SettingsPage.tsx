@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Clock, Bell, CreditCard, ShieldCheck, Info } from "lucide-react";
+import { Clock, Bell, CreditCard, ShieldCheck, Info, User, Building2, Lightbulb, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import {
   Alert,
   Button,
@@ -234,7 +234,51 @@ function Policies({ form, setValue }: any) {
   );
 }
 
+function Accordion({
+  title,
+  icon,
+  subtitle,
+  children,
+  defaultExpanded = false,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children: React.ReactNode;
+  defaultExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden mb-4">
+      <button
+        type="button"
+        className="w-full flex items-center justify-between p-4 bg-white transition-colors hover:bg-slate-50 text-left"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+            {icon}
+          </div>
+          <div>
+            <div className="font-bold text-slate-900">{title}</div>
+            {subtitle && <div className="text-sm text-slate-500 mt-0.5">{subtitle}</div>}
+          </div>
+        </div>
+        <div className="text-slate-400">
+          {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+      </button>
+      {expanded && (
+        <div className="p-4 border-t border-slate-100 bg-white">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Notifications({ form, setValue }: any) {
+  const navigate = useNavigate();
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
@@ -249,41 +293,101 @@ function Notifications({ form, setValue }: any) {
         </div>
       </div>
       
-      <div className="flex flex-col mt-4">
-        <div className="flex items-center justify-between border-b border-slate-100 py-4">
-          <div>
-            <div className="font-semibold text-slate-900 text-sm">Booking confirmation</div>
-            <div className="text-slate-500 text-sm">Send a confirmation when a booking is made.</div>
-          </div>
-          <Switch checked={Boolean(form.confirmationEnabled)} onChange={(checked) => setValue("confirmationEnabled", checked)} />
+      <div className="flex flex-col mt-4 gap-6">
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-slate-900">Send Notifications</span>
+          <Switch checked={Boolean(form.sendNotifications)} onChange={(checked) => setValue("sendNotifications", checked)} />
         </div>
-        <div className="flex items-center justify-between border-b border-slate-100 py-4">
-          <div>
-            <div className="font-semibold text-slate-900 text-sm">Reminders</div>
-            <div className="text-slate-500 text-sm">Send reminder(s) before the appointment.</div>
+
+        <div>
+          <h3 className="font-bold text-slate-900 mb-4">Channel Toggles</h3>
+          
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Enable SMS Notifications</span>
+              <Switch checked={Boolean(form.enableSmsNotifications)} onChange={(checked) => setValue("enableSmsNotifications", checked)} />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Enable Walkin Notifications</span>
+              <Switch checked={Boolean(form.enableWalkinNotifications)} onChange={(checked) => setValue("enableWalkinNotifications", checked)} />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Enable Online Notifications</span>
+              <Switch checked={Boolean(form.enableOnlineNotifications)} onChange={(checked) => setValue("enableOnlineNotifications", checked)} />
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-slate-700 font-medium">Enable Whatsapp Notifications</span>
+              <Switch checked={Boolean(form.enableWhatsappNotifications)} onChange={(checked) => setValue("enableWhatsappNotifications", checked)} />
+            </div>
           </div>
-          <Switch checked={Boolean(form.reminderEnabled)} onChange={(checked) => setValue("reminderEnabled", checked)} />
         </div>
-        <div className="flex items-center justify-between border-b border-slate-100 py-4">
-          <div>
-            <div className="font-semibold text-slate-900 text-sm">Cancellation notice</div>
-            <div className="text-slate-500 text-sm">Notify when a booking is cancelled.</div>
-          </div>
-          <Switch checked={Boolean(form.cancellationEnabled)} onChange={(checked) => setValue("cancellationEnabled", checked)} />
-        </div>
-        <div className="flex items-center justify-between border-b border-slate-100 py-4">
-          <div>
-            <div className="font-semibold text-slate-900 text-sm">Notify customer</div>
-            <div className="text-slate-500 text-sm">Master switch for customer-facing notifications.</div>
-          </div>
-          <Switch checked={Boolean(form.notifyCustomer)} onChange={(checked) => setValue("notifyCustomer", checked)} />
-        </div>
-        <div className="flex items-center justify-between py-4">
-          <div>
-            <div className="font-semibold text-slate-900 text-sm">Notify provider / staff</div>
-            <div className="text-slate-500 text-sm">Master switch for provider/staff notifications.</div>
-          </div>
-          <Switch checked={Boolean(form.notifyProvider)} onChange={(checked) => setValue("notifyProvider", checked)} />
+
+        <div className="mt-2">
+          <Accordion 
+            title="Gateway Details (Plivo)" 
+            icon={<CreditCard size={20} />}
+            defaultExpanded={true}
+          >
+            <div className="flex flex-col gap-3">
+              <div className="font-bold text-slate-900">Plivo</div>
+              <div>
+                <Button type="button" onClick={() => {}} className="bg-[#2E72A5] hover:bg-[#205b87] border-0">Add Details</Button>
+              </div>
+              <div className="text-sm text-slate-700 mt-2">
+                <div>Remaining SMS Credits: <span className="font-bold text-[#1e3a8a]">435</span></div>
+                <div>Remaining Whatsapp Credits: <span className="font-bold text-[#1e3a8a]">34</span></div>
+              </div>
+              <div className="flex gap-2 text-sm text-slate-700 mt-2 items-start">
+                <Lightbulb size={16} className="shrink-0 mt-0.5 text-yellow-500" />
+                <span>In order to send and receive notifications, kindly get in touch with our support team at the following contact information: +91 8714766671. They will be happy to assist you</span>
+              </div>
+            </div>
+          </Accordion>
+
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-4 bg-white transition-colors hover:bg-slate-50 text-left rounded-xl border border-slate-200 mb-4"
+            onClick={() => navigate('/settings/customer-notifications')}
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                <User size={20} />
+              </div>
+              <div>
+                <div className="font-bold text-slate-900">Customer</div>
+                <div className="text-sm text-slate-500 mt-0.5">
+                  Send notifications to your customers!
+                </div>
+              </div>
+            </div>
+            <div className="text-slate-400">
+              <ChevronRight size={20} />
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className="w-full flex items-center justify-between p-4 bg-white transition-colors hover:bg-slate-50 text-left rounded-xl border border-slate-200 mb-4"
+            onClick={() => { /* Navigate to Staffs Notifications */ }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                <Building2 size={20} />
+              </div>
+              <div>
+                <div className="font-bold text-slate-900">Staffs</div>
+                <div className="text-sm text-slate-500 mt-0.5">
+                  Get notifications from staffs!
+                </div>
+              </div>
+            </div>
+            <div className="text-slate-400">
+              <ChevronRight size={20} />
+            </div>
+          </button>
         </div>
       </div>
     </div>

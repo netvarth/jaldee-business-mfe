@@ -169,6 +169,7 @@ export interface Schedule {
   uid: string;
   name: string;
   description: string;
+  status?: "Enabled" | "Disabled";
   calendarUid: string;
   calendarName: string;
   startDate: string;
@@ -286,12 +287,14 @@ export type BookingStatus =
 export type AllowedAction =
   | "CONFIRM" | "CHECK_IN" | "MOVE_TO_WAITING" | "START" | "COMPLETE"
   | "CANCEL" | "NO_SHOW" | "RESCHEDULE" | "REBOOK" | "EDIT" | "CREATE_INVOICE"
-  | "VIEW_SUMMARY" | "VIEW_INVOICE" | "CREATE_FOLLOWUP" | "UNBLOCK";
+  | "VIEW_SUMMARY" | "VIEW_INVOICE" | "CREATE_FOLLOWUP" | "UNBLOCK" 
+  | "SHARE_INFO" | "MANAGE_LABELS" | "VIEW_HISTORY";
 
 export interface BookingDetails {
   uid: string;
   encId?: string;
   status: BookingStatus;
+  rescheduleRequired?: boolean;
   seriesUid?: string | null;
   bookingType?: string;
   bookingChannel?: string;

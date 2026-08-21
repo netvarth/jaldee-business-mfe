@@ -26,6 +26,7 @@ import { useDashboardFilters } from "../../services/useDashboardFilters";
 import BookingSearchFiltersDrawer from "../calendar/BookingSearchFiltersDrawer";
 import SaveDashboardFilterModal from "../calendar/SaveDashboardFilterModal";
 import CreateAppointmentDrawer from "../booking/CreateAppointmentDrawer";
+import ManageLabelsModal from "../appointment/ManageLabelsModal";
 import { useModal } from "../../contexts/ModalContext";
 
 function FilterIcon() {
@@ -45,6 +46,8 @@ export default function BookingListPage() {
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
   const dateTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const [advancedFilters, setAdvancedFilters] = useState<SearchFilterClause[]>([]);
@@ -481,7 +484,7 @@ export default function BookingListPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <div className="mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <Input
             type="search"
             placeholder="Search bookings by customer or service"
@@ -490,25 +493,45 @@ export default function BookingListPage() {
               setQuery(event.target.value);
               setPage(1);
             }}
-            containerClassName="max-w-md"
+            containerClassName="max-w-md w-full"
           />
+          {selectedRows.length > 0 && (
+            <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-lg border border-blue-100">
+              <span className="text-sm font-semibold text-blue-700">{selectedRows.length} selected</span>
+              <Button size="sm" onClick={() => setManageLabelsOpen(true)}>Manage Labels</Button>
+            </div>
+          )}
         </div>
         <DataTable
-        data={filtered}
-        columns={columns}
-        getRowId={(booking: any) => booking.id || booking.uid}
-        loading={loading}
-        pagination={{
-          page,
-          pageSize: 15,
-          total: filtered.length,
-          mode: "client",
-          onChange: setPage,
-        }}
-        emptyState={<EmptyState title="No bookings found" description="Try changing the search or month." />}
-        tableClassName="min-w-[900px]"
-      />
+          data={filtered}
+          columns={columns}
+          getRowId={(booking: any) => booking.id || booking.uid}
+          loading={loading}
+          selection={{
+            selectedRowKeys: selectedRows,
+            onChange: setSelectedRows
+          }}
+          pagination={{
+            page,
+            pageSize: 15,
+            total: filtered.length,
+            mode: "client",
+            onChange: setPage,
+          }}
+          emptyState={<EmptyState title="No bookings found" description="Try changing the search or month." />}
+          tableClassName="min-w-[900px]"
+        />
       </div>
+      
+      <ManageLabelsModal
+        isOpen={manageLabelsOpen}
+        onClose={() => {
+          setManageLabelsOpen(false);
+          setSelectedRows([]);
+        }}
+        bookingUids={selectedRows}
+        initialLabels={[]}
+      />
     </section>
   );
 }

@@ -100,3 +100,16 @@ export const MapPin = (p: IconProps) => (
 export const Monitor = (p: IconProps) => (
   <svg {...base(p)}><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></svg>
 );
+export const Power = (p: IconProps) => (
+  <svg {...base(p)}><path d="M18.36 6.64a9 9 0 1 1-12.73 0" /><line x1="12" y1="2" x2="12" y2="12" /></svg>
+);
+export const Trash = (p: IconProps) => (
+  <svg {...base(p)}><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" /></svg>
+);
+
+export const ArrowLeft = (p: IconProps) => (
+  <svg {...base(p)}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+);
+export const ChevronDown = (p: IconProps) => (
+  <svg {...base(p)}><path d="m6 9 6 6 6-6"/></svg>
+);

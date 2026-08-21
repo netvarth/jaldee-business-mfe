@@ -338,7 +338,7 @@ export default function EditSchedule() {
                 void save();
               }}
             >
-              <div className="form-row">
+              <div className="flex flex-col sm:flex-row gap-4 w-full">
                 <div className="form-group">
                   <Input
                     id="edit-schedule-name"
@@ -419,7 +419,7 @@ export default function EditSchedule() {
                         </div>
                       </div>
 
-                      <div className="form-row mt-3">
+                      <div className="flex flex-col sm:flex-row gap-4 w-full mt-3">
                         <div className="form-group">
                           <TimePicker
                             label="Start Time"

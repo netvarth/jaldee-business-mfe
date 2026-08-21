@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { Badge, Button, PageHeader, Popover, PopoverSection, Switch } from "@jaldee/design-system";
-import { Calendar as CalendarIcon, Clock, FileText, MapPin, MoreVertical, Plus, Settings, UserCircle, Users } from "../../components/icons";
-import type { Calendar, Schedule } from "../../types";
+import { Badge, Button, PageHeader, Popover, PopoverSection, Switch, Dialog } from "@jaldee/design-system";
+import { Calendar as CalendarIcon, Clock, FileText, MapPin, MoreVertical, Plus, Settings, UserCircle, Users, Power } from "../../components/icons";
+import type { Calendar, Schedule, TimeWindow } from "../../types";
 import { useCalendars } from "../../services/useCalendars";
 import { useUsers } from "../../services/useUsers";
 
@@ -59,13 +59,19 @@ export default function CalendarDetails() {
   const params = useParams<{ uid: string }>();
   const initialCalendar = (location.state as { calendar?: Calendar } | null)?.calendar;
   const calendarUid = params.uid ?? initialCalendar?.uid ?? "";
-  const { searchSchedules, getCalendar } = useCalendars();
+  const { searchSchedules, getCalendar, toggleScheduleStatus, toggleTimeWindowStatus } = useCalendars();
   const { users: allUsers } = useUsers();
   const [calendar, setCalendar] = useState<Calendar | null>(initialCalendar ?? null);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
   const [loadingCalendar, setLoadingCalendar] = useState(Boolean(calendarUid));
   const [scheduleEnabledState, setScheduleEnabledState] = useState<Record<string, boolean>>({});
+  const [scheduleToDisable, setScheduleToDisable] = useState<Schedule | null>(null);
+  const [openSchedulePopoverUid, setOpenSchedulePopoverUid] = useState<string | null>(null);
+  const [openTimeWindowPopoverUid, setOpenTimeWindowPopoverUid] = useState<string | null>(null);
+  const [timeWindowEnabledState, setTimeWindowEnabledState] = useState<Record<string, boolean>>({});
+  const [timeWindowToDisable, setTimeWindowToDisable] = useState<TimeWindow | null>(null);
+  const [openMobileMenu, setOpenMobileMenu] = useState(false);
   useEffect(() => {
     if (!calendarUid) {
       setLoadingCalendar(false);
@@ -105,7 +111,18 @@ export default function CalendarDetails() {
             const next = { ...current };
             for (const schedule of data) {
               if (!(schedule.uid in next)) {
-                next[schedule.uid] = true;
+                next[schedule.uid] = schedule.status !== "Disabled";
+              }
+            }
+            return next;
+          });
+          setTimeWindowEnabledState((current) => {
+            const next = { ...current };
+            for (const schedule of data) {
+              for (const tw of schedule.timeWindows || []) {
+                if (!(tw.uid in next)) {
+                  next[tw.uid] = tw.status !== "Disabled";
+                }
               }
             }
             return next;
@@ -200,11 +217,13 @@ export default function CalendarDetails() {
         <section
           id="bookings-calendar-details-summary"
           data-testid="bookings-calendar-details-summary"
-          className="relative flex flex-col sm:flex-row items-start sm:items-center p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-slate-200 mb-6"
+          className="relative flex flex-col sm:flex-row items-start sm:items-center p-4 sm:p-6 bg-white rounded-2xl shadow-sm border border-slate-200"
         >
           {/* Mobile 3-dot Menu */}
           <div className="absolute top-4 right-4 sm:hidden">
             <Popover
+              open={openMobileMenu}
+              onOpenChange={setOpenMobileMenu}
               trigger={
                 <button type="button" className="p-1 text-slate-500 hover:bg-slate-100 rounded-md">
                   <MoreVertical size={18} />
@@ -214,13 +233,13 @@ export default function CalendarDetails() {
             >
               <div className="flex flex-col min-w-[160px] p-1 bg-white rounded-md shadow-lg border border-slate-200">
                 <button 
-                  onClick={() => navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar } })} 
+                  onClick={() => { setOpenMobileMenu(false); navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar } }); }} 
                   className="text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-sm"
                 >
                   Customize
                 </button>
                 <button 
-                  onClick={() => navigate(`/calendars/${calendar.uid}/settings`, { state: { calendar } })} 
+                  onClick={() => { setOpenMobileMenu(false); navigate(`/calendars/${calendar.uid}/settings`, { state: { calendar } }); }} 
                   className="text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-sm"
                 >
                   Calendar Settings
@@ -322,6 +341,8 @@ export default function CalendarDetails() {
                           <span className="hidden sm:inline">Edit</span>
                         </Button>
                         <Popover
+                          open={openSchedulePopoverUid === schedule.uid}
+                          onOpenChange={(open) => setOpenSchedulePopoverUid(open ? schedule.uid : null)}
                           align="end"
                           portal
                           data-testid={`bookings-calendar-schedule-menu-${schedule.uid}`}
@@ -338,40 +359,36 @@ export default function CalendarDetails() {
                           }
                         >
                           <PopoverSection className="detail-sch-menu-section">
-                            <button type="button" className="detail-sch-menu-item">
-                              <span className="detail-sch-menu-icon"><CalendarIcon size={18} /></span>
-                              <span>Generate QR Code</span>
-                            </button>
-                            <button type="button" className="detail-sch-menu-item" onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/edit`, { state: { calendar, schedule } })}>
+                            <button type="button" className="detail-sch-menu-item" onClick={() => { setOpenSchedulePopoverUid(null); navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/edit`, { state: { calendar, schedule } }); }}>
                               <span className="detail-sch-menu-icon"><Plus size={18} /></span>
                               <span>New Time Window</span>
                             </button>
                             <button
                               type="button"
                               className="detail-sch-menu-item"
-                              onClick={() => navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar, schedule } })}
+                              onClick={() => { setOpenSchedulePopoverUid(null); navigate(`/calendars/${calendar.uid}/customize`, { state: { calendar, schedule } }); }}
                             >
                               <span className="detail-sch-menu-icon"><Settings size={18} /></span>
                               <span>Customize</span>
                             </button>
-                            <button type="button" className="detail-sch-menu-item">
-                              <span className="detail-sch-menu-icon"><FileText size={18} /></span>
-                              <span>View QR Links</span>
+                            <button
+                              type="button"
+                              className="detail-sch-menu-item"
+                              onClick={() => {
+                                setOpenSchedulePopoverUid(null);
+                                const isEnabled = Boolean(scheduleEnabledState[schedule.uid]);
+                                if (isEnabled) {
+                                  setScheduleToDisable(schedule);
+                                } else {
+                                  toggleScheduleStatus(schedule.uid, false, false);
+                                  setScheduleEnabledState(current => ({ ...current, [schedule.uid]: true }));
+                                }
+                              }}
+                            >
+                              <span className={`detail-sch-menu-icon ${Boolean(scheduleEnabledState[schedule.uid]) ? "text-red-600" : "text-slate-500"}`}><Power size={18} /></span>
+                              <span className={Boolean(scheduleEnabledState[schedule.uid]) ? "text-red-600" : "text-slate-700"}>{scheduleStatusLabel(Boolean(scheduleEnabledState[schedule.uid]))}</span>
                             </button>
                           </PopoverSection>
-                          <div className="detail-sch-menu-divider" />
-                          <div className="detail-sch-menu-toggle-row">
-                            <span>{scheduleStatusLabel(Boolean(scheduleEnabledState[schedule.uid]))}</span>
-                            <Switch
-                              checked={Boolean(scheduleEnabledState[schedule.uid])}
-                              onChange={(checked) =>
-                                setScheduleEnabledState((current) => ({
-                                  ...current,
-                                  [schedule.uid]: checked,
-                                }))
-                              }
-                            />
-                          </div>
                         </Popover>
                       </div>
                     </div>
@@ -403,6 +420,8 @@ export default function CalendarDetails() {
                                 </div>
                                 <div className="hidden sm:block">
                                   <Popover
+                                    open={openTimeWindowPopoverUid === timeWindow.uid}
+                                    onOpenChange={(open) => setOpenTimeWindowPopoverUid(open ? timeWindow.uid : null)}
                                     align="end"
                                     portal
                                     data-testid={`bookings-calendar-tw-menu-${timeWindow.uid}`}
@@ -422,10 +441,27 @@ export default function CalendarDetails() {
                                       <button
                                         type="button"
                                         className="detail-sch-menu-item"
-                                        onClick={() => navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/timewindows/${timeWindow.uid}/customize`, { state: { calendar, schedule, timeWindow } })}
+                                        onClick={() => { setOpenTimeWindowPopoverUid(null); navigate(`/calendars/${calendar.uid}/schedules/${schedule.uid}/timewindows/${timeWindow.uid}/customize`, { state: { calendar, schedule, timeWindow } }); }}
                                       >
                                         <span className="detail-sch-menu-icon"><Settings size={18} /></span>
                                         <span>Customize</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="detail-sch-menu-item"
+                                        onClick={() => {
+                                          setOpenTimeWindowPopoverUid(null);
+                                          const isEnabled = Boolean(timeWindowEnabledState[timeWindow.uid]);
+                                          if (isEnabled) {
+                                            setTimeWindowToDisable(timeWindow);
+                                          } else {
+                                            toggleTimeWindowStatus(timeWindow.uid, false, false);
+                                            setTimeWindowEnabledState(current => ({ ...current, [timeWindow.uid]: true }));
+                                          }
+                                        }}
+                                      >
+                                        <span className={`detail-sch-menu-icon ${Boolean(timeWindowEnabledState[timeWindow.uid]) ? "text-red-600" : "text-slate-500"}`}><Power size={18} /></span>
+                                        <span className={Boolean(timeWindowEnabledState[timeWindow.uid]) ? "text-red-600" : "text-slate-700"}>{scheduleStatusLabel(Boolean(timeWindowEnabledState[timeWindow.uid]))}</span>
                                       </button>
                                     </PopoverSection>
                                   </Popover>
@@ -531,6 +567,80 @@ export default function CalendarDetails() {
           </aside>
         </div>
       </div>
+
+      <Dialog
+        open={scheduleToDisable !== null}
+        onClose={() => setScheduleToDisable(null)}
+        title="Disable Schedule"
+        description="Do you want to cancel all upcoming active bookings automatically? If no, they will be flagged for rescheduling."
+        size="md"
+      >
+        <div className="flex gap-3 mt-6">
+          <Button
+            variant="danger"
+            className="flex-1 justify-center"
+            onClick={async () => {
+              if (scheduleToDisable) {
+                await toggleScheduleStatus(scheduleToDisable.uid, true, true);
+                setScheduleEnabledState(current => ({ ...current, [scheduleToDisable.uid]: false }));
+                setScheduleToDisable(null);
+              }
+            }}
+          >
+            Cancel Bookings
+          </Button>
+          <Button
+            variant="primary"
+            className="flex-1 justify-center"
+            onClick={async () => {
+              if (scheduleToDisable) {
+                await toggleScheduleStatus(scheduleToDisable.uid, true, false);
+                setScheduleEnabledState(current => ({ ...current, [scheduleToDisable.uid]: false }));
+                setScheduleToDisable(null);
+              }
+            }}
+          >
+            Reschedule bookings
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={timeWindowToDisable !== null}
+        onClose={() => setTimeWindowToDisable(null)}
+        title="Disable Time Window"
+        description="Do you want to cancel all upcoming active bookings automatically? If no, they will be flagged for rescheduling."
+        size="md"
+      >
+        <div className="flex gap-3 mt-6">
+          <Button
+            variant="danger"
+            className="flex-1 justify-center"
+            onClick={async () => {
+              if (timeWindowToDisable) {
+                await toggleTimeWindowStatus(timeWindowToDisable.uid, true, true);
+                setTimeWindowEnabledState(current => ({ ...current, [timeWindowToDisable.uid]: false }));
+                setTimeWindowToDisable(null);
+              }
+            }}
+          >
+            Cancel Bookings
+          </Button>
+          <Button
+            variant="primary"
+            className="flex-1 justify-center"
+            onClick={async () => {
+              if (timeWindowToDisable) {
+                await toggleTimeWindowStatus(timeWindowToDisable.uid, true, false);
+                setTimeWindowEnabledState(current => ({ ...current, [timeWindowToDisable.uid]: false }));
+                setTimeWindowToDisable(null);
+              }
+            }}
+          >
+            Reschedule bookings
+          </Button>
+        </div>
+      </Dialog>
     </main>
   );
 }

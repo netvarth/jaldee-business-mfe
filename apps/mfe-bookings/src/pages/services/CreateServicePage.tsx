@@ -69,9 +69,9 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
   const [numResources, setNumResources] = useState<number | "">(1);
   const [slotCapacity, setSlotCapacity] = useState<number | "">(1);
   const [showDuration, setShowDuration] = useState(true);
-  const [leadDays, setLeadDays] = useState<number | "">(0);
-  const [leadHrs, setLeadHrs] = useState<number | "">(0);
-  const [leadMins, setLeadMins] = useState<number | "">(0);
+  const [leadDays, setLeadDays] = useState<number | "">("");
+  const [leadHrs, setLeadHrs] = useState<number | "">("");
+  const [leadMins, setLeadMins] = useState<number | "">("");
   const [safeSlots, setSafeSlots] = useState(true);
   const [assignUsers, setAssignUsers] = useState(false);
   const [hasPricing, setHasPricing] = useState(false);
@@ -166,9 +166,9 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
         setNumResources(initial.numResources);
         setSlotCapacity(initial.slotCapacity);
         setShowDuration(initial.showDuration);
-        setLeadDays(initial.leadDays);
-        setLeadHrs(initial.leadHrs);
-        setLeadMins(initial.leadMins);
+        setLeadDays(initial.leadDays || "");
+        setLeadHrs(initial.leadHrs || "");
+        setLeadMins(initial.leadMins || "");
         setSafeSlots(initial.safeSlots);
         setAssignUsers(initial.assignUsers);
         setHasPricing(initial.hasPricing);
@@ -321,7 +321,7 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
                     data-testid="bookings-create-service-name"
                     label={<span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Service Name <span className="text-red-500">*</span></span>}
                     required
-                    placeholder="e.g. Executive Cardiac Health Checkup"
+                    placeholder="Enter Service Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -592,11 +592,11 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
               
               <div>
                 <label className="ds-form-label block">Lead Time</label>
-                <p className="text-[11px] text-slate-500 font-medium mb-1.5 mt-0.5">Lead time needed for this service.</p>
+                <p className="text-[10px] text-slate-500 font-medium mb-1.5 mt-0.5">Lead time needed for this service.</p>
                 <div className="flex gap-2">
-                  <Input id="bookings-create-service-lead-days" data-testid="bookings-create-service-lead-days" type="number" min={0} placeholder="Days" value={leadDays} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadDays(e.target.value === "" ? "" : Number(e.target.value))} />
-                  <Input id="bookings-create-service-lead-hours" data-testid="bookings-create-service-lead-hours" type="number" min={0} placeholder="Hours" value={leadHrs} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadHrs(e.target.value === "" ? "" : Number(e.target.value))} />
-                  <Input id="bookings-create-service-lead-minutes" data-testid="bookings-create-service-lead-minutes" type="number" min={0} placeholder="Mins" value={leadMins} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadMins(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input className="text-xs placeholder:text-xs" id="bookings-create-service-lead-days" data-testid="bookings-create-service-lead-days" type="number" min={0} placeholder="Days" value={leadDays} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadDays(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input className="text-xs placeholder:text-xs" id="bookings-create-service-lead-hours" data-testid="bookings-create-service-lead-hours" type="number" min={0} placeholder="Hours" value={leadHrs} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadHrs(e.target.value === "" ? "" : Number(e.target.value))} />
+                  <Input className="text-xs placeholder:text-xs" id="bookings-create-service-lead-minutes" data-testid="bookings-create-service-lead-minutes" type="number" min={0} placeholder="Mins" value={leadMins} onKeyDown={(e) => { if (['-', 'e', 'E', '+', '.'].includes(e.key)) e.preventDefault(); }} onChange={(e) => setLeadMins(e.target.value === "" ? "" : Number(e.target.value))} />
                 </div>
               </div>
             </FormSection>
@@ -698,8 +698,13 @@ export default function CreateServicePage({ onComplete, onCancel }: CreateServic
                             <button type="button" onClick={() => setPrePaymentType("FIXED")} className={`px-4 py-1.5 text-[11px] font-bold rounded-md transition-colors ${prePaymentType === "FIXED" ? "bg-[#0f172a] text-white" : "text-slate-600 hover:bg-slate-50"}`}>Fixed Amount (₹)</button>
                           </div>
                           <div className="relative w-28">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium text-[11px]">{prePaymentType === "PERCENTAGE" ? "%" : "₹"}</span>
-                            <input type="number" min={0} value={prepaymentAmount} onChange={(e) => setPrepaymentAmount(Number(e.target.value))} className="block w-full rounded-md border border-slate-200 pl-7 pr-3 py-1.5 text-xs font-semibold focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white" />
+                            {prePaymentType === "FIXED" && (
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-medium text-[11px]">₹</span>
+                            )}
+                            <input type="number" min={0} value={prepaymentAmount} onChange={(e) => setPrepaymentAmount(Number(e.target.value))} className={`block w-full rounded-md border border-slate-200 py-1.5 text-xs font-semibold focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white ${prePaymentType === "FIXED" ? "pl-7 pr-3" : "pl-3 pr-7"}`} />
+                            {prePaymentType === "PERCENTAGE" && (
+                              <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 font-medium text-[11px]">%</span>
+                            )}
                           </div>
                         </div>
                       </div>
