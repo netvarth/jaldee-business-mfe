@@ -738,7 +738,7 @@ export default function OrgStructure() {
 
       {/* DESKTOP PILL TABS */}
       <div
-        className="hidden md:inline-flex flex-wrap w-full md:w-auto gap-1 mb-6"
+        className="hidden md:inline-flex flex-nowrap max-w-full overflow-x-auto gap-0.5 mb-6 scrollbar-none"
         style={{
           background: "rgba(100,116,139,0.08)",
           padding: 4,
@@ -750,11 +750,12 @@ export default function OrgStructure() {
           return (
             <button
               key={key}
+              type="button"
               id={`hr-org-tab-${key}`}
               data-testid={`hr-org-tab-${key}`}
               data-active={isActive ? "true" : "false"}
               onClick={() => goToTab(key)}
-              className="min-w-0 px-3 py-2 md:px-5 transition-all"
+              className="min-w-0 px-2.5 py-2 md:px-3.5 transition-all flex-shrink-0"
               style={{
                 minHeight: 42,
                 borderRadius: 10,

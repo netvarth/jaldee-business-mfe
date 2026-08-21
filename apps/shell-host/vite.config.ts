@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   const authServiceProxyTarget = env.VITE_AUTH_SERVICE_PROXY_TARGET;
   const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET;
   const platformServiceProxyTarget = env.VITE_PLATFORM_SERVICE_PROXY_TARGET;
+  const commerceServiceProxyTarget = env.VITE_COMMERCE_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
+  const healthServiceProxyTarget = env.VITE_HEALTH_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
   const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET;
   const bookingServiceProxyTarget = env.VITE_BOOKING_SERVICE_PROXY_TARGET;
   const financeServiceProxyTarget = env.VITE_FINANCE_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
@@ -115,6 +117,12 @@ export default defineConfig(({ mode }) => {
         "/platform-service": {
           ...createServiceProxy(platformServiceProxyTarget),
         },
+        "/commerce-service": {
+          ...createServiceProxy(commerceServiceProxyTarget),
+        },
+        "/health-service": {
+          ...createServiceProxy(healthServiceProxyTarget),
+        },
         "/hr-service": {
           ...createServiceProxy(hrServiceProxyTarget),
         },
@@ -148,6 +156,12 @@ export default defineConfig(({ mode }) => {
         },
         "/platform-service": {
           ...createServiceProxy(platformServiceProxyTarget),
+        },
+        "/commerce-service": {
+          ...createServiceProxy(commerceServiceProxyTarget),
+        },
+        "/health-service": {
+          ...createServiceProxy(healthServiceProxyTarget),
         },
         "/hr-service": {
           ...createServiceProxy(hrServiceProxyTarget),

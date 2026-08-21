@@ -212,7 +212,7 @@ export const KartyOverview = () => {
    * with years of orders sitting in commerce_db. Showing ₹0 here would assert a measurement
    * that was never taken, which is the same class of error as a hardcoded number.
    */
-  const analytics = useCommerceOrderAnalytics(days, storeUid);
+  const analytics = useCommerceOrderAnalytics(days, storeUid, 'overview');
   const analyticsLoading = analytics.isLoading;
   const analyticsError = analytics.isError;
   const noAnalyticsCoverage =

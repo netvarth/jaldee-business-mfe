@@ -58,6 +58,19 @@ const SECTION_DESCRIPTIONS: Record<Section, string> = {
   helpdesk: "Raise support requests and follow updates.",
 };
 
+function getTimeBasedGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning! Hope you have a productive day ahead.";
+  if (hour < 17) return "Good Afternoon! Hope your day is going well.";
+  return "Good Evening! Hope you had a great and productive day.";
+}
+
+function getUserDisplayName(fullName?: string | null): string {
+  if (!fullName) return "there";
+  const clean = fullName.trim();
+  return clean || "there";
+}
+
 function sectionFromPath(pathname: string): Section {
   const segments = pathname.split("/").filter(Boolean);
   const segment = segments.at(-1);
@@ -466,8 +479,19 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
     {
       icon: Wallet,
       label: "Latest Payslip",
-      value: payslips.data[0]?.month || "Not available",
-      detail: payslips.data[0]?.status || "No generated statement yet",
+      value: payslips.data[0]
+        ? payslips.data[0].month || formatDate(payslips.data[0].generatedAt) || "Available"
+        : "Not available",
+      detail: payslips.data[0]
+        ? [
+            payslips.data[0].netPay != null && payslips.data[0].netPay > 0
+              ? formatCurrency(payslips.data[0].netPay)
+              : null,
+            payslips.data[0].status || "Generated",
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : "No generated statement yet",
     },
   ];
   const featuredRoutes = navItems.filter((item) => ["staffspace", "expenses", "helpdesk"].includes(item.key));
@@ -695,10 +719,10 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                 <div className="max-w-3xl">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">Employee Self-Service</div>
                   <h1 className="mt-3 text-[24px] font-black tracking-tight text-slate-950 md:text-[27px] lg:text-[30px]">
-                    {currentRoute.label}
+                    Hi {getUserDisplayName(profile.data?.name)},
                   </h1>
                   <p className="mt-3 text-[13px] leading-6 text-slate-600 md:text-[14px] md:leading-6 lg:text-[15px] lg:leading-7">
-                    {SECTION_DESCRIPTIONS[section]}
+                    {getTimeBasedGreeting()}
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 max-sm:hidden">
@@ -1233,18 +1257,18 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                     </div>
                   </div>
                   <div className="mt-5">
-                    {payslipViewMode === "table" ? (
-                      <DataTable
-                        data={payslips.data}
-                        columns={payslipColumns}
-                        getRowId={(item, index) => item.id ?? item.month ?? `${item.generatedAt ?? "payslip"}-${index}`}
-                        data-testid="ess-payslips-table"
-                      />
-                    ) : payslips.data.length === 0 ? (
+                    {payslips.data.length === 0 ? (
                       <EmptyState
                         title="No payslip statements found"
                         description="Generated monthly payslips and payout statements will appear here."
                         className="py-10 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+                      />
+                    ) : payslipViewMode === "table" ? (
+                      <DataTable
+                        data={payslips.data}
+                        columns={payslipColumns}
+                        getRowId={(item) => item.id || item.uid || item.month || "payslip"}
+                        data-testid="ess-payslips-table"
                       />
                     ) : (
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

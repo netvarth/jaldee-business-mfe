@@ -85,14 +85,81 @@ export function sortAttendanceLatestFirst<T extends { dateStr?: string; clockIn?
   });
 }
 
+function extractListFromResponse(response: unknown): Record<string, unknown>[] {
+  if (!response) return [];
+  if (Array.isArray(response)) return response as Record<string, unknown>[];
+  if (typeof response === "object") {
+    const res = response as Record<string, unknown>;
+    if (Array.isArray(res.content)) return res.content as Record<string, unknown>[];
+    if (Array.isArray(res.data)) return res.data as Record<string, unknown>[];
+    if (Array.isArray(res.balances)) return res.balances as Record<string, unknown>[];
+    if (Array.isArray(res.payslips)) return res.payslips as Record<string, unknown>[];
+    if (Array.isArray(res.leaves)) return res.leaves as Record<string, unknown>[];
+    if (Array.isArray(res.items)) return res.items as Record<string, unknown>[];
+    if (Array.isArray(res.records)) return res.records as Record<string, unknown>[];
+    if (Array.isArray(res.results)) return res.results as Record<string, unknown>[];
+  }
+  return [];
+}
+
+function normalizeItem<T>(item: Record<string, unknown>, endpoint: string): T {
+  const base = withId<T>(item) as Record<string, unknown>;
+  if (endpoint.includes("leave") && endpoint.includes("balance")) {
+    const total = Number(base.total ?? base.totalDays ?? base.allocated ?? base.totalBalance ?? 0);
+    const used = Number(base.used ?? base.usedDays ?? base.availed ?? 0);
+    const rawAvailable = base.available ?? base.availableDays ?? base.remainingDays ?? base.balance ?? base.availableBalance;
+    const available = rawAvailable != null ? Number(rawAvailable) : Math.max(0, total - used);
+    return {
+      ...base,
+      leaveTypeName: String(base.leaveTypeName || base.leaveType || base.name || base.type || "Leave"),
+      total,
+      used,
+      available,
+      status: String(base.status || "ACTIVE"),
+    } as unknown as T;
+  }
+  if (endpoint.includes("payslip")) {
+    const netPay = Number(base.netPay ?? base.netSalary ?? base.takeHome ?? base.amount ?? 0);
+    const rawMonth = base.month || base.period || base.payPeriod || base.payslipMonth || base.monthYear;
+    const dateFormatted = formatDate((base.generatedAt || base.createdAt || base.dateStr) as string);
+    const month = String(
+      rawMonth ||
+        (base.year && base.month ? `${base.month}/${base.year}` : "") ||
+        (dateFormatted && dateFormatted !== "-" ? dateFormatted : "Payslip")
+    );
+    return {
+      ...base,
+      month,
+      netPay,
+      status: String(base.status || base.payslipStatus || "Generated"),
+    } as unknown as T;
+  }
+  return base as unknown as T;
+}
+
+const EMPTY_FALLBACKS: string[] = [];
+const LEAVE_FALLBACKS = ["/me/leave-requests"];
+const LEAVE_BALANCE_FALLBACKS = ["/me/leave-balances", "/me/leave/balances"];
+const PAYSLIP_FALLBACKS = [
+  "/me/payroll/payslips",
+  "/me/payslip",
+  "/payroll/me/payslips",
+  "/payroll/payslips/me",
+  "/payroll/payslips/my",
+];
+
 function useEssList<T extends { uid?: string; id?: string }>(
   endpoint: string,
   { enabled = true }: { enabled?: boolean } = {},
+  fallbackEndpoints: string[] = EMPTY_FALLBACKS
 ) {
   const api = useHrApi();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+
+  const fallbackJoined = fallbackEndpoints.join(",");
+
   const reload = useCallback(async () => {
     if (!enabled) {
       setLoading(false);
@@ -100,21 +167,37 @@ function useEssList<T extends { uid?: string; id?: string }>(
     }
     setLoading(true);
     setError(null);
-    try {
-      const response = await api.get<Record<string, unknown>[]>(endpoint);
-      const list = Array.isArray(response) ? response.map((item) => withId<T>(item)) : [];
+    const endpointsToTry = [endpoint, ...fallbackEndpoints];
+    let lastError: Error | null = null;
+    let fetchedList: Record<string, unknown>[] = [];
+    let successEndpoint = endpoint;
+
+    for (const ep of endpointsToTry) {
+      try {
+        const response = await api.get<unknown>(ep);
+        fetchedList = extractListFromResponse(response);
+        successEndpoint = ep;
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(`Failed to load ${ep}`);
+      }
+    }
+
+    if (lastError && fetchedList.length === 0) {
+      setError(lastError.message);
+      setData([]);
+    } else {
+      const list = fetchedList.map((item) => normalizeItem<T>(item, successEndpoint));
       if (endpoint.includes("attendance")) {
         setData(sortAttendanceLatestFirst(list as unknown as { dateStr?: string; clockIn?: string }[]) as unknown as T[]);
       } else {
         setData(list);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to load ${endpoint}`);
-      setData([]);
-    } finally {
-      setLoading(false);
     }
-  }, [api, enabled, endpoint]);
+    setLoading(false);
+  }, [api, enabled, endpoint, fallbackJoined]);
+
   useEffect(() => { void reload(); }, [reload]);
   return { api, data, loading, error, reload };
 }
@@ -135,12 +218,13 @@ export interface MyLeave {
 }
 
 export interface MyLeaveBalance {
-  id: string; uid?: string; leaveTypeName?: string;
-  total?: number; used?: number; available?: number; status?: "ACTIVE" | "INACTIVE" | "EXPIRED" | string;
+  id: string; uid?: string; leaveTypeUid?: string; leaveTypeName?: string; leaveType?: string;
+  total?: number; used?: number; available?: number; availableDays?: number; remainingDays?: number; balance?: number;
+  status?: "ACTIVE" | "INACTIVE" | "EXPIRED" | string;
 }
 
 export interface MyPayslip {
-  id: string; uid?: string; month?: string; netPay?: number;
+  id: string; uid?: string; month?: string; period?: string; netPay?: number; netSalary?: number; amount?: number;
   status?: string; generatedAt?: string;
 }
 
@@ -160,42 +244,36 @@ export function useMyProfile({ enabled = true }: { enabled?: boolean } = {}) {
       const response = await api.get<Record<string, unknown>>("/me/profile");
       setData(response ? withId<Employee>(response) : null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load profile");
+      setError(err instanceof Error ? err.message : "Failed to load /me/profile");
       setData(null);
     } finally {
       setLoading(false);
     }
   }, [api, enabled]);
   useEffect(() => { void reload(); }, [reload]);
-  return { data, loading, error, reload };
+  return { api, data, loading, error, reload };
 }
 
-export function useMyAttendance(options: { enabled?: boolean } = {}) {
-  const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance", options);
+export function useMyAttendance({ enabled = true }: { enabled?: boolean } = {}) {
+  const { api, data, loading, error, reload } = useEssList<MyAttendance>("/me/attendance", { enabled });
   const punchIn = useCallback(async (
-    mode: string,
-    options?: {
-      selfieDataUrl?: string;
-      locationUid?: string | null;
-      location?: {
-        latitude?: number | null;
-        longitude?: number | null;
-        accuracy?: number | null;
-      } | null;
-    }
+    clockInType: string,
+    options?: { selfieDataUrl?: string; locationUid?: string | null; location?: { latitude: number | null; longitude: number | null; accuracy: number | null } }
   ) => {
-    const clockInType = normalizeClockInType(mode);
-    await api.post("/me/attendance/punch-in", {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const body: Record<string, unknown> = {
+      dateStr: todayStr,
+      clockIn: new Date().toISOString(),
       clockInType,
-      locationUid: options?.locationUid ?? null,
-      location: {
-        latitude: options?.location?.latitude ?? null,
-        longitude: options?.location?.longitude ?? null,
-        accuracy: options?.location?.accuracy ?? null,
-      },
-      wfhStatus: clockInType === "Office" ? "NotApplicable" : "Requested",
-      selfieDataUrl: options?.selfieDataUrl || null,
-    });
+    };
+    if (options?.selfieDataUrl) body.selfieDataUrl = options.selfieDataUrl;
+    if (options?.locationUid) body.locationUid = options.locationUid;
+    if (options?.location && (options.location.latitude != null || options.location.longitude != null)) {
+      body.latitude = options.location.latitude;
+      body.longitude = options.location.longitude;
+      body.accuracy = options.location.accuracy;
+    }
+    await api.post("/me/attendance/punch-in", body);
     await reload();
   }, [api, reload]);
   const punchOut = useCallback(async (uid: string) => {
@@ -244,7 +322,7 @@ export function useMyAttendance(options: { enabled?: boolean } = {}) {
 }
 
 export function useMyLeaves(options: { enabled?: boolean } = {}) {
-  const { api, data, loading, error, reload } = useEssList<MyLeave>("/me/leaves", options);
+  const { api, data, loading, error, reload } = useEssList<MyLeave>("/me/leaves", options, LEAVE_FALLBACKS);
   const apply = useCallback(async (payload: Record<string, unknown>) => {
     await api.post("/me/leaves", payload);
     await reload();
@@ -253,9 +331,9 @@ export function useMyLeaves(options: { enabled?: boolean } = {}) {
 }
 
 export function useMyLeaveBalances(options: { enabled?: boolean } = {}) {
-  return useEssList<MyLeaveBalance>("/me/leaves/balances", options);
+  return useEssList<MyLeaveBalance>("/me/leaves/balances", options, LEAVE_BALANCE_FALLBACKS);
 }
 
 export function useMyPayslips(options: { enabled?: boolean } = {}) {
-  return useEssList<MyPayslip>("/me/payslips", options);
+  return useEssList<MyPayslip>("/me/payslips", options, PAYSLIP_FALLBACKS);
 }

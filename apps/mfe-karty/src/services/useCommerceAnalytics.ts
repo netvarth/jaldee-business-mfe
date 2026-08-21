@@ -119,6 +119,10 @@ function scalarQuery(metricId: number, days: number, offsetWindows = 0, enabled 
     queryKey: ["commerce-analytics", "scalar", metricId, req.dateFrom, req.dateTo],
     queryFn: () => analyticsService.query(req),
     staleTime: STALE_MS,
+    // Analytics is read-only dashboard data. Retrying every failed metric creates a burst of
+    // duplicate requests when the analytics service is unavailable, without helping the page.
+    retry: false,
+    refetchOnReconnect: false,
     enabled,
   };
 }
@@ -148,6 +152,8 @@ function groupedQuery(
     queryKey: ["commerce-analytics", "grouped", metricId, dimensions.join(","), req.dateFrom, req.dateTo],
     queryFn: () => analyticsService.query(req),
     staleTime: STALE_MS,
+    retry: false,
+    refetchOnReconnect: false,
     enabled,
   };
 }
@@ -173,6 +179,8 @@ function dailyQuery(metricId: number, days: number, enabled = true) {
         includeTotals: false,
       }),
     staleTime: STALE_MS,
+    retry: false,
+    refetchOnReconnect: false,
     enabled,
   };
 }
@@ -286,7 +294,8 @@ export interface CommerceOrderAnalytics {
  */
 export function useCommerceOrderAnalytics(
   days: number,
-  storeUid?: string
+  storeUid?: string,
+  view: "dashboard" | "overview" = "dashboard"
 ): CommerceOrderAnalytics {
   const scoped = Boolean(storeUid && storeUid !== "all");
 
@@ -299,26 +308,36 @@ export function useCommerceOrderAnalytics(
   // has none of this problem. Gating on a non-empty token avoids ever taking that path.
   const { authToken } = useMFEProps();
   const enabled = Boolean(authToken);
+  // Store-scoped headline values are read from the by-store buckets below. The corresponding
+  // tenant-wide scalar requests cannot contribute a value and should not be sent.
+  const tenantWideEnabled = enabled && !scoped;
+  const dashboardDetailsEnabled = tenantWideEnabled && view === "dashboard";
+  // Customer rankings and prior store buckets are only rendered on the detailed dashboard, or
+  // when a selected store needs its previous-window comparison.
+  const customerBreakdownEnabled = enabled && view === "dashboard";
+  const priorStoreBreakdownEnabled = enabled && scoped;
 
   const results = useQueries({
     queries: [
-      scalarQuery(COMMERCE_METRIC.GROSS_AMOUNT, days, 0, enabled),
-      scalarQuery(COMMERCE_METRIC.NET_AMOUNT, days, 0, enabled),
-      scalarQuery(COMMERCE_METRIC.ORDER_COUNT, days, 0, enabled),
-      scalarQuery(COMMERCE_METRIC.LINE_COUNT, days, 0, enabled),
-      scalarQuery(COMMERCE_METRIC.UNIT_COUNT, days, 0, enabled),
-      scalarQuery(COMMERCE_METRIC.CANCELLED_COUNT, days, 0, enabled),
-      scalarQuery(COMMERCE_METRIC.RETURNED_COUNT, days, 0, enabled),
+      scalarQuery(COMMERCE_METRIC.GROSS_AMOUNT, days, 0, tenantWideEnabled),
+      scalarQuery(COMMERCE_METRIC.NET_AMOUNT, days, 0, tenantWideEnabled),
+      scalarQuery(COMMERCE_METRIC.ORDER_COUNT, days, 0, tenantWideEnabled),
+      // No screen consumes the line-count metric; retain the result slot to avoid a brittle
+      // positional rewrite while preventing the unnecessary network request.
+      scalarQuery(COMMERCE_METRIC.LINE_COUNT, days, 0, false),
+      scalarQuery(COMMERCE_METRIC.UNIT_COUNT, days, 0, tenantWideEnabled),
+      scalarQuery(COMMERCE_METRIC.CANCELLED_COUNT, days, 0, dashboardDetailsEnabled),
+      scalarQuery(COMMERCE_METRIC.RETURNED_COUNT, days, 0, dashboardDetailsEnabled),
       // Prior window of equal length, offset by one window — the delta denominators.
-      scalarQuery(COMMERCE_METRIC.GROSS_AMOUNT, days, 1, enabled),
-      scalarQuery(COMMERCE_METRIC.NET_AMOUNT, days, 1, enabled),
-      scalarQuery(COMMERCE_METRIC.ORDER_COUNT, days, 1, enabled),
-      scalarQuery(COMMERCE_METRIC.UNIT_COUNT, days, 1, enabled),
-      scalarQuery(COMMERCE_METRIC.CANCELLED_COUNT, days, 1, enabled),
-      scalarQuery(COMMERCE_METRIC.RETURNED_COUNT, days, 1, enabled),
+      scalarQuery(COMMERCE_METRIC.GROSS_AMOUNT, days, 1, tenantWideEnabled),
+      scalarQuery(COMMERCE_METRIC.NET_AMOUNT, days, 1, tenantWideEnabled),
+      scalarQuery(COMMERCE_METRIC.ORDER_COUNT, days, 1, tenantWideEnabled),
+      scalarQuery(COMMERCE_METRIC.UNIT_COUNT, days, 1, dashboardDetailsEnabled),
+      scalarQuery(COMMERCE_METRIC.CANCELLED_COUNT, days, 1, dashboardDetailsEnabled),
+      scalarQuery(COMMERCE_METRIC.RETURNED_COUNT, days, 1, dashboardDetailsEnabled),
       // Prior-window store buckets, so deltas still work when scoped to one store.
-      groupedQuery(COMMERCE_METRIC.COUNT_BY_STORE, ["store.uid"], days, 1, enabled),
-      groupedQuery(COMMERCE_METRIC.AMOUNT_BY_STORE, ["store.uid"], days, 1, enabled),
+      groupedQuery(COMMERCE_METRIC.COUNT_BY_STORE, ["store.uid"], days, 1, priorStoreBreakdownEnabled),
+      groupedQuery(COMMERCE_METRIC.AMOUNT_BY_STORE, ["store.uid"], days, 1, priorStoreBreakdownEnabled),
       // order.channel is a bare enum dimension with no .name pair; the server COALESCEs
       // byName to the value itself, so byName is "ONLINE" / "WALKIN".
       groupedQuery(COMMERCE_METRIC.COUNT_BY_CHANNEL, ["order.channel"], days, 0, enabled),
@@ -327,8 +346,8 @@ export function useCommerceOrderAnalytics(
       groupedQuery(COMMERCE_METRIC.AMOUNT_BY_STORE, ["store.uid"], days, 0, enabled),
       groupedQuery(COMMERCE_METRIC.AMOUNT_BY_CATEGORY, ["category.uid", "category.name"], days, 0, enabled),
       groupedQuery(COMMERCE_METRIC.AMOUNT_BY_ITEM, ["item.uid", "item.name"], days, 0, enabled),
-      groupedQuery(COMMERCE_METRIC.COUNT_BY_CUSTOMER, ["customer.uid"], days, 0, enabled),
-      groupedQuery(COMMERCE_METRIC.AMOUNT_BY_CUSTOMER, ["customer.uid"], days, 0, enabled),
+      groupedQuery(COMMERCE_METRIC.COUNT_BY_CUSTOMER, ["customer.uid"], days, 0, customerBreakdownEnabled),
+      groupedQuery(COMMERCE_METRIC.AMOUNT_BY_CUSTOMER, ["customer.uid"], days, 0, customerBreakdownEnabled),
       dailyQuery(COMMERCE_METRIC.NET_AMOUNT, days, enabled),
       dailyQuery(COMMERCE_METRIC.ORDER_COUNT, days, enabled),
     ],

@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   const authServiceProxyTarget = env.VITE_AUTH_SERVICE_PROXY_TARGET || "http://192.168.29.87:8080";
   const baseServiceProxyTarget = env.VITE_BASE_SERVICE_PROXY_TARGET || authServiceProxyTarget;
   const platformServiceProxyTarget = env.VITE_PLATFORM_SERVICE_PROXY_TARGET || baseServiceProxyTarget;
+  const commerceServiceProxyTarget = env.VITE_COMMERCE_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
+  const healthServiceProxyTarget = env.VITE_HEALTH_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
   const hrServiceProxyTarget = env.VITE_HR_SERVICE_PROXY_TARGET || baseServiceProxyTarget;
   const bookingServiceProxyTarget = env.VITE_BOOKING_SERVICE_PROXY_TARGET || baseServiceProxyTarget;
   const financeServiceProxyTarget = env.VITE_FINANCE_SERVICE_PROXY_TARGET || platformServiceProxyTarget;
@@ -100,6 +102,8 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/commerce-service": { target: commerceServiceProxyTarget, changeOrigin: true, secure: false },
+        "/health-service": { target: healthServiceProxyTarget, changeOrigin: true, secure: false },
         "/hr-service": {
           target: hrServiceProxyTarget,
           changeOrigin: true,
@@ -147,6 +151,8 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/commerce-service": { target: commerceServiceProxyTarget, changeOrigin: true, secure: false },
+        "/health-service": { target: healthServiceProxyTarget, changeOrigin: true, secure: false },
         "/hr-service": {
           target: hrServiceProxyTarget,
           changeOrigin: true,

@@ -158,14 +158,17 @@ function summaryValue(value?: number) {
 }
 
 function amountInWords(value: number) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric === 0) return "Zero Rupees Only";
   const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
   const chunk = (n: number): string => {
-    if (n < 20) return units[n];
-    if (n < 100) return `${tens[Math.floor(n / 10)]}${n % 10 ? ` ${units[n % 10]}` : ""}`;
-    return `${units[Math.floor(n / 100)]} Hundred${n % 100 ? ` ${chunk(n % 100)}` : ""}`;
+    if (!Number.isFinite(n) || n <= 0) return "";
+    if (n < 20) return units[n] || "";
+    if (n < 100) return `${tens[Math.floor(n / 10)] || ""}${n % 10 ? ` ${units[n % 10] || ""}` : ""}`;
+    return `${units[Math.floor(n / 100)] || ""} Hundred${n % 100 ? ` ${chunk(n % 100)}` : ""}`;
   };
-  const integer = Math.round(Math.abs(value));
+  const integer = Math.round(Math.abs(numeric));
   if (integer === 0) return "Zero Rupees Only";
   const crore = Math.floor(integer / 10000000);
   const lakh = Math.floor((integer % 10000000) / 100000);
@@ -246,7 +249,8 @@ export function PayslipStatementView({
     : bucketData.explicitTotalDeductionsVal != null && bucketData.explicitTotalDeductionsVal !== 0
       ? Math.abs(bucketData.explicitTotalDeductionsVal)
       : employeeDeductionSum;
-  const net = payslip.netPay ?? gross - deductions;
+  const netRaw = payslip?.netPay ?? (gross - deductions);
+  const net = Number.isFinite(Number(netRaw)) ? Number(netRaw) : 0;
   const payslipId = payslip.id || payslip.uid || "-";
 
   const printStatement = () => {

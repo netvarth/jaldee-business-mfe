@@ -28,29 +28,6 @@ const getDeviceType = (ua: string) => {
   return "desktop";
 };
 
-function getServiceGatewayPrefix() {
-  const prefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
-  if (!prefix || prefix === "/") return "";
-  return `/${prefix.replace(/^\/+|\/+$/g, "")}`;
-}
-
-function buildPlatformServiceUrl(path: string) {
-  // VITE_PLATFORM_SERVICE_PROXY_TARGET is consumed by vite.config.ts on the
-  // development server. It must never be used as a browser URL because doing
-  // so bypasses the same-origin proxy and causes CORS preflight failures.
-  const configuredBase =
-    import.meta.env.VITE_PLATFORM_SERVICE_BASE_URL?.trim().replace(/\/$/, "") ||
-    getServiceGatewayPrefix();
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  if (!configuredBase) {
-    return typeof window !== "undefined" ? `${window.location.origin}${normalizedPath}` : normalizedPath;
-  }
-  const combinedPath = `${configuredBase}${normalizedPath}`;
-  return typeof window !== "undefined" && configuredBase.startsWith("/")
-    ? new URL(combinedPath, window.location.origin).toString()
-    : combinedPath;
-}
-
 /** Call once at shell startup before mounting any MFE. */
 export function initTelemetry() {
   if (_initialized) return;
@@ -169,3 +146,25 @@ export const telemetryService: TelemetryService = {
     posthog.capture("$pageview", { $current_url: path });
   },
 };
+function getServiceGatewayPrefix() {
+  const prefix = import.meta.env.VITE_SERVICE_GATEWAY_PREFIX?.trim();
+  if (!prefix || prefix === "/") return "";
+  return `/${prefix.replace(/^\/+|\/+$/g, "")}`;
+}
+
+function buildPlatformServiceUrl(path: string) {
+  // VITE_PLATFORM_SERVICE_PROXY_TARGET is consumed by vite.config.ts on the
+  // development server. It must never be used as a browser URL because doing
+  // so bypasses the same-origin proxy and causes CORS preflight failures.
+  const configuredBase =
+    import.meta.env.VITE_PLATFORM_SERVICE_BASE_URL?.trim().replace(/\/$/, "") ||
+    getServiceGatewayPrefix();
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (!configuredBase) {
+    return typeof window !== "undefined" ? `${window.location.origin}${normalizedPath}` : normalizedPath;
+  }
+  const combinedPath = `${configuredBase}${normalizedPath}`;
+  return typeof window !== "undefined" && configuredBase.startsWith("/")
+    ? new URL(combinedPath, window.location.origin).toString()
+    : combinedPath;
+}
