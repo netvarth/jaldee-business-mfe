@@ -46,12 +46,28 @@ function candidateRows(candidate: Candidate) {
 
 function candidateResumeRef(candidate?: Candidate | null) {
   if (!candidate) return null;
-  return candidate.resumeUrl || candidate.resumeFileRef || null;
+  return (
+    candidate.attachment?.downloadUrl ||
+    candidate.attachment?.shortUrl ||
+    candidate.attachment?.filePath ||
+    candidate.attachment?.fileUid ||
+    candidate.resumeUrl ||
+    candidate.resumeFileRef ||
+    null
+  );
 }
 
 function applicationResumeRef(application?: Application | null) {
   if (!application) return null;
-  return application.resumeUrl || application.resumeFileRef || null;
+  return (
+    application.attachment?.downloadUrl ||
+    application.attachment?.shortUrl ||
+    application.attachment?.filePath ||
+    application.attachment?.fileUid ||
+    application.resumeUrl ||
+    application.resumeFileRef ||
+    null
+  );
 }
 
 function getFileExtension(value?: string | null) {
@@ -113,9 +129,22 @@ export default function CandidateView() {
   const backLabel = returnTo === "/recruitment/applications" ? "Back to Applications" : "Back to Candidates";
   const resumeRef = candidateResumeRef(candidate) || applicationResumeRef(fallbackResumeApplication);
   const resumeLabel =
+    candidate?.attachment?.fileName ||
     candidate?.resumeFileName ||
+    fallbackResumeApplication?.attachment?.fileName ||
     fallbackResumeApplication?.resumeFileName ||
     "Resume";
+  const resumeViewUrl =
+    candidate?.attachment?.downloadUrl ||
+    candidate?.attachment?.shortUrl ||
+    (typeof candidateResumeRef(candidate) === "string" && candidateResumeRef(candidate)?.startsWith("http")
+      ? (candidateResumeRef(candidate) as string)
+      : null) ||
+    fallbackResumeApplication?.attachment?.downloadUrl ||
+    fallbackResumeApplication?.attachment?.shortUrl ||
+    (typeof applicationResumeRef(fallbackResumeApplication) === "string" && applicationResumeRef(fallbackResumeApplication)?.startsWith("http")
+      ? (applicationResumeRef(fallbackResumeApplication) as string)
+      : null);
 
   const handleResumeDownload = async () => {
     if (!resumeRef) return;
@@ -229,6 +258,16 @@ export default function CandidateView() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {resumeViewUrl ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(resumeViewUrl, "_blank", "noopener,noreferrer")}
+                        data-testid="hr-recruitment-candidate-resume-view"
+                      >
+                        <FileText size={16} />
+                        View Resume
+                      </Button>
+                    ) : null}
                     <Button
                       variant="outline"
                       onClick={() => void handleResumeDownload()}

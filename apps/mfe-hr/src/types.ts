@@ -120,6 +120,14 @@ export interface JobRequisition {
   createdAt?: string;
 }
 
+export interface CandidateAttachment {
+  fileUid?: string;
+  fileName?: string;
+  filePath?: string;
+  shortUrl?: string;
+  downloadUrl?: string;
+}
+
 export interface Candidate {
   id: string;
   uid?: string;
@@ -138,6 +146,7 @@ export interface Candidate {
   resumeFileRef?: string | null;
   resumeFileName?: string;
   resumeUrl?: string | null;
+  attachment?: CandidateAttachment | null;
 }
 
 export interface Application {
@@ -160,6 +169,7 @@ export interface Application {
   resumeFileRef?: string | null;
   resumeFileName?: string;
   resumeUrl?: string | null;
+  attachment?: CandidateAttachment | null;
 }
 
 export interface Interview {
