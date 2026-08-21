@@ -150,6 +150,9 @@ export {
   useCustomersCount,
   useCustomerDetail,
   useCustomerVisits,
+  useCustomerFamilyMembers,
+  useCustomerNotes,
+  useCreateCustomerNote,
   useCreateCustomer,
   useUpdateCustomer,
 } from "./customers";

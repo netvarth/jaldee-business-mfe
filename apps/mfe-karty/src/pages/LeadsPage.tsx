@@ -1,6 +1,5 @@
-import { useContext, useMemo, useState } from "react";
+import { useContext, useMemo } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MFEPropsContext, normalizeAccountContext } from "@jaldee/auth-context";
 import { EmptyState, SectionCard } from "@jaldee/design-system";
 import { LeadsModule, SharedModulesProvider } from "@jaldee/shared-modules";
@@ -10,18 +9,6 @@ export default function LeadsPage() {
   const params = useParams();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            retry: false,
-            refetchOnWindowFocus: false,
-            refetchOnReconnect: false,
-          },
-        },
-      })
-  );
 
   const routeState = useMemo(() => {
     const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -72,10 +59,10 @@ export default function LeadsPage() {
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <SharedModulesProvider value={sharedModuleProps}>
         <LeadsModule />
       </SharedModulesProvider>
-    </QueryClientProvider>
+    </>
   );
 }

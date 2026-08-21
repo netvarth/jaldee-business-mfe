@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+
+    /* Brand Colors - #55349A Purple */
+    --color-primary-50: #f5f3ff;
+    --color-primary-100: #ede9fe;
+    --color-primary-200: #ddd6fe;
+    --color-primary-300: #c4b5fd;
+    --color-primary-400: #a78bfa;
+    --color-primary-500: #8b5cf6;
+    --color-primary-600: #55349A;
+    --color-primary-700: #4c2e8a;
+    --color-primary-800: #43297a;
+    --color-primary-900: #3a246a;
+    --color-primary-950: #2e1c55;
+
+    --color-success-50: #ecfdf5;
+    --color-success-500: #10b981;
+    --color-success-600: #059669;
+
+    --color-warning-50: #fffbeb;
+    --color-warning-500: #f59e0b;
+
+    --color-danger-50: #fff1f2;
+    --color-danger-500: #f43f5e;
+    --color-danger-600: #e11d48;
+
+    --color-surface-50: #f8fafc;
+    --color-surface-100: #f1f5f9;
+    --color-surface-200: #e2e8f0;
+    --color-surface-300: #cbd5e1;
+    --color-surface-400: #94a3b8;
+    --color-surface-500: #64748b;
+    --color-surface-600: #475569;
+    --color-surface-700: #334155;
+    --color-surface-800: #1e293b;
+    --color-surface-900: #0f172a;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-surface-50 text-surface-900 antialiased selection:bg-primary-100 selection:text-primary-900;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-300 rounded-full hover:bg-surface-400 transition-colors;
+}
+
+/* Shared components classes */
+.card-base {
+  @apply bg-white border border-surface-200 rounded-xl shadow-sm overflow-hidden;
+}
+
+.input-base {
+  @apply w-full px-3 py-2 bg-white border border-surface-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all placeholder:text-surface-400;
+}
+
+.btn-primary {
+  @apply px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 active:bg-primary-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-white border border-surface-200 text-surface-700 rounded-lg text-sm font-medium hover:bg-surface-50 active:bg-surface-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2;
+}
+
+.badge-success {
+  @apply px-2 py-0.5 bg-success-50 text-success-600 text-xs font-semibold rounded-full border border-success-500/20;
+}
+
+.badge-warning {
+  @apply px-2 py-0.5 bg-warning-50 text-warning-500 text-xs font-semibold rounded-full border border-warning-500/20;
+}
+
+.badge-danger {
+  @apply px-2 py-0.5 bg-danger-50 text-danger-600 text-xs font-semibold rounded-full border border-danger-500/20;
+}
+
+.badge-neutral {
+  @apply px-2 py-0.5 bg-surface-50 text-surface-600 text-xs font-semibold rounded-full border border-surface-200;
+}
+
+/* Custom CSS selectors overrides specified by user */
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(3) > table:nth-of-type(1) > tbody:nth-of-type(1) > tr:nth-of-type(1) > td:nth-of-type(3) > span:nth-of-type(1) {
+  height: 26px !important;
+  width: 90px !important;
+  color: #059669 !important;
+}
+
+div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(3) {
+  font-size: 11px !important;
+}
+
+@media (min-width: 768px) {
+  /* Override custom user selectors to respect the 12px minimum on tablet and desktop */
+  div#root:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > main:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(3) {
+    font-size: 12px !important;
+  }
+
+  /* Universal tablet/desktop minimum font size override for custom arbitrary small font classes */
+  .text-\[7px\], .text-\[7\.5px\], .text-\[8px\], .text-\[8\.5px\], .text-\[9px\], .text-\[9\.5px\], .text-\[10px\], .text-\[10\.5px\], .text-\[11px\], .text-\[11\.5px\],
+  [class*="text-[7px]"], [class*="text-[7.5px]"], [class*="text-[8px]"], [class*="text-[8.5px]"], [class*="text-[9px]"], [class*="text-[9.5px]"], [class*="text-[10px]"], [class*="text-[10.5px]"], [class*="text-[11px]"], [class*="text-[11.5px]"] {
+    font-size: 12px !important;
+  }
+}
+
+/* Catalog Bottom Bar Positioning with Sidebar Support */
+.fixed-catalog-bottom-bar {
+  position: fixed !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  left: 0 !important;
+  z-index: 40 !important;
+  transition: left 200ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@media (min-width: 1024px) {
+  .fixed-catalog-bottom-bar {
+    left: 320px !important;
+  }
+  html[data-sidebar-collapsed="true"] .fixed-catalog-bottom-bar {
+    left: 80px !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fixed-catalog-bottom-bar {
+    left: 80px !important;
+  }
+}
+
+/* Container query fallback for mobile preview frames / simulators */
+.dashboard-container {
+  container-type: inline-size;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@container (max-width: 1150px) {
+  .responsive-dashboard-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  .responsive-dashboard-grid > div {
+    grid-column: span 1 / span 1 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+

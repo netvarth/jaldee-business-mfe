@@ -1,10 +1,16 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import federation from "@originjs/vite-plugin-federation";
 import path from "path";
 
 export default defineConfig({
-  envDir: path.resolve(__dirname, "../shell-host"),
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+    css: true,
+  },
   plugins: [
     react(),
     federation({
@@ -17,6 +23,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      "@/src": path.resolve(__dirname, "./src/new-karty-src/src"),
       "@": path.resolve(__dirname, "./src"),
       "@jaldee/design-system": path.resolve(__dirname, "../../packages/design-system/src/index.ts"),
       "@jaldee/auth-context": path.resolve(__dirname, "../../packages/auth-context/src/index.ts"),
@@ -28,9 +35,11 @@ export default defineConfig({
   build: {
     target: "esnext",
     minify: "esbuild",
-    cssCodeSplit: true,
+    cssCodeSplit: false,
   },
   server: {
+    // The shell host proxies Karty on 3004; 3005 is reserved for Finance.
     port: 3004,
+    strictPort: true,
   },
 });

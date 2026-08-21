@@ -86,14 +86,27 @@ export interface PublicJobDetail extends Omit<PublicJobSummary, "publishedAt"> {
   publishedAt?: string;
 }
 
+export interface PublicResumeUploadResponse {
+  fileUid: string;
+  fileName: string;
+  filePath: string;
+  uploadUrl: string;
+  status: string;
+}
+
+export interface PublicResumeAttachment {
+  fileUid: string;
+  fileName: string;
+  filePath: string;
+}
+
 export interface JobApplication {
   name: string;
   email: string;
   phone?: string;
   portfolioUrl?: string;
   coverNote?: string;
-  resumeFileRef?: string | null;
-  resumeFileName?: string;
+  attachment?: PublicResumeAttachment | null;
   website?: string; // honeypot — leave empty
 }
 
@@ -265,71 +278,92 @@ export function usePublicJob(companySlug: string, jobSlug: string) {
   return { data, loading, error };
 }
 
-/** Upload public resume file via platform drive upload (contextType CAREERS, featureModuleName HR_CAREERS). */
-export async function uploadPublicResumeFile(file: File): Promise<string> {
-  const fileExtension = file.name.includes(".") ? file.name.split(".").pop() || "pdf" : "pdf";
-  const descriptor = {
-    action: "ADD",
-    caption: file.name,
-    contextType: "CAREERS",
-    featureModuleName: "HR_CAREERS",
-    featureServiceName: "HR",
-    fileName: file.name,
-    fileType: fileExtension,
-    fileSize: file.size,
-    sharedType: "secureShare",
-  };
-
-  const initUrl = normalizeServiceGatewayUrl("/platform-service/v1/api/drive/initiate-upload");
-  const initRes = await fetch(initUrl, {
+/** Step 1: Initiate unauthenticated public upload to get pre-signed S3 URL. */
+export async function initiatePublicResumeUpload(
+  companySlug: string,
+  file: File
+): Promise<PublicResumeUploadResponse> {
+  const initUrl = `${PUBLIC_BASE}/${companySlug}/initiate-public-upload`;
+  const response = await fetch(initUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify(descriptor),
+    body: JSON.stringify({
+      fileName: file.name,
+      fileType: file.type || "application/pdf",
+      fileSize: file.size,
+    }),
   });
 
-  if (!initRes.ok) {
-    throw new Error(`Failed to initiate resume upload (${initRes.status})`);
+  if (!response.ok) {
+    let msg = `Failed to initiate resume upload (${response.status})`;
+    try {
+      const errJson = await response.json();
+      msg = errJson?.message || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
   }
 
-  const target = (await initRes.json()) as { fileUid: string; uploadUrl: string };
-
-  const uploadRes = await fetch(target.uploadUrl, {
-    method: "PUT",
-    body: file,
-    headers: file.type ? { "Content-Type": file.type } : undefined,
-  });
-
-  if (!uploadRes.ok) {
-    throw new Error("Failed to upload resume file.");
-  }
-
-  const completeUrl = normalizeServiceGatewayUrl(`/platform-service/v1/api/drive/${target.fileUid}/status?status=COMPLETE`);
-  await fetch(completeUrl, { method: "PATCH" }).catch(() => { /* ignore */ });
-
-  return target.fileUid;
+  return (await response.json()) as PublicResumeUploadResponse;
 }
 
-/** Submit a public application using JSON body + drive file upload reference. */
+/** Step 2: Upload binary file directly to pre-signed S3 URL. */
+export async function uploadPublicResumeToS3(uploadUrl: string, file: File): Promise<void> {
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type || "application/pdf",
+    },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("Failed to upload file to S3");
+  }
+}
+
+/** Helper function wrapping Step 1 + Step 2. */
+export async function uploadPublicResumeFile(file: File, companySlug?: string): Promise<string> {
+  const meta = await initiatePublicResumeUpload(companySlug || "default", file);
+  await uploadPublicResumeToS3(meta.uploadUrl, file);
+  return meta.fileUid;
+}
+
+/** Step 3: Submit public job application with uploaded attachment metadata. */
 export async function applyToJob(
   companySlug: string,
   jobSlug: string,
   payload: JobApplication,
   resume?: File | null
 ) {
-  let resumeFileRef = payload.resumeFileRef ?? payload.resumeFileUid ?? null;
+  let attachment = payload.attachment ?? null;
 
-  if (resume && !resumeFileRef) {
-    resumeFileRef = await uploadPublicResumeFile(resume);
+  if (resume && !attachment) {
+    // Step 1: Request pre-signed S3 upload URL
+    const uploadMeta = await initiatePublicResumeUpload(companySlug, resume);
+
+    // Step 2: Direct binary upload to AWS S3
+    await uploadPublicResumeToS3(uploadMeta.uploadUrl, resume);
+
+    // Prepare unified attachment JSONB object
+    attachment = {
+      fileUid: uploadMeta.fileUid,
+      fileName: uploadMeta.fileName || resume.name,
+      filePath: uploadMeta.filePath,
+    };
   }
 
   const applicationPayload = {
-    ...payload,
-    resumeFileRef,
-    resumeFileUid: resumeFileRef,
-    attachment: resumeFileRef ? { fileUid: resumeFileRef } : undefined,
+    name: payload.name,
+    email: payload.email,
+    phone: payload.phone,
+    portfolioUrl: payload.portfolioUrl,
+    coverNote: payload.coverNote,
+    attachment: attachment || undefined,
   };
 
   const res = await fetch(`${PUBLIC_BASE}/${companySlug}/jobs/${jobSlug}/apply`, {

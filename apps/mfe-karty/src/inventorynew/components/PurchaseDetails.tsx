@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  ArrowLeft, ArrowUpRight, ShoppingBasket, 
+import {
+  ArrowLeft, ArrowUpRight, ShoppingBasket,
   Trash2, Pencil, Copy, ChevronDown, Share2, Printer, XCircle, Truck
 } from '../icons';
 import { cn } from '@jaldee/design-system';
@@ -10,61 +10,47 @@ interface PurchaseDetailsProps {
   purchase: any;
 }
 
+import { usePurchase } from '../../services/usePurchases';
+import { ReceiveScanBox } from '../../new-karty-src/src/components/ReceiveScanBox';
+
 export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
+  const { data: fullPurchase, isLoading } = usePurchase(purchase.id || purchase.uid);
   const [taxBreakdownIndex, setTaxBreakdownIndex] = useState<number | null>(null);
   const [showMoreActions, setShowMoreActions] = useState(false);
 
-  // Mock data for the details as per image
-  const items = [
-    {
-      name: 'Shirt',
-      details: 'Blue / Large / Male',
-      batch: '28250',
-      unit: 'Piece',
-      qty: '100',
-      freeQty: '0',
-      expDate: 'Jul 2028',
-      mrp: '250.00',
-      purchasePrice: '200.00',
-      discount: '0',
-      tax: '0',
-      netAmount: '20000.00',
-      image: 'https://images.unsplash.com/photo-1523381235212-d73f49382117?w=400&h=400&fit=crop&q=80'
-    },
-    {
-      name: 'Shirt',
-      details: 'Blue / Large / Male',
-      batch: '28251',
-      unit: 'Piece',
-      qty: '100',
-      freeQty: '0',
-      expDate: 'Jul 2028',
-      mrp: '250.00',
-      purchasePrice: '200.00',
-      discount: '0',
-      tax: '0',
-      netAmount: '20000.00',
-      image: 'https://images.unsplash.com/photo-1523381235212-d73f49382117?w=400&h=400&fit=crop&q=80'
-    }
-  ];
+  const items = fullPurchase?.items?.map((item: any) => ({
+    name: item.itemName || 'Item',
+    details: item.itemDetails || 'N/A',
+    batch: item.batchNo || 'N/A',
+    unit: 'Piece',
+    qty: item.quantity?.toString() || '0',
+    freeQty: item.freeQuantity?.toString() || '0',
+    expDate: item.expiryDate?.split('T')[0] || '-',
+    mrp: item.mrp?.toFixed(2) || '0.00',
+    purchasePrice: item.purchasePrice?.toFixed(2) || '0.00',
+    discount: item.discount?.toFixed(2) || '0.00',
+    tax: item.taxPercentage || '0',
+    netAmount: item.netAmount?.toFixed(2) || '0.00',
+    image: item.image || 'https://images.unsplash.com/photo-1523381235212-d73f49382117?w=400&h=400&fit=crop&q=80'
+  })) || [];
 
   const billDetails = {
-    totalQuantity: 200,
-    grossAmount: 40000.00,
+    totalQuantity: fullPurchase?.totalQty || 0,
+    grossAmount: items.reduce((acc: number, item: any) => acc + (parseFloat(item.qty) * parseFloat(item.purchasePrice)), 0),
     cgst: 0,
     sgst: 0,
     cess: 0,
     cessAmount: 0,
-    taxableAmount: 40000.00,
+    taxableAmount: items.reduce((acc: number, item: any) => acc + (parseFloat(item.qty) * parseFloat(item.purchasePrice)), 0),
     roundOff: 0,
-    netBillAmount: 40000.00
+    netBillAmount: items.reduce((acc: number, item: any) => acc + parseFloat(item.netAmount), 0)
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-surface-alt)]/20">
       {/* Dedicate Navigation Bar */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-8 py-4 flex items-center gap-4 sticky top-0 z-[50] shadow-sm">
-        <button 
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-8 py-4 flex items-center gap-4 sticky top-0 z-[50] shadow-sm print:hidden">
+        <button
           onClick={onBack}
           className="p-1 hover:bg-[var(--color-surface-alt)] rounded-lg transition-colors cursor-pointer group border-0 bg-transparent"
         >
@@ -74,6 +60,15 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
       </div>
 
       <div className="flex-1 p-6 pb-32 space-y-5 text-left">
+        {/* Print-only document title (on-screen nav is hidden when printing) */}
+        <div className="hidden print:block mb-2">
+          <h1 className="text-2xl font-black uppercase tracking-tight text-[var(--color-text-primary)]">
+            {purchase.status === 'In Review' || purchase.status === 'Requested' ? 'Purchase Request' : 'Purchase'}
+          </h1>
+          <p className="text-sm font-semibold text-[var(--color-text-secondary)]">
+            #{purchase.orderNo || purchase.purchaseNo || 'N/A'} · {purchase.date || 'N/A'}
+          </p>
+        </div>
         {/* Merged Header & Info Section */}
         <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
           {/* Top Management Row */}
@@ -83,7 +78,7 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
                 <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-widest leading-none mb-1">Purchase ID</span>
                 <span className="text-[16px] font-black text-[var(--color-primary)] leading-none">#{purchase.orderNo || '356713'}</span>
               </div>
-              
+
               {purchase.status === 'Approved' ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-success-subtle)] text-[var(--color-success)] rounded-xl text-[9px] font-black uppercase tracking-widest border border-[var(--color-success)]/10">
                   <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
@@ -102,14 +97,14 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 print:hidden">
               <button className="flex items-center gap-2 px-3.5 py-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl text-[12px] font-black text-[var(--color-text-primary)] hover:bg-[var(--color-surface-alt)] transition-all shadow-sm cursor-pointer">
                 <Copy className="h-4 w-4 text-[var(--color-text-secondary)]" />
                 Duplicate
               </button>
-              
+
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowMoreActions(!showMoreActions)}
                   className="flex items-center gap-2 px-4 py-2 bg-[var(--color-text-primary)] rounded-xl text-[12px] font-black text-[var(--color-surface)] hover:opacity-90 transition-all shadow-lg cursor-pointer border-0"
                 >
@@ -124,7 +119,9 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
                       <button className="w-full px-4 py-2 flex items-center gap-3 text-[12px] font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-alt)] transition-colors text-left border-0 bg-transparent cursor-pointer">
                         <Share2 className="h-4 w-4 opacity-70" /> Share
                       </button>
-                      <button className="w-full px-4 py-2 flex items-center gap-3 text-[12px] font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-alt)] transition-colors text-left border-t border-[var(--color-border)] bg-transparent cursor-pointer">
+                      <button
+                        onClick={() => { setShowMoreActions(false); setTimeout(() => window.print(), 80); }}
+                        className="w-full px-4 py-2 flex items-center gap-3 text-[12px] font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-alt)] transition-colors text-left border-t border-[var(--color-border)] bg-transparent cursor-pointer">
                         <Printer className="h-4 w-4 opacity-70" /> Print
                       </button>
                       <button className="w-full px-4 py-2 flex items-center gap-3 text-[12px] font-bold text-[var(--color-danger)] hover:bg-[var(--color-danger-subtle)] transition-colors text-left border-t border-[var(--color-border)] bg-transparent cursor-pointer">
@@ -142,8 +139,8 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
               <div className="flex flex-col gap-1 p-4 bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-2xl min-w-[280px] shadow-sm">
                  <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mb-1">Vendor Details</span>
-                 <span className="text-[16px] font-black text-[var(--color-text-primary)] uppercase tracking-tight">SIMRAN FASHIONS</span>
-                 <span className="text-[12px] font-bold text-[var(--color-text-secondary)]/60 font-medium mt-0.5">#1234657</span>
+                 <span className="text-[16px] font-black text-[var(--color-text-primary)] uppercase tracking-tight">{purchase.from?.name || 'Unknown Vendor'}</span>
+                 <span className="text-[12px] font-bold text-[var(--color-text-secondary)]/60 font-medium mt-0.5">{purchase.from?.id || '#-'}</span>
               </div>
 
               <div className="flex items-center self-center py-4">
@@ -156,34 +153,41 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
 
               <div className="flex flex-col gap-1 p-4 bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-2xl min-w-[280px] shadow-sm">
                  <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mb-1">Destination</span>
-                 <span className="text-[16px] font-black text-[var(--color-text-primary)] tracking-tight">Store 1</span>
-                 <span className="text-[12px] font-bold text-[var(--color-text-secondary)]/60 font-medium uppercase tracking-tight truncate max-w-[260px]">Main Pharmacy Catalog</span>
+                 <span className="text-[16px] font-black text-[var(--color-text-primary)] tracking-tight">{purchase.to?.name || 'Unknown Store'}</span>
+                 <span className="text-[12px] font-bold text-[var(--color-text-secondary)]/60 font-medium uppercase tracking-tight truncate max-w-[260px]">{fullPurchase?.catalogName || 'N/A'}</span>
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5 min-w-[280px] w-full md:w-auto">
               <div className="px-5 py-2.5 bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-xl flex items-center justify-between shadow-sm">
                 <span className="text-[10px] text-[var(--color-text-secondary)] font-bold uppercase tracking-widest">Purchase No:</span>
-                <span className="text-[13px] font-black text-[var(--color-text-primary)]">#132</span>
+                <span className="text-[13px] font-black text-[var(--color-text-primary)]">#{purchase.orderNo || 'N/A'}</span>
               </div>
               <div className="px-5 py-2.5 bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-xl flex items-center justify-between shadow-sm">
                 <span className="text-[10px] text-[var(--color-text-secondary)] font-bold uppercase tracking-widest">Bill Number:</span>
-                <span className="text-[13px] font-black text-[var(--color-text-primary)]">#132ABC-5567</span>
+                <span className="text-[13px] font-black text-[var(--color-text-primary)]">#{fullPurchase?.billNo || 'N/A'}</span>
               </div>
               <div className="px-5 py-2.5 bg-[var(--color-surface-alt)] border border-[var(--color-border)] rounded-xl flex items-center justify-between shadow-sm">
                 <span className="text-[10px] text-[var(--color-text-secondary)] font-bold uppercase tracking-widest">Date:</span>
-                <span className="text-[13px] font-black text-[var(--color-text-primary)]">27 APR 2026</span>
+                <span className="text-[13px] font-black text-[var(--color-text-primary)]">{purchase.date || 'N/A'}</span>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Scan-to-receive — only while the purchase is still editable */}
+        {purchase.status !== 'Approved' && purchase.status !== 'Cancelled' && (
+          <div className="mb-6">
+            <ReceiveScanBox purchaseUid={purchase.id || purchase.uid} />
+          </div>
+        )}
 
         {/* Items Section - Full Width */}
         <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
             <h2 className="text-[15px] font-black text-[var(--color-text-primary)] uppercase tracking-tight">Items / Products ({items.length})</h2>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -197,7 +201,15 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
-                {items.map((item, idx) => (
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-sm text-[var(--color-text-secondary)]">Loading purchase details...</td>
+                  </tr>
+                ) : items.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-sm text-[var(--color-text-secondary)]">No items found for this purchase.</td>
+                  </tr>
+                ) : items.map((item: any, idx: number) => (
                   <tr key={idx} className="hover:bg-[var(--color-surface-alt)]/20 transition-colors align-top">
                     <td className="py-4 px-6">
                       <div className="flex items-start gap-4">
@@ -256,7 +268,7 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
               <div className="px-6 py-5 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
                 <h2 className="text-[16px] font-black text-[var(--color-text-primary)] uppercase tracking-tight">Bill Details</h2>
               </div>
-              
+
               <div className="p-6 space-y-5">
                 <div className="flex items-center justify-between">
                   <span className="text-[13px] font-bold text-[var(--color-text-secondary)]/60 uppercase tracking-widest">Total quantity</span>
@@ -308,14 +320,14 @@ export const PurchaseDetails = ({ onBack, purchase }: PurchaseDetailsProps) => {
 
       {/* Footer Actions */}
       {purchase.status !== 'Approved' && (
-        <div className="fixed bottom-0 right-0 left-0 bg-[var(--color-surface)]/80 backdrop-blur-md border-t border-[var(--color-border)] px-8 py-5 flex items-center justify-end gap-4 shrink-0 shadow-sm z-30">
-          <button 
+        <div className="fixed bottom-0 right-0 left-0 bg-[var(--color-surface)]/80 backdrop-blur-md border-t border-[var(--color-border)] px-8 py-5 flex items-center justify-end gap-4 shrink-0 shadow-sm z-30 print:hidden">
+          <button
             onClick={onBack}
             className="px-6 py-2.5 text-sm font-black text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors border-0 bg-transparent cursor-pointer"
           >
             Cancel
           </button>
-          
+
           {purchase.status === 'In Review' ? (
             <>
               <button className="px-10 py-3 bg-[var(--color-danger)] text-white rounded-xl text-[13px] font-black hover:opacity-90 transition-all shadow-md active:scale-95 border-0 cursor-pointer">

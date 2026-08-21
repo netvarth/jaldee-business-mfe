@@ -1,6 +1,5 @@
-import { useContext, useState } from "react";
+import { useContext } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MFEPropsContext, normalizeAccountContext } from "@jaldee/auth-context";
 import { EmptyState, SectionCard } from "@jaldee/design-system";
 import { FinanceModule, SharedModulesProvider } from "@jaldee/shared-modules";
@@ -10,15 +9,6 @@ export default function FinancePage() {
   const params = useParams();
   const location = useLocation();
   const routerNavigate = useNavigate();
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-      },
-    },
-  }));
 
   if (!mfeProps || !mfeProps.api) {
     return (
@@ -60,10 +50,10 @@ export default function FinancePage() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <SharedModulesProvider value={sharedModuleProps}>
         <FinanceModule />
       </SharedModulesProvider>
-    </QueryClientProvider>
+    </>
   );
 }

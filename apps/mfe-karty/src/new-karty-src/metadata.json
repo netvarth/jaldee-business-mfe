@@ -1,0 +1,8 @@
+{
+  "name": "Remix: KARTY NEW",
+  "description": "A comprehensive, multi-product design system for enterprise SaaS platforms, featuring a living component library and dashboard templates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

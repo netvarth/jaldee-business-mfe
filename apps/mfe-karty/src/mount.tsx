@@ -32,10 +32,15 @@ function renderApp(props: MFEProps) {
 }
 
 export function mount(container: HTMLElement, props: MFEProps) {
+  // Always initialize the raw apiClient singleton, even when the shell also provides a
+  // props.api bridge: @jaldee/shared-modules code (analyticsService, etc.) imports apiClient
+  // directly from @jaldee/api-client, bypassing httpClient.ts's shellHttpBridge indirection.
+  // Treating these as either/or left that singleton permanently unassigned (undefined) here,
+  // since the shell always supplies props.api — every direct apiClient consumer threw
+  // "Cannot read properties of undefined (reading 'post')" on every call, no exceptions.
+  ensureApiClientInitialized(props.mfeName, props.authToken);
   if (props.api) {
     setShellHttpBridge(props.api);
-  } else {
-    ensureApiClientInitialized(props.mfeName, props.authToken);
   }
   currentContainer = container;
   currentProps = props;
@@ -64,10 +69,9 @@ export function updateProps(nextProps: Partial<MFEProps>) {
 
   currentProps = { ...currentProps, ...nextProps };
 
+  ensureApiClientInitialized(currentProps.mfeName, currentProps.authToken);
   if (currentProps.api) {
     setShellHttpBridge(currentProps.api);
-  } else {
-    ensureApiClientInitialized(currentProps.mfeName, currentProps.authToken);
   }
 
   renderApp(currentProps);
