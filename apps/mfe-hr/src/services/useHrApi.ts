@@ -29,6 +29,9 @@ function buildHrServiceUrl(endpoint: string) {
   if (endpoint.startsWith("/hr-service/")) {
     return endpoint;
   }
+  if (endpoint.startsWith("/tenants/")) {
+    return `${HR_SERVICE_API_ROOT}${endpoint}`;
+  }
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   return `${BASE}${normalizedEndpoint}`;
 }

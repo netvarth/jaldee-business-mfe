@@ -11,9 +11,12 @@ import {
   useMyLeaves,
   useMyPayslips,
   useMyProfile,
+  useEssHolidays,
   sortAttendanceLatestFirst,
   type MyPayslip,
+  type EssHoliday,
 } from "../../services/useEss";
+import { useEssHolidaySearchSchema } from "../../services/useHrSearchSchema";
 import { useBranches } from "../../services/useBranches";
 import { useDocumentRequests, type DocumentRequest } from "../../services/useDocumentRequests";
 import Announcements from "../announcements/Announcements";
@@ -30,16 +33,17 @@ import type { AttendanceBreak } from "../../types";
 
 const FaceCaptureModal = lazy(() => import("../../components/FaceCaptureModal"));
 
-type Section = "attendance" | "profile" | "leave" | "documents" | "payslips" | "staffspace" | "expenses" | "memos" | "separation" | "helpdesk";
+type Section = "attendance" | "profile" | "leave" | "holidays" | "documents" | "payslips" | "staffspace" | "expenses" | "memos" | "separation" | "helpdesk";
 
 const ESS_ROUTES: Array<{ key: Section; route: string; label: string; Icon: LucideIcon }> = [
   { key: "attendance", route: "", label: "Attendance", Icon: Clock },
-  { key: "profile", route: "profile", label: "My Profile", Icon: User },
   { key: "leave", route: "leave", label: "Leave", Icon: CalendarDays },
-  { key: "documents", route: "documents", label: "My Documents", Icon: FileText },
+  { key: "expenses", route: "expenses", label: "Expenses", Icon: Receipt },
   { key: "staffspace", route: "staffspace", label: "StaffSpace", Icon: FileText },
   { key: "payslips", route: "payslips", label: "Payslips", Icon: Wallet },
-  { key: "expenses", route: "expenses", label: "Expenses", Icon: Receipt },
+  { key: "holidays", route: "holidays", label: "Holidays", Icon: CalendarDays },
+  { key: "documents", route: "documents", label: "My Documents", Icon: FileText },
+  { key: "profile", route: "profile", label: "My Profile", Icon: User },
   { key: "memos", route: "memos", label: "Warning Memos", Icon: ShieldAlert },
   { key: "separation", route: "separation", label: "Separation", Icon: LogOut },
   { key: "helpdesk", route: "helpdesk", label: "HelpDesk", Icon: MessageSquare },
@@ -49,6 +53,7 @@ const SECTION_DESCRIPTIONS: Record<Section, string> = {
   attendance: "Track work mode, punch status and attendance history.",
   profile: "Your HR profile, identity details and employment information.",
   leave: "Review leave balances and past requests.",
+  holidays: "View tenant holidays and active company observances.",
   documents: "Documents requested by your company and the files you have submitted.",
   payslips: "View payroll statements and generated payslips.",
   staffspace: "Company announcements and internal updates.",
@@ -814,7 +819,7 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
               {section === "attendance" && (
                 <Panel loading={attendance.loading} error={attendance.error} className="mt-2 lg:mt-6">
                   <div className="flex flex-col gap-6">
-                      <div className={`${todayAttendance?.clockIn ? "order-1" : "order-2"} grid gap-4 sm:order-1 sm:grid-cols-2 xl:grid-cols-4`}>
+                      <div className={`${todayAttendance?.clockIn ? "order-1" : "order-2"} grid gap-4 sm:order-1 sm:grid-cols-3 xl:grid-cols-3`}>
                       <AttendanceMetricCard
                         icon={Clock}
                         label="Today Status"
@@ -839,13 +844,6 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                         )}
                         detail={`${attendance.data.filter((item) => item.dateStr && new Date(item.dateStr) >= startOfWeek(today) && item.clockIn).length} logged day(s)`}
                         tone="amber"
-                      />
-                      <AttendanceMetricCard
-                        icon={CalendarDays}
-                        label="Break Time"
-                        value={formatMinutes(calculatedTotalBreakMinutes)}
-                        detail={activeBreaksList.length ? `${activeBreaksList.length} recorded break(s)` : "No breaks recorded"}
-                        tone="violet"
                       />
                     </div>
 
@@ -1138,6 +1136,8 @@ function formatHoursAndMinutes(hoursVal?: number | null): string {
                   </div>
                 </Panel>
               )}
+
+              {section === "holidays" && <EssHolidaySection />}
 
               {section === "documents" && (
                 <Panel loading={documents.loading} error={documents.error} className="mt-2 lg:mt-6">
@@ -2188,4 +2188,119 @@ function startOfWeek(value: string) {
   start.setDate(diff);
   start.setHours(0, 0, 0, 0);
   return start;
+}
+
+function EssHolidaySection() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const { schema, loading: schemaLoading } = useEssHolidaySearchSchema();
+
+  const filterClauses = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    return [{ field: "name", operator: "CONTAINS", value: searchTerm.trim() }];
+  }, [searchTerm]);
+
+  const holidays = useEssHolidays(filterClauses, schema, {
+    enabled: !schemaLoading,
+    page: page - 1,
+    pageSize,
+  });
+
+  const columns: ColumnDef<EssHoliday>[] = useMemo(
+    () => [
+      {
+        header: "Holiday Name",
+        accessorKey: "name",
+        cell: ({ row }) => <span className="font-semibold text-slate-900">{row.original.name || "--"}</span>,
+      },
+      {
+        header: "Date",
+        accessorKey: "date",
+        cell: ({ row }) => <span className="text-slate-700">{formatDate(row.original.date || row.original.dateStr)}</span>,
+      },
+      {
+        header: "Type",
+        accessorKey: "type",
+        cell: ({ row }) => (
+          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            {row.original.type || "Company Holiday"}
+          </span>
+        ),
+      },
+      {
+        header: "Description",
+        accessorKey: "description",
+        cell: ({ row }) => <span className="text-sm text-slate-600">{row.original.description || "Active Holiday"}</span>,
+      },
+    ],
+    []
+  );
+
+  return (
+    <Panel loading={schemaLoading || holidays.loading} error={holidays.error} className="mt-2 lg:mt-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px]">
+              Company Holidays ({holidays.totalElements})
+            </h3>
+            <p className="mt-1 text-[12px] text-slate-500 md:text-[13px]">
+              Official tenant holiday calendar and observances.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              placeholder="Search holidays..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full sm:w-64"
+            />
+            <AttendanceViewToggle value={viewMode} onChange={setViewMode} />
+          </div>
+        </div>
+
+        {viewMode === "table" ? (
+          <DataTable data={holidays.data} columns={columns} getRowId={(item) => item.id} />
+        ) : holidays.data.length === 0 ? (
+          <EmptyState
+            title="No holidays found"
+            description="No active company holidays match your search criteria."
+            className="py-10 bg-[var(--color-surface)] border border-dashed border-[var(--color-border)] rounded-xl"
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {holidays.data.map((item) => (
+              <SectionCard key={item.id} className="border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                <div className="flex items-start justify-between">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                    <CalendarDays size={20} />
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                    {item.type || "Holiday"}
+                  </span>
+                </div>
+                <h4 className="mt-3 text-base font-bold text-slate-900">{item.name || "Company Holiday"}</h4>
+                <p className="mt-1 text-xs font-medium text-emerald-700">
+                  {formatDate(item.date || item.dateStr)}
+                </p>
+                {item.description && (
+                  <p className="mt-2 line-clamp-2 text-xs text-slate-500">{item.description}</p>
+                )}
+              </SectionCard>
+            ))}
+          </div>
+        )}
+
+        <DataTablePagination
+          page={page}
+          pageSize={pageSize}
+          totalElements={holidays.totalElements}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      </div>
+    </Panel>
+  );
 }

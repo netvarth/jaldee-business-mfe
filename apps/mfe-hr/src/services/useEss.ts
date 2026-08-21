@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { FilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useHrApi } from "./useHrApi";
 import type { AttendanceBreak, Employee } from "../types";
 
@@ -336,4 +337,89 @@ export function useMyLeaveBalances(options: { enabled?: boolean } = {}) {
 
 export function useMyPayslips(options: { enabled?: boolean } = {}) {
   return useEssList<MyPayslip>("/me/payslips", options, PAYSLIP_FALLBACKS);
+}
+
+export interface EssHoliday {
+  id: string;
+  uid?: string;
+  name?: string;
+  date?: string;
+  dateStr?: string;
+  type?: string;
+  description?: string;
+  status?: string;
+}
+
+export function useEssHolidays(
+  filters: FilterClause[] = [],
+  schema: SearchSchema | null = null,
+  options: { enabled?: boolean; page?: number; pageSize?: number } = {},
+) {
+  const { enabled = true, page = 0, pageSize = 20 } = options;
+  const api = useHrApi();
+  const [data, setData] = useState<EssHoliday[]>([]);
+  const [totalElements, setTotalElements] = useState(0);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const searchBody = {
+        page,
+        pageSize,
+        filters: Array.isArray(filters) ? filters : [],
+      };
+
+      const candidateEndpoints = [
+        { type: "post", url: "/tenants/me/holidays/search" },
+        { type: "post", url: "/tenant/me/holidays/search" },
+        { type: "post", url: "/me/holidays/search" },
+        { type: "post", url: "/holidays/search" },
+        { type: "get", url: "/me/holidays" },
+        { type: "get", url: "/holidays" },
+      ];
+
+      let res: any = null;
+      let success = false;
+      for (const ep of candidateEndpoints) {
+        try {
+          res = ep.type === "post"
+            ? await api.post<unknown>(ep.url, searchBody)
+            : await api.get<unknown>(ep.url);
+          if (res) {
+            success = true;
+            break;
+          }
+        } catch {
+          // Continue silently to next fallback endpoint
+        }
+      }
+
+      if (success && res) {
+        const list = extractListFromResponse(res);
+        const items = list.map((item) => withId<EssHoliday>(item));
+        setData(items);
+        const total = Number(res?.totalElements ?? res?.total ?? items.length);
+        setTotalElements(total);
+      } else {
+        setData([]);
+        setTotalElements(0);
+      }
+    } catch {
+      setData([]);
+      setTotalElements(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [api, enabled, filters, page, pageSize]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  return { data, totalElements, loading, error, reload: load };
 }
