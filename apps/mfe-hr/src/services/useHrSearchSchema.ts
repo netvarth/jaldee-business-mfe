@@ -50,30 +50,14 @@ export function useEssHolidaySearchSchema(enabled = true) {
     }
     setLoading(true);
     setError(null);
-
-    const schemaEndpoints = [
-      "/tenants/me/holidays/search/schema",
-      "/tenant/me/holidays/search/schema",
-      "/me/holidays/search/schema",
-      "/holidays/search/schema",
-    ];
-
-    let foundSchema: SearchSchema | null = null;
-    for (const ep of schemaEndpoints) {
-      try {
-        const response = await api.get<SearchSchema>(ep);
-        if (response) {
-          foundSchema = normalizeSearchSchema(response);
-          break;
-        }
-      } catch {
-        // Try next endpoint silently
-      }
+    try {
+      const response = await api.get<SearchSchema>("/me/holidays/search/schema");
+      setSchema(normalizeSearchSchema(response));
+    } catch {
+      setSchema(null);
+    } finally {
+      setLoading(false);
     }
-
-    setSchema(foundSchema);
-    setError(null);
-    setLoading(false);
   }, [api, enabled]);
 
   useEffect(() => { void load(); }, [load]);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FilterClause, SearchSchema } from "@jaldee/shared-modules";
 import { useHrApi } from "./useHrApi";
+import { buildHrSearchBody } from "./hrSearch";
 import type { AttendanceBreak, Employee } from "../types";
 
 function normalizeClockInType(value: string) {
@@ -370,54 +371,25 @@ export function useEssHolidays(
     setLoading(true);
     setError(null);
     try {
-      const searchBody = {
-        page,
-        pageSize,
-        filters: Array.isArray(filters) ? filters : [],
-      };
-
-      const candidateEndpoints = [
-        { type: "post", url: "/tenants/me/holidays/search" },
-        { type: "post", url: "/tenant/me/holidays/search" },
-        { type: "post", url: "/me/holidays/search" },
-        { type: "post", url: "/holidays/search" },
-        { type: "get", url: "/me/holidays" },
-        { type: "get", url: "/holidays" },
-      ];
-
-      let res: any = null;
-      let success = false;
-      for (const ep of candidateEndpoints) {
-        try {
-          res = ep.type === "post"
-            ? await api.post<unknown>(ep.url, searchBody)
-            : await api.get<unknown>(ep.url);
-          if (res) {
-            success = true;
-            break;
-          }
-        } catch {
-          // Continue silently to next fallback endpoint
-        }
-      }
-
-      if (success && res) {
-        const list = extractListFromResponse(res);
-        const items = list.map((item) => withId<EssHoliday>(item));
-        setData(items);
-        const total = Number(res?.totalElements ?? res?.total ?? items.length);
-        setTotalElements(total);
-      } else {
-        setData([]);
-        setTotalElements(0);
-      }
+      const searchBody = buildHrSearchBody(filters as any, schema, page, pageSize);
+      const res = await api.post<unknown>("/me/holidays/search", searchBody);
+      const list = extractListFromResponse(res);
+      const items = list.map((item) => withId<EssHoliday>(item));
+      setData(items);
+      const rawTotal = Number(
+        Array.isArray(res)
+          ? res.length
+          : (res?.totalElements ?? res?.totalCount ?? res?.total ?? res?.count ?? items.length)
+      );
+      const total = Number.isFinite(rawTotal) && rawTotal >= 0 ? rawTotal : items.length;
+      setTotalElements(total);
     } catch {
       setData([]);
       setTotalElements(0);
     } finally {
       setLoading(false);
     }
-  }, [api, enabled, filters, page, pageSize]);
+  }, [api, enabled, filters, page, pageSize, schema]);
 
   useEffect(() => { void load(); }, [load]);
 

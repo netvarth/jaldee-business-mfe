@@ -2213,26 +2213,26 @@ function EssHolidaySection() {
       {
         header: "Holiday Name",
         accessorKey: "name",
-        cell: ({ row }) => <span className="font-semibold text-slate-900">{row.original.name || "--"}</span>,
+        cell: (item: EssHoliday) => <span className="font-semibold text-slate-900">{item.name || "--"}</span>,
       },
       {
         header: "Date",
         accessorKey: "date",
-        cell: ({ row }) => <span className="text-slate-700">{formatDate(row.original.date || row.original.dateStr)}</span>,
+        cell: (item: EssHoliday) => <span className="text-slate-700">{formatDate(item.date || item.dateStr)}</span>,
       },
       {
         header: "Type",
         accessorKey: "type",
-        cell: ({ row }) => (
+        cell: (item: EssHoliday) => (
           <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-            {row.original.type || "Company Holiday"}
+            {item.type || "Company Holiday"}
           </span>
         ),
       },
       {
         header: "Description",
         accessorKey: "description",
-        cell: ({ row }) => <span className="text-sm text-slate-600">{row.original.description || "Active Holiday"}</span>,
+        cell: (item: EssHoliday) => <span className="text-sm text-slate-600">{item.description || "Active Holiday"}</span>,
       },
     ],
     []
@@ -2241,22 +2241,23 @@ function EssHolidaySection() {
   return (
     <Panel loading={schemaLoading || holidays.loading} error={holidays.error} className="mt-2 lg:mt-6">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px]">
-              Company Holidays ({holidays.totalElements})
-            </h3>
-            <p className="mt-1 text-[12px] text-slate-500 md:text-[13px]">
-              Official tenant holiday calendar and observances.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Input
-              placeholder="Search holidays..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-64"
-            />
+        <div>
+          <h3 className="text-[19px] font-black tracking-tight text-slate-950 md:text-[21px]">
+            Company Holidays ({holidays.totalElements})
+          </h3>
+          <p className="mt-1 text-[12px] text-slate-500 md:text-[13px]">
+            Official tenant holiday calendar and observances.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 pb-3.5">
+          <Input
+            placeholder="Search holidays..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:max-w-xs"
+          />
+          <div className="flex items-center gap-3 sm:ml-auto">
             <AttendanceViewToggle value={viewMode} onChange={setViewMode} />
           </div>
         </div>
@@ -2296,9 +2297,12 @@ function EssHolidaySection() {
         <DataTablePagination
           page={page}
           pageSize={pageSize}
-          totalElements={holidays.totalElements}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          total={Number.isFinite(holidays.totalElements) && holidays.totalElements > 0 ? holidays.totalElements : holidays.data.length}
+          onChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
         />
       </div>
     </Panel>
